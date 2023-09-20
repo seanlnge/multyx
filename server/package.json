@@ -4,10 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsc && node dist/index"
   },
-  "author": "",
+  "author": "Sean Lange",
   "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
@@ -18,5 +17,6 @@
     "@types/express": "^4.17.17",
     "@types/nanotimer": "^0.3.0",
     "@types/ws": "^8.5.4"
-  }
+  },
+  "types": "index.d.ts"
 }

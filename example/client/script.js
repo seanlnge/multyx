@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 canvas.width = 2000;
 canvas.height = canvas.width * window.innerHeight / window.innerWidth;
 
-const multyx = new Multyx('what');
+const multyx = new Multyx();
 
 multyx.on(Multyx.Start, () => {
     console.log(multyx.client);
