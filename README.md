@@ -34,7 +34,7 @@ const multyx = new Multyx.MultyxServer(server);
 Client:
 ```html
 <canvas width="400" height="400" id="canvas"></canvas>
-<script src="https://cdn.jsdelivr.net/gh/seanlnge/multyx@v0.0.2-alpha/client/multyx.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/multyx@0.0.3/client.js"></script>
 <script>
 const multyx = new Multyx();
 </script>
