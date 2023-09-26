@@ -11,4 +11,4 @@ export type Events = {
 
 export type Value = string | number | boolean;
 
-export type RawObject = { [key: string]: any };
+export type RawObject<T=any> = { [key: string]: T };

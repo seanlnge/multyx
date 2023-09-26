@@ -43,13 +43,11 @@ export class InitializeUpdate {
     client: RawObject;
     constraintTable: RawObject;
     clients: RawObject;
-    server: RawObject;
 
-    constructor(client: RawObject, constraintTable: RawObject, clients: RawObject, serverData: RawObject) {
+    constructor(client: RawObject, constraintTable: RawObject, clients: RawObject) {
         this.client = client;
         this.constraintTable = constraintTable;
         this.clients = clients;
-        this.server = serverData;
     }
 
     raw(): RawObject {
@@ -57,8 +55,7 @@ export class InitializeUpdate {
             instruction: 'init',
             client: this.client,
             constraintTable: this.constraintTable,
-            clients: this.clients,
-            server: this.server
+            clients: this.clients
         }
     }
 }

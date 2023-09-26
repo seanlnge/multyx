@@ -48,3 +48,11 @@ export function MapToObject<K, V>(
     for(const [k, v] of entries) obj[k] = v;
     return obj;
 }
+
+export class EditWrapper<T = any> {
+    data: T;
+
+    constructor(data: T) {
+        this.data = data;
+    }
+}

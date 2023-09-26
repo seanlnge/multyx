@@ -1,5 +1,5 @@
 ### Multyx
-User friendly framework for turning singleplayer JS browser games into multiplayer
+User friendly framework for turning singleplayer JS browser games into multiplayer ones
 ***
 ##### Connecting to Server:
 Server:

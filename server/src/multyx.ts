@@ -1,6 +1,7 @@
 import { Client } from "./client";
 import { RawObject, Value } from "./types";
 import { EditUpdate } from "./update";
+import { EditWrapper } from "./utils";
 
 export class MultyxObject {
     data: { [key: string]: MultyxObject | MultyxValue };
@@ -100,53 +101,32 @@ export class MultyxObject {
         return this;
     }
 
-    /**
-     * Get the explicit value of the ClientValue object of a property
-     * @example
-     * ```js
-     * // Client
-     * client.player.x = 9;
-     * 
-     * // Server
-     * console.log(client.player.getValue('x')); // 9
-     * ```
-     */
-    getValue(property: string) {
-        const mval = this.data[property];
-
-        if(!mval || (mval instanceof MultyxObject)) {
-            throw new Error("cannot alter shape of MultyxObject");
-        }
-
-        return mval.value;
-    }
-
-    parse() {
+    get raw() {
         const parsed: RawObject = {};
         
         for(const prop in this.data) {
             const m = this.data[prop];
 
             if(m instanceof MultyxValue) {
-                parsed[prop] = m.get();
+                parsed[prop] = m.value;
             } else {
-                parsed[prop] = m.parse();
+                parsed[prop] = m.raw;
             }
         }
 
         return parsed;
     }
 
-    parsePublicized(team: MultyxTeam = MultyxClients): RawObject {
+    getPublic(team: MultyxTeam = MultyxClients): RawObject {
         const parsed: RawObject = {};
         
         for(const prop in this.data) {
             const m = this.data[prop];
 
             if(m instanceof MultyxValue) {
-                if(m.isPublic(team)) parsed[prop] = m.get();
+                if(m.isPublic(team)) parsed[prop] = m.value;
             } else {
-                parsed[prop] = m.parse();
+                parsed[prop] = m.raw;
             }
         }
 
@@ -216,15 +196,16 @@ export class MultyxValue {
     isPublic(team: MultyxTeam = MultyxClients): boolean {
         return this.publicTeams.has(team);
     }
- 
-    get() {
-        return this.value;
-    }
 
-    set(value: Value): false | { clients: Set<Client> } {
+    set(value: Value | EditWrapper<Value>): false | { clients: Set<Client> } {
+        // If client attempting to edit value
+        const isEditWrapper = value instanceof EditWrapper;
+        if(value instanceof EditWrapper) {
+            if(this.disabled) return false;
+            value = value.data;
+        }
+
         // Check if value setting changes constraints
-        if(this.disabled) return false;
-        
         const oldValue = value;
         for(const [_, { func }] of this.constraints.entries()) {
             const constrained = func(value);
@@ -249,7 +230,7 @@ export class MultyxValue {
                 clients.add(client);
             }
         }
-        if(oldValue === this.value) clients.delete(this.client);
+        if(oldValue === this.value && isEditWrapper) clients.delete(this.client);
 
         // Tell client to relay update
         this.client.server.editUpdate(this, clients);
@@ -266,18 +247,18 @@ export class MultyxValue {
         return obj;
     }
 
-    min = (value: Value, harsh: boolean = false) => {
+    min = (value: Value) => {
         this.constraints.set('min', {
-            args: [value, harsh],
-            func: n => n >= value ? n : harsh ? null : value
+            args: [value],
+            func: n => n >= value ? n : value
         });
         return this;
     }
 
-    max = (value: Value, harsh: boolean = false) => {
+    max = (value: Value) => {
         this.constraints.set('max', {
-            args: [value, harsh],
-            func: n => n <= value ? n : harsh ? null : value
+            args: [value],
+            func: n => n <= value ? n : value
         });
         return this;
     }
@@ -317,10 +298,10 @@ export class MultyxTeam {
         client.teams.add(this);
     }
 
-    parsePublicized(): Map<Client, RawObject> {
+    getPublic(): Map<Client, RawObject> {
         const parsed = new Map();
         this.clients.forEach(c =>
-            parsed.set(c, c.shared.parsePublicized(this))
+            parsed.set(c, c.shared.getPublic(this))
         );
         return parsed;
     }
