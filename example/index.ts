@@ -6,12 +6,12 @@ const multyx = new Multyx.MultyxServer(server);
 
 multyx.on('connect', (client: Multyx.Client) => {
     client.shared.set("player", {
-        color: { hue: Math.floor(Math.random() * 360), sat: 1, lig: 0.5 },
+        color: '#' + Math.floor(Math.random() * 3840 + 256).toString(16),
         size: 10,
         direction: 0,
         position: {
-            x: Math.round(Math.random() * 400),
-            y: Math.round(Math.random() * 400)
+            x: Math.round(Math.random() * 400) - 200,
+            y: Math.round(Math.random() * 400) - 200
         }
     });
 
