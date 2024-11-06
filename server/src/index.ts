@@ -49,7 +49,7 @@ class MultyxServer {
 
             // Find all public data shared to client and compile into raw data
             const publicToClient: Map<Client, RawObject> = new Map();
-            publicToClient.set(client, client.shared.raw);
+            publicToClient.set(client, client.self.raw);
             for(const team of client.teams) {
                 const clients = team.getPublic();
 
@@ -69,16 +69,16 @@ class MultyxServer {
 
             ws.send(Message.Native([new InitializeUpdate(
                 client.parse(),
-                client.shared.buildConstraintTable(),
+                client.self._buildConstraintTable(),
                 rawClients
             )]));
 
             // Find all public data client shares and compile into raw data
             const clientToPublic: Map<Client, RawObject> = new Map();
-            this.all.clients.forEach(c => clientToPublic.set(c, c.shared.getPublic(this.all)));
+            this.all.clients.forEach(c => clientToPublic.set(c, c.self.getPublic(this.all)));
 
             for(const team of client.teams) {
-                const publicData = client.shared.getPublic(team);
+                const publicData = client.self.getPublic(team);
 
                 for(const c of team.clients) {
                     if(c === client) continue;
@@ -143,7 +143,7 @@ class MultyxServer {
         const prop = msg.data.path.slice(-1)[0];
         
         // Get obj being edited by going through property tree
-        let obj = client.shared;
+        let obj = client.self;
         for(const p of path) {
             obj = obj.get(p);
             if(!obj || (obj instanceof MultyxValue)) return;

@@ -133,11 +133,11 @@ export class MultyxObject {
         return parsed;
     }
 
-    buildConstraintTable() {
+    _buildConstraintTable() {
         const table: RawObject = {};
 
         for(const prop in this.data) {
-            table[prop] = this.data[prop].buildConstraintTable();
+            table[prop] = this.data[prop]._buildConstraintTable();
         }
 
         return table;
@@ -237,7 +237,7 @@ export class MultyxValue {
         return { clients };
     }
 
-    buildConstraintTable() {
+    _buildConstraintTable() {
         const obj: RawObject = {};
         
         for(const [cname, { args }] of this.constraints.entries()) {
@@ -247,6 +247,12 @@ export class MultyxValue {
         return obj;
     }
 
+    /**
+     * Set a minimum value for this property
+     * If requested value is lower, the accepted value will be the minimum value
+     * @param value Minimum value to allow
+     * @returns Same multyx object
+     */
     min = (value: Value) => {
         this.constraints.set('min', {
             args: [value],
@@ -255,6 +261,12 @@ export class MultyxValue {
         return this;
     }
 
+    /**
+     * Set a maximum value for this property
+     * If requested value is higher, the accepted value will be the maximum value
+     * @param value Maximum value to allow
+     * @returns Same multyx object
+     */
     max = (value: Value) => {
         this.constraints.set('max', {
             args: [value],
@@ -263,11 +275,23 @@ export class MultyxValue {
         return this;
     }
 
+    /**
+     * Disallow this property to have specified value
+     * Will revert to previous value if requested value is banned
+     * @param value Value to ban
+     * @returns Same Multyx object
+     */
     ban = (value: Value) => {
         this.bannedValues.add(value);
         return this;
     }
 
+    /**
+     * Create custom constraint for value
+     * Only constrained server-side 
+     * @param func Function accepting requested value and returning either null or accepted value. If this function returns null, the value will not be accepted and the change reverted.
+     * @returns Same Multyx object
+     */
     constrain = (func: ((value: Value) => Value | null)) => {
         this.manualConstraints.push(func);
         return this;
@@ -301,7 +325,7 @@ export class MultyxTeam {
     getPublic(): Map<Client, RawObject> {
         const parsed = new Map();
         this.clients.forEach(c =>
-            parsed.set(c, c.shared.getPublic(this))
+            parsed.set(c, c.self.getPublic(this))
         );
         return parsed;
     }

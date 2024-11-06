@@ -17,7 +17,7 @@ function generateUUID(length: number = 8, radix: number = 36): string {
 
 export class Client {
     data: RawObject;
-    shared: MultyxObject;
+    self: MultyxObject;
     controller: Controller;
     teams: Set<MultyxTeam>;
     ws: WebSocket;
@@ -28,7 +28,7 @@ export class Client {
 
     constructor(ws: WebSocket, server: MultyxServer) {
         this.data = {};
-        this.shared = new MultyxObject({}, this);
+        this.self = new MultyxObject({}, this);
         this.controller = new Controller(this);
         this.teams = new Set();
         this.ws = ws;
@@ -45,7 +45,7 @@ export class Client {
             uuid: this.uuid,
             joinTime: this.joinTime,
             controller: Array.from(this.controller.listening.values()),
-            shared: this.shared.raw,
+            self: this.self.raw,
         }
     }
 }

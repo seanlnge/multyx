@@ -95,6 +95,10 @@ export class Controller {
     }
 
     relayInput(input: string, data?: RawObject) {
+        if(this.ws.readyState !== 1) {
+            throw new Error('Websocket connection is ' + (this.ws.readyState == 2 ? 'closing' : 'closed'));
+        }
+
         this.ws.send(Message.Native({
             instruction: 'input',
             input: input,

@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
+    "init": "",
     "compile": "tsc && npx webpack"
   },
   "author": "Sean Lange",

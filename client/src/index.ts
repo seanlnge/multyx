@@ -1,24 +1,28 @@
 import { Message } from "./message";
-import { BuildConstraint, EditWrapper, isProxy } from "./utils";
+import { BuildConstraint, EditWrapper, Interpolate, isProxy, Lerp } from './utils';
 import { Constraint, RawObject, Value } from "./types";
 import { Controller } from "./controller";
-
-export default class Multyx {
+class Multyx {
     ws: WebSocket;
     uuid: number;
     joinTime: number;
     ping: number;
     events: Map<string, ((data?: any) => void)[]>;
-    shared: RawObject;
+    self: RawObject;
     clients: RawObject;
     constraintTable: RawObject<RawObject | Constraint>;
     controller: Controller;
+
+    Start = '_start';
+    Connection = '_connection';
+    Lerp = Lerp;
+    Interpolate = Interpolate;
 
     constructor() {
         this.ws = new WebSocket('ws://localhost:8080/');
         this.ping = 0;
         this.events = new Map();
-        this.shared = {};
+        this.self = {};
         this.constraintTable = {};
         this.controller = new Controller(this.ws);
 
@@ -27,7 +31,6 @@ export default class Multyx {
             this.ping = 2 * (Date.now() - msg.time);
 
             if(msg.native) {
-                console.log(msg);
                 return this.parseNativeEvent(msg);
             }
 
@@ -53,15 +56,15 @@ export default class Multyx {
             if(update.instruction == 'init') {
                 this.uuid = update.client.uuid;
                 this.joinTime = update.client.joinTime;
-                this.shared = update.client.shared;
+                this.self = update.client.self;
 
                 this.unpackConstraints(update.constraintTable);
                 this.controller.addUnpacked(update.client.controller);
     
                 this.clients = update.clients;
                 this.setupClientProxy();
-    
-                (this.events.get(Multyx.Start) ?? []).forEach(c => c());
+
+                (this.events.get(this.Start) ?? []).forEach(c => c());
             }
             
             else if(update.instruction == 'edit') {
@@ -78,7 +81,7 @@ export default class Multyx {
             else if(update.instruction == 'conn') {
                 this.clients[update.uuid] = update.data;
                 
-                (this.events.get(Multyx.Connection) ?? []).forEach(c => c(update.data));
+                (this.events.get(this.Connection) ?? []).forEach(c => c(update.data));
             }
         }
     }
@@ -99,7 +102,7 @@ export default class Multyx {
 
         }
 
-        recurse(this.shared, packedConstraints, this.constraintTable);
+        recurse(this.self, packedConstraints, this.constraintTable);
     }
 
     private setupClientProxy() {
@@ -138,7 +141,7 @@ export default class Multyx {
                     }
 
                     if(!(prop in object) || typeof value == 'object') {
-                        throw new Error(`Cannot alter shape of shared client object. Attempting to set ${path.join('.') + "." + prop} to ${value}`);
+                        throw new Error(`Cannot alter shape of Multyx object shared with server. Attempting to set ${path.join('.') + "." + prop} to ${value}`);
                     }
 
                     // Constrain value according to constraint list
@@ -159,39 +162,14 @@ export default class Multyx {
                     return true;
                 },
                 deleteProperty() {
-                    throw new Error('Cannot alter shape of shared client object');
+                    throw new Error('Cannot alter shape of Multyx object shared with server');
                 }
             });
         }
 
-        this.shared = recurse(this.shared);
-        this.clients[this.uuid] = this.shared;
-    }
-
-    static Start = 'start';
-    static Connection = 'connection';
-
-    static Lerp(object: RawObject, property: string) {
-        let start = { value: object[property], time: Date.now() };
-        let end = { value: object[property], time: Date.now() };
-        
-        Object.defineProperty(object, property, {
-            get: () => {
-                let ratio = Math.min(1, (Date.now() - end.time) / (end.time - start.time));
-                if(Number.isNaN(ratio)) ratio = 0;
-                
-                return end.value * ratio + start.value * (1 - ratio);
-            },
-            set: (value) => {
-                // Don't lerp between edit requests sent in same frame
-                if(Date.now() - end.time < 10) {
-                    end.value = value;
-                    return true;
-                }
-                start = { ...end };
-                end = { value, time: Date.now() }
-                return true;
-            }
-        });
+        this.self = recurse(this.self);
+        this.clients[this.uuid] = this.self;
     }
 }
+
+export default new Multyx();

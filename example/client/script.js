@@ -3,31 +3,19 @@ const ctx = canvas.getContext('2d');
 
 canvas.width = 2000;
 canvas.height = window.innerHeight / window.innerWidth * canvas.width;
-ctx.translate(200, 200);
+ctx.translate(500, 500);
 ctx.scale(1, -1);
 
-const multyx = new Multyx();
+const player = Multyx.self.player;
 
-multyx.on(Multyx.Start, () => {
-    window.player = multyx.shared.player;
+Multyx.on(Multyx.Start, () => {
     requestAnimationFrame(update);
-
-    for(const client of Object.values(multyx.clients)) {
-        Multyx.Lerp(client.player.position, "x");
-        Multyx.Lerp(client.player.position, "y");
-    }
-
-    multyx.controller.mapMousePosition(canvas, 200, 200, 1, -1);
-});
-
-multyx.on(Multyx.Connection, client => {
-    Multyx.Lerp(client.player.position, "x");
-    Multyx.Lerp(client.player.position, "y");
+    Multyx.controller.mapMousePosition(canvas, 500, 500, 1, -1);
 });
 
 function update() {
     ctx.clearRect(-200, -200, canvas.width, canvas.height);
-    for(const { player } of Object.values(multyx.clients)) {
+    for(const { player } of Object.values(Multyx.clients)) {
         ctx.fillStyle = player.color;
         ctx.fillRect(player.position.x - player.size/2, player.position.y - player.size/2, player.size, player.size);
     }

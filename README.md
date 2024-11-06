@@ -10,15 +10,20 @@ Being able to communicate changes in data is necessary for a functional multipla
 * Client-side constraint prediction
 ### Input Controller and Event Listeners
 Client interactivity is a necessity in any game, but with it being hard to standardize mouse position across varying screen sizes, and manage the state of inputs, it can be tricky to implement an input system. Multyx allows you to
+
 * Pick which inputs to listen to
 * Ability to standardize mouse location
 * View the state of inputs from both the server and client
 * Allow for multiple callbacks on an input type
+
 ### Helpful Functionalities
+
 Making a functional, efficient, and secure multiplayer game is notoriously hard to do, as each project has its own needs. Multyx offers a variety of helpful functionalities such as
+
 * Interpolation methods for client-side prediction
 * Client knowledge of constraints to reduce redundancy
 * Teams to manage public state across groups of clients
+
 ***
 Focused on ease of use and a good developer experience, Multyx turns the difficulty and complexity while making a multiplayer browser game into a simpler process that anyone can jump into. 
 ***
