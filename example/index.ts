@@ -1,10 +1,10 @@
 import Multyx from '../server/index';
-import express from 'express';
+import express from 'express';;
 
 const server = express().listen(8080, () => console.log('server started'));
 const multyx = new Multyx.MultyxServer(server);
 
-multyx.on('connect', (client: Multyx.Client) => {
+multyx.on(multyx.Connection, (client: Multyx.Client) => {
     client.self.set("player", {
         color: '#' + Math.floor(Math.random() * 3840 + 256).toString(16),
         size: 40,
@@ -14,11 +14,12 @@ multyx.on('connect', (client: Multyx.Client) => {
             y: Math.round(Math.random() * 1000) - 500
         }
     });
+
     const player = client.self.get("player");
     player.public().disable();
     player.get('size').min(20).max(200);
-    player.get('position').get('x').min(-500).max(500).lerp();
-    player.get('position').get('y').min(-500).max(500).lerp();
+    player.get('position').get('x').min(-500).max(500);
+    player.get('position').get('y').min(-500).max(500);
 
     client.controller.listenTo([
         Multyx.Input.MouseMove,

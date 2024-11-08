@@ -15,7 +15,12 @@ export class EditWrapper {
  * Will not interpolate values on the server-side
  * @returns Same multyx object 
  */
-export function Lerp(object: RawObject, property: string) {
+export function Lerp(object: RawObject, property?: string) {
+    if(!property) {
+        for(const prop in object) Lerp(object, prop);
+        return;
+    }
+
     let start = { value: object[property], time: Date.now() };
     let end = { value: object[property], time: Date.now() };
     

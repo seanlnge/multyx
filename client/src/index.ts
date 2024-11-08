@@ -51,6 +51,20 @@ class Multyx {
         this.ws.send(Message.Create(name, data));
     }
 
+    forAll(callback: (client: RawObject) => void) {
+        // If server connected, apply callback to all clients
+        if(this.ws.readyState == 1) Object.values(this.clients).forEach(c => callback(c));
+        
+        // Wait for server to connect and Multyx to initialize
+        else new Promise(res => this.on(this.Start, res)).then(() => {
+            console.log(this.ws.readyState, this.clients);
+            Object.values(this.clients).forEach(c => callback(c));
+        });
+
+        // Any future connections will have callback called
+        this.on(this.Connection, callback);
+    }
+
     private parseNativeEvent(msg: Message) {
         for(const update of msg.data) {
             if(update.instruction == 'init') {

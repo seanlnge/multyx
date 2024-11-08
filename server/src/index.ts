@@ -1,13 +1,14 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { Client, Input, Controller, ControllerState } from './client';
-import { ConnectionUpdate, EditUpdate, InitializeUpdate, Update } from './update';
+import { ConnectionUpdate, DisconnectUpdate, EditUpdate, InitializeUpdate, Update } from './update';
 import { MultyxValue, MultyxObject, MultyxTeam, MultyxClients } from './multyx';
+import { Event } from './event';
 
 import Message from './message';
 import NanoTimer from 'nanotimer';
 
 import { Server } from 'http';
-import { Events, Options, RawObject } from './types';
+import { Options, RawObject } from './types';
 import { EditWrapper, MapToObject, MergeRawObjects } from './utils';
 
 export {
@@ -21,29 +22,33 @@ export {
     MultyxTeam,
     MultyxServer,
 
-    Events,
     Options,
     RawObject
 };
 
 class MultyxServer {
     tps: number;
-    events: Events;
+    events: Map<string, Event[]>;
     all: MultyxTeam;
     updates: Map<Client, Update[]>;
 
     lastFrame: number;
     deltaTime: number;
 
+    Disconnect = "_disconnect";
+    Connection = "_connection";
+
     constructor(server: Server, options: Options = {}) {
-        this.events = {};
+        this.events = new Map();
         this.tps = options.tps ?? 20;
         this.all = MultyxClients;
         this.updates = new Map();
         this.lastFrame = Date.now();
         this.deltaTime = 0;
 
-        new WebSocketServer({ server }).on('connection', (ws: WebSocket) => {
+        const WSServer = new WebSocketServer({ server });
+
+        WSServer.on('connection', (ws: WebSocket) => {
             const client = this.initializeClient(ws);
             this.updates.set(client, []);
 
@@ -51,7 +56,7 @@ class MultyxServer {
             const publicToClient: Map<Client, RawObject> = new Map();
             publicToClient.set(client, client.self.raw);
             for(const team of client.teams) {
-                const clients = team.getPublic();
+                const clients = team.getRawPublic();
 
                 for(const [c, curr] of clients) {
                     if(c === client) continue;
@@ -75,10 +80,10 @@ class MultyxServer {
 
             // Find all public data client shares and compile into raw data
             const clientToPublic: Map<Client, RawObject> = new Map();
-            this.all.clients.forEach(c => clientToPublic.set(c, c.self.getPublic(this.all)));
+            this.all.clients.forEach(c => clientToPublic.set(c, c.self.getRawPublic(this.all)));
 
             for(const team of client.teams) {
-                const publicData = client.self.getPublic(team);
+                const publicData = client.self.getRawPublic(team);
 
                 for(const c of team.clients) {
                     if(c === client) continue;
@@ -106,6 +111,18 @@ class MultyxServer {
                     this.parseNativeMessage(msg, client);
                 }
             });
+
+            ws.on('close', () => {
+                this.events.get(this.Disconnect)?.forEach(event => event.call(client));
+
+                for(const t of client.teams) t.removeClient(client);
+
+                for(const c of this.all.clients) {
+                    if(c === client) continue;
+                    
+                    this.addOperation(c, new DisconnectUpdate(client.uuid));
+                }
+            });
         });
 
         // Loop send updates
@@ -116,16 +133,31 @@ class MultyxServer {
         );
     }
 
-    public on<K extends keyof Events>(event: K, callback: Events[K]) {
-        this.events[event] = callback;
+    public on(event: string, callback: (client: Client) => void): Event {
+        if(!this.events.has(event)) this.events.set(event, []);
+
+        const eventObj = new Event(event, callback);
+
+        this.events.get(event)!.push(eventObj);
+        return eventObj;
+    }
+
+    /**
+     * Apply a function to all connected clients, and all clients that will ever be connected
+     * @param callback 
+     */
+    public forAll(callback: (client: Client) => void) {
+        for(const client of this.all.clients) {
+            callback(client);
+        }
+
+        this.on(this.Connection, callback);
     }
 
     private initializeClient(ws: WebSocket): Client {
         const client = new Client(ws, this);
         
-        if("connect" in this.events) {
-            this.events.connect!(client);
-        }
+        this.events.get(this.Connection)?.forEach(event => event.call(client));
 
         MultyxClients.addClient(client);
         return client;

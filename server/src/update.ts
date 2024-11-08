@@ -1,5 +1,4 @@
 import { RawObject, Value } from "./types";
-
 export class EditUpdate {
     clientUUID: string;
     path: string[];
@@ -39,6 +38,21 @@ export class ConnectionUpdate {
     }
 }
 
+export class DisconnectUpdate {
+    clientUUID: string;
+
+    constructor(clientUUID: string) {
+        this.clientUUID = clientUUID;
+    }
+
+    raw(): RawObject {
+        return {
+            instruction: 'conn',
+            client: this.clientUUID
+        }
+    }
+}
+
 export class InitializeUpdate {
     client: RawObject;
     constraintTable: RawObject;
@@ -60,4 +74,4 @@ export class InitializeUpdate {
     }
 }
 
-export type Update = EditUpdate | InitializeUpdate | ConnectionUpdate;
+export type Update = EditUpdate | InitializeUpdate | ConnectionUpdate | DisconnectUpdate;

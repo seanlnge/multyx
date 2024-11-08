@@ -117,7 +117,7 @@ export class MultyxObject {
         return parsed;
     }
 
-    getPublic(team: MultyxTeam = MultyxClients): RawObject {
+    getRawPublic(team: MultyxTeam = MultyxClients): RawObject {
         const parsed: RawObject = {};
         
         for(const prop in this.data) {
@@ -302,6 +302,11 @@ export class MultyxTeam {
     clients: Set<Client>;
     publicData: Set<MultyxValue>;
 
+    /**
+     * Creates a group of clients sharing public data
+     * @param clients List of clients to add to team
+     * @returns MultyxTeam object
+     */
     constructor(clients?: Set<Client> | Client[]) {
         this.publicData = new Set();
 
@@ -317,15 +322,42 @@ export class MultyxTeam {
         });
     }
 
+    /**
+     * Retrieve a client object in the team
+     * @param uuid UUID of client to retrieve
+     * @returns Client if exists in team, else null
+     */
+    getClient(uuid: string) {
+        const client = Array.from(this.clients.values()).find(x => x.uuid == uuid);
+        return client ?? null;
+    }
+
+    /**
+     * Add a client into the team
+     * @param client Client object to add to team
+     */
     addClient(client: Client) {
         this.clients.add(client);
         client.teams.add(this);
     }
 
-    getPublic(): Map<Client, RawObject> {
+    /**
+     * Remove a client from the team
+     * @param client Client object to remove from team
+     */
+    removeClient(client: Client) {
+        this.clients.delete(client);
+        client.teams.delete(this);
+    }
+
+    /**
+     * Get raw 
+     * @returns 
+     */
+    getRawPublic(): Map<Client, RawObject> {
         const parsed = new Map();
         this.clients.forEach(c =>
-            parsed.set(c, c.self.getPublic(this))
+            parsed.set(c, c.self.getRawPublic(this))
         );
         return parsed;
     }
