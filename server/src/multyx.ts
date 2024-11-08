@@ -155,8 +155,194 @@ export class MultyxObject {
     }
 }
 
+export class MultyxList extends MultyxObject {
+    length: number;
+
+    private _raw: any[];
+    public get raw(): any[] {
+        return this._raw;
+    }
+    public set raw(value: any[]) {
+        this._raw = value;
+    }
+
+    constructor(list: (RawObject | Value | MultyxObject)[], client: Client, propertyPath: string[] = []) {
+        super({}, client, propertyPath);
+        this.length = 0;
+        this.raw = [];
+        this.push(...list);
+    }
+
+    /**
+     * Get the ClientValue object of a property
+     */
+    get(index: string | number): any {
+        index = index.toString();
+        return this.data[index];
+    }
+
+    /**
+     * Set the value of the MultyxValue object of a property
+     * @example
+     * ```js
+     * // Server
+     * multyx.on('reset', client => client.player.set('x', 5));
+     * 
+     * // Client
+     * client.player.x = 20 * Math.random();
+     * multyx.send('reset');
+     * console.log(client.player.x); // 5
+     * ```
+     */
+    set(index: number | string, value: Value | RawObject | MultyxObject) {
+        index = index.toString();
+        this.raw[parseInt(index)] = value instanceof MultyxObject ? value.raw : value;
+        return super.set(index, value);
+    }
+
+    push(...items: any) {
+        for(const item of items) {
+            this.set(this.length, item);
+            this.length++;
+        }
+        return this.length;
+    }
+
+    pop(): MultyxObject | MultyxValue {
+        this.length--;
+        this.raw.pop();
+        return this.get(this.length);
+    }
+
+    unshift(...items: any[]) {
+        this.length += items.length;
+
+        for(let i=this.length-1; i>=0; i--) {
+            if(i >= items.length) this.set(i, this.get(i-items.length));
+            else this.set(i, items[i]);
+        }
+
+        return this.length;
+    }
+
+    shift() {
+        if(this.length == 0) return undefined;
+        this.length--;
+        const first = this.get("0");
+        for(let i=0; i<this.length; i++) {
+            this.set(i, this.get(i+1));
+        }
+        return first;
+    }
+
+    filter(predicate: (value: any, index: number, array: MultyxList) => boolean) {
+        const keep = [];
+        for(let i=0; i<this.length; i++) {
+            keep.push(predicate(this.get(i), i, this));
+        }
+
+        let negativeOffset = 0;
+        for(let i=0; i<keep.length; i++) {
+            if(keep[i] && negativeOffset) this.set(i - negativeOffset, this.get(i));
+            if(!keep[i]) negativeOffset--;
+        }
+    }
+
+    map(callbackfn: (value: any, index: number, array: MultyxList) => any) {
+        for(let i=0; i<this.length; i++) {
+            this.set(i, callbackfn(this.get(i), i, this));
+        }
+    }
+
+    flat() {
+        for(let i=0; i<this.length; i++) {
+            const item = this.get(i);
+
+            if(item instanceof MultyxList) {
+                this.set(i, item.raw[0]);
+                for(const child of item.raw.slice(1)) {
+                    this.length++;
+                    i++;
+                    this.set(i, child);
+                }
+            }
+        }
+    }
+
+    reduce(callbackfn: (accumulator: any, currentValue: any, index: number, array: MultyxList) => any, startingAccumulator: any) {
+        for(let i=0; i<this.length; i++) {
+            startingAccumulator = callbackfn(startingAccumulator, this.get(i), i, this);
+        }
+        return startingAccumulator;
+    }
+
+    reduceRight(callbackfn: (accumulator: any, currentValue: any, index: number, array: MultyxList) => any, startingAccumulator: any) {
+        for(let i=this.length-1; i>=0; i--) {
+            startingAccumulator = callbackfn(startingAccumulator, this.get(i), i, this);
+        }
+        return startingAccumulator;
+    }
+
+    reverse() {
+        let right = this.length-1;
+        for(let left=0; left<right; left++) {
+            const a = this.get(left);
+            const b = this.get(right);
+            this.set(left, b);
+            this.set(right, a);
+        }
+        return this;
+    }
+
+    forEach(callbackfn: (value: any, index: number, array: MultyxList) => void) {
+        for(let i=0; i<this.length; i++) {
+            callbackfn(this.get(i), i, this);
+        }
+    }
+
+    every(predicate: (value: any, index: number, array: MultyxList) => boolean) {
+        for(let i=0; i<this.length; i++) {
+            if(!predicate(this.get(i), i, this)) return false;
+        }
+        return true;
+    }
+
+    some(predicate: (value: any, index: number, array: MultyxList) => boolean) {
+        for(let i=0; i<this.length; i++) {
+            if(predicate(this.get(i), i, this)) return true;
+        }
+        return false;
+    }
+
+    find(predicate: (value: any, index: number, array: MultyxList) => boolean) {
+        for(let i=0; i<this.length; i++) {
+            if(predicate(this.get(i), i, this)) return this.get(i);
+        }
+        return undefined;
+    }
+    
+    findIndex(predicate: (value: any, index: number, array: MultyxList) => boolean) {
+        for(let i=0; i<this.length; i++) {
+            if(predicate(this.get(i), i, this)) return i;
+        }
+        return -1;
+    }
+
+    entries(): [any, number][] {
+        const entryList: [any, number][] = [];
+        for(let i=0; i<this.length; i++) {
+            entryList.push([this.get(i), i]);
+        }
+        return entryList;
+    }
+
+    keys(): number[] {
+        return Array(this.length).fill(0).map((_, i) => i);
+    }
+}
+
 export class MultyxValue {
-    value: string | number | boolean;
+    value: Value;
     disabled: boolean;
     constraints: Map<string, { args: any[], func: (value: Value) => Value | null }>;
     manualConstraints: ((value: Value) => Value | null)[];
