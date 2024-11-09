@@ -15,6 +15,8 @@ class Multyx {
 
     Start = '_start';
     Connection = '_connection';
+    Update = '_update';
+    Any = '_any';
     Lerp = Lerp;
     Interpolate = Interpolate;
 
@@ -31,12 +33,12 @@ class Multyx {
             this.ping = 2 * (Date.now() - msg.time);
 
             if(msg.native) {
-                return this.parseNativeEvent(msg);
-            }
-
-            if(msg.name in this.events) {
+                this.parseNativeEvent(msg);
+                this.events.get(this.Update)?.forEach(cb => cb());
+            } else if(msg.name in this.events) {
                 this.events[msg.name](msg.data);
             }
+            this.events.get(this.Any)?.forEach(cb => cb());
         }
     }
 
@@ -154,7 +156,7 @@ class Multyx {
                         return true;
                     }
 
-                    if(!(prop in object) || typeof value == 'object') {
+                    if(!Array.isArray(object) && (!(prop in object) || typeof value == 'object')) {
                         throw new Error(`Cannot alter shape of Multyx object shared with server. Attempting to set ${path.join('.') + "." + prop} to ${value}`);
                     }
 
@@ -175,8 +177,17 @@ class Multyx {
                     }));
                     return true;
                 },
-                deleteProperty() {
-                    throw new Error('Cannot alter shape of Multyx object shared with server');
+                deleteProperty(_, prop: string) {
+                    if(!Array.isArray(object)) {
+                        throw new Error('Cannot alter shape of Multyx object shared with server');
+                    }
+
+                    multyx.ws.send(Message.Native({
+                        instruction: 'edit',
+                        path: [...path, prop],
+                        value: undefined
+                    }));
+                    return true;
                 }
             });
         }

@@ -1,8 +1,8 @@
 import { WebSocket, WebSocketServer } from 'ws';
 import { Client, Input, Controller, ControllerState } from './client';
 import { ConnectionUpdate, DisconnectUpdate, EditUpdate, InitializeUpdate, Update } from './update';
-import { MultyxValue, MultyxObject, MultyxTeam, MultyxClients } from './multyx';
-import { Event } from './event';
+import { MultyxValue, MultyxObject, MultyxTeam, MultyxClients, MultyxList } from './multyx';
+import { Event, EventName, Events } from './event';
 
 import Message from './message';
 import NanoTimer from 'nanotimer';
@@ -16,6 +16,7 @@ export {
     Input,
     Controller,
     ControllerState,
+    Events,
 
     MultyxValue,
     MultyxObject,
@@ -28,15 +29,12 @@ export {
 
 class MultyxServer {
     tps: number;
-    events: Map<string, Event[]>;
+    events: Map<EventName, Event[]>;
     all: MultyxTeam;
     updates: Map<Client, Update[]>;
 
     lastFrame: number;
     deltaTime: number;
-
-    Disconnect = "_disconnect";
-    Connection = "_connection";
 
     constructor(server: Server, options: Options = {}) {
         this.events = new Map();
@@ -109,11 +107,17 @@ class MultyxServer {
                 
                 if(msg.native) {
                     this.parseNativeMessage(msg, client);
+                    this.events.get(Events.Native)?.forEach(cb => cb.call(client));
+                } else {
+                    this.events.get(Events.Custom)?.forEach(cb => cb.call(client));
+                    this.parseCustomMessage(msg, client);
                 }
+
+                this.events.get(Events.Any)?.forEach(cb => cb.call(client));
             });
 
             ws.on('close', () => {
-                this.events.get(this.Disconnect)?.forEach(event => event.call(client));
+                this.events.get(Events.Disconnect)?.forEach(event => event.call(client));
 
                 for(const t of client.teams) t.removeClient(client);
 
@@ -133,10 +137,10 @@ class MultyxServer {
         );
     }
 
-    public on(event: string, callback: (client: Client) => void): Event {
+    public on(event: EventName, callback: (client: Client, data: any) => void): Event {
         if(!this.events.has(event)) this.events.set(event, []);
 
-        const eventObj = new Event(event, callback);
+        const eventObj = new Event(event, callback as ((client: Client | undefined) => void));
 
         this.events.get(event)!.push(eventObj);
         return eventObj;
@@ -151,22 +155,34 @@ class MultyxServer {
             callback(client);
         }
 
-        this.on(this.Connection, callback);
+        this.on(Events.Connect, callback as ((client: Client | undefined) => void));
     }
 
     private initializeClient(ws: WebSocket): Client {
         const client = new Client(ws, this);
         
-        this.events.get(this.Connection)?.forEach(event => event.call(client));
+        this.events.get(Events.Connect)?.forEach(event => event.call(client));
 
         MultyxClients.addClient(client);
         return client;
     }
+
+    private parseCustomMessage(msg: Message, client: Client) {
+        this.events.get(msg.name)?.forEach(event => event.call(client, msg.data));
+    }
     
     private parseNativeMessage(msg: Message, client: Client) {
         switch(msg.data.instruction) {
-            case 'edit': return this.parseEditUpdate(msg, client);
-            case 'input': return client.controller.parseUpdate(msg);
+            case 'edit': {
+                this.parseEditUpdate(msg, client);
+                this.events.get(Events.Edit)?.forEach(event => event.call(client, msg.data));
+                break;
+            }
+            case 'input': {
+                client.controller.parseUpdate(msg);
+                this.events.get(Events.Input)?.forEach(event => event.call(client, msg.data));
+                break;
+            }
         }
     }
 
@@ -182,19 +198,20 @@ class MultyxServer {
         }
 
         // Verify value exists
-        if(!obj.has(prop)) return;
+        if(!obj.has(prop) && !(obj instanceof MultyxList)) return;
         if(typeof msg.data.value == 'object') return;
-        const mv = obj.get(prop) as MultyxValue;
 
         // Set value and verify completion
-        const valid = mv.set(new EditWrapper(msg.data.value));
+        const valid = obj instanceof MultyxList ? 
+            obj.set(prop, new EditWrapper(msg.data.value))
+            : obj.get(prop).set(new EditWrapper(msg.data.value));
 
         // If change rejected
         if(!valid) {
             return this.addOperation(client, new EditUpdate(
                 client.uuid,
                 msg.data.path,
-                mv.value
+                obj.get(prop).value
             ));
         }
     }
@@ -225,6 +242,8 @@ class MultyxServer {
             client.onUpdate?.(this.deltaTime, client.controller.state);
         }
 
+        this.events.get(Events.Update)?.forEach(event => event.call());
+
         for(const client of MultyxClients.clients) {
             const updates = this.updates.get(client);
             if(!updates?.length) continue;
@@ -234,5 +253,7 @@ class MultyxServer {
 
             client.ws.send(msg);
         }
+        
+        this.events.get(Events.PostUpdate)?.forEach(event => event.call());
     }
 }

@@ -15,7 +15,9 @@ export class MultyxObject {
         
         for(const prop in object) {
             this.data[prop] = new (
-                typeof object[prop] == 'object' ? MultyxObject : MultyxValue
+                Array.isArray(object[prop]) ? MultyxList
+                : typeof object[prop] == 'object' ? MultyxObject
+                : MultyxValue
             )(object[prop], client, [...propertyPath, prop]);
         }
     }
@@ -71,34 +73,50 @@ export class MultyxObject {
      * console.log(client.player.x); // 5
      * ```
      */
-    set(property: string, value: Value | RawObject | MultyxObject) {
+    set(property: string, value: any) {
         // If just a normal value change, no need to update shape, can return
         if(typeof value !== "object" && this.data[property] instanceof MultyxValue) {
             return (this.data[property] as MultyxValue).set(value);
         }
 
+        const nv = value instanceof EditWrapper ?
+            value.data
+            : value;
+
         const propertyPath = [...this.propertyPath, property];
 
-        if(typeof value !== "object") {
-            this.data[property] = new MultyxValue(
-                value,
+        if(Array.isArray(nv)) {
+            this.data[property] = new MultyxList(
+                nv,
                 this.client,
                 propertyPath
             );
-        } else if(!(value instanceof MultyxObject)) {
+        } else if(typeof nv !== "object") {
+            this.data[property] = new MultyxValue(
+                nv,
+                this.client,
+                propertyPath
+            );
+        } else if(!(nv instanceof MultyxObject)) {
             this.data[property] = new MultyxObject(
-                value,
+                nv,
                 this.client,
                 propertyPath
             );
         } else {
-            this.data[property] = value;
-            value.editPropertyPath(propertyPath);
+            this.data[property] = nv;
+            nv.editPropertyPath(propertyPath);
         }
 
-        this.client.server.editUpdate(this, (new Set<Client>()).add(this.client));
-
+        if(!(value instanceof EditWrapper)) {
+            this.client.server.editUpdate(this, (new Set<Client>()).add(this.client));
+        }
         return this;
+    }
+
+    delete(property: string) {
+        delete this.data[property];
+        this.client.server.editUpdate(this, (new Set<Client>()).add(this.client));   
     }
 
     get raw() {
@@ -196,14 +214,25 @@ export class MultyxList extends MultyxObject {
      */
     set(index: number | string, value: Value | RawObject | MultyxObject) {
         index = index.toString();
-        this.raw[parseInt(index)] = value instanceof MultyxObject ? value.raw : value;
-        return super.set(index, value);
+
+        if(value === undefined && parseInt(index) == this.length - 1) {
+            this.length--;
+            super.delete(index);
+            delete this.raw[parseInt(index)];
+        }
+
+        const result = super.set(index, value);
+        if(result) {
+            this.length = Math.max(parseInt(index)+1, this.length);
+            const item = this.get(index);
+            this.raw[parseInt(index)] = item instanceof MultyxValue ? item.value : item.raw
+        }
+        return result;
     }
 
     push(...items: any) {
         for(const item of items) {
             this.set(this.length, item);
-            this.length++;
         }
         return this.length;
     }
