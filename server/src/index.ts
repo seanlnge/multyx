@@ -1,7 +1,7 @@
 import { WebSocket, WebSocketServer } from 'ws';
-import { Client, Input, Controller, ControllerState } from './client';
+import { Client, MultyxClients, MultyxTeam, Input, Controller, ControllerState } from './client';
 import { ConnectionUpdate, DisconnectUpdate, EditUpdate, InitializeUpdate, Update } from './update';
-import { MultyxValue, MultyxObject, MultyxTeam, MultyxClients, MultyxList } from './multyx';
+import { MultyxValue, MultyxObject, MultyxList } from './multyx';
 import { Event, EventName, Events } from './event';
 
 import Message from './message';
@@ -9,7 +9,7 @@ import NanoTimer from 'nanotimer';
 
 import { Server } from 'http';
 import { Options, RawObject } from './types';
-import { EditWrapper, MapToObject, MergeRawObjects } from './utils';
+import { MapToObject, MergeRawObjects } from './utils';
 
 export {
     Client,
@@ -70,10 +70,17 @@ class MultyxServer {
 
             const rawClients = MapToObject(publicToClient, c => c.uuid);
 
+            const teams: RawObject = {};
+            for(const team of client.teams) {
+                teams[team.uuid] = team.self.raw;
+            }
+
             ws.send(Message.Native([new InitializeUpdate(
                 client.parse(),
                 client.self._buildConstraintTable(),
-                rawClients
+                rawClients,
+                teams,
+                this.all.uuid
             )]));
 
             // Find all public data client shares and compile into raw data
@@ -179,8 +186,8 @@ class MultyxServer {
                 break;
             }
             case 'input': {
-                client.controller.parseUpdate(msg);
-                this.events.get(Events.Input)?.forEach(event => event.call(client, msg.data));
+                client.controller.__parseUpdate(msg);
+                this.events.get(Events.Input)?.forEach(event => event.call(client, client.controller.state));
                 break;
             }
         }
@@ -191,26 +198,32 @@ class MultyxServer {
         const prop = msg.data.path.slice(-1)[0];
         
         // Get obj being edited by going through property tree
-        let obj = client.self;
-        for(const p of path) {
+        let obj;
+        if(client.uuid === path[0]) {
+            obj = client.self;
+        } else {
+            for(const team of client.teams) if(path[0] === team.uuid) obj = team.self;
+            if(!obj) return;
+        }
+
+        for(const p of path.slice(1)) {
             obj = obj.get(p);
             if(!obj || (obj instanceof MultyxValue)) return;
         }
-
         // Verify value exists
         if(!obj.has(prop) && !(obj instanceof MultyxList)) return;
         if(typeof msg.data.value == 'object') return;
 
         // Set value and verify completion
-        const valid = obj instanceof MultyxList ? 
-            obj.set(prop, new EditWrapper(msg.data.value))
-            : obj.get(prop).set(new EditWrapper(msg.data.value));
+        const valid = obj instanceof MultyxList
+            ? obj.set(prop, msg.data.value)
+            : obj.get(prop).set(msg.data.value);
 
         // If change rejected
         if(!valid) {
             return this.addOperation(client, new EditUpdate(
-                client.uuid,
-                msg.data.path,
+                msg.data.path[0],
+                msg.data.path.slice(1),
                 obj.get(prop).value
             ));
         }

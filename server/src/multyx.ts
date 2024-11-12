@@ -1,17 +1,17 @@
-import { Client } from "./client";
+import { Client, MultyxClients, MultyxTeam } from "./client";
 import { RawObject, Value } from "./types";
-import { EditUpdate } from "./update";
-import { EditWrapper } from "./utils";
 
 export class MultyxObject {
     data: { [key: string]: MultyxObject | MultyxValue };
     propertyPath: string[];
-    client: Client;
+    client: Client | MultyxTeam;
+    disabled: boolean;
 
-    constructor(object: RawObject, client: Client, propertyPath: string[] = []) {
+    constructor(object: RawObject, client: Client | MultyxTeam, propertyPath: string[] = []) {
         this.data  = {};
-        this.propertyPath = propertyPath
+        this.propertyPath = propertyPath;
         this.client = client;
+        this.disabled = false;
         
         for(const prop in object) {
             this.data[prop] = new (
@@ -26,6 +26,7 @@ export class MultyxObject {
         for(const prop in this.data) {
             this.data[prop].disable();
         }
+        this.disabled = true;
 
         return this;
     }
@@ -34,6 +35,7 @@ export class MultyxObject {
         for(const prop in this.data) {
             this.data[prop].enable();
         }
+        this.disabled = false;
 
         return this;
     }
@@ -79,44 +81,47 @@ export class MultyxObject {
             return (this.data[property] as MultyxValue).set(value);
         }
 
-        const nv = value instanceof EditWrapper ?
-            value.data
-            : value;
-
         const propertyPath = [...this.propertyPath, property];
 
-        if(Array.isArray(nv)) {
+        if(Array.isArray(value)) {
             this.data[property] = new MultyxList(
-                nv,
+                value,
                 this.client,
                 propertyPath
             );
-        } else if(typeof nv !== "object") {
+        } else if(typeof value !== "object") {
             this.data[property] = new MultyxValue(
-                nv,
+                value,
                 this.client,
                 propertyPath
             );
-        } else if(!(nv instanceof MultyxObject)) {
+        } else if(!(value instanceof MultyxObject)) {
             this.data[property] = new MultyxObject(
-                nv,
+                value,
                 this.client,
                 propertyPath
             );
         } else {
-            this.data[property] = nv;
-            nv.editPropertyPath(propertyPath);
+            this.data[property] = value;
+            value.editPropertyPath(propertyPath);
         }
 
-        if(!(value instanceof EditWrapper)) {
-            this.client.server.editUpdate(this, (new Set<Client>()).add(this.client));
+        if(this.client instanceof MultyxTeam) {
+            const clients = this.client instanceof MultyxTeam
+                ? new Set(this.client.clients)
+                : new Set([this.client]);
+            this.client.server?.editUpdate(this, clients);
         }
         return this;
     }
 
     delete(property: string) {
         delete this.data[property];
-        this.client.server.editUpdate(this, (new Set<Client>()).add(this.client));   
+        const clients = this.client instanceof MultyxTeam
+            ? new Set(this.client.clients)
+            : new Set([this.client]);
+        this.client.server?.editUpdate(this, clients);
+        return this;
     }
 
     get raw() {
@@ -176,6 +181,10 @@ export class MultyxObject {
 export class MultyxList extends MultyxObject {
     length: number;
 
+    allowItemChange: boolean;
+    allowItemAddition: boolean;
+    allowItemDeletion: boolean;
+
     private _raw: any[];
     public get raw(): any[] {
         return this._raw;
@@ -184,9 +193,12 @@ export class MultyxList extends MultyxObject {
         this._raw = value;
     }
 
-    constructor(list: (RawObject | Value | MultyxObject)[], client: Client, propertyPath: string[] = []) {
+    constructor(list: (RawObject | Value | MultyxObject)[], client: Client | MultyxTeam, propertyPath: string[] = []) {
         super({}, client, propertyPath);
         this.length = 0;
+        this.allowItemAddition = true;
+        this.allowItemChange = true;
+        this.allowItemDeletion = true;
         this.raw = [];
         this.push(...list);
     }
@@ -213,19 +225,25 @@ export class MultyxList extends MultyxObject {
      * ```
      */
     set(index: number | string, value: Value | RawObject | MultyxObject) {
-        index = index.toString();
-
-        if(value === undefined && parseInt(index) == this.length - 1) {
-            this.length--;
-            super.delete(index);
-            delete this.raw[parseInt(index)];
+        if(this.disabled) return false;
+        index = typeof index == 'string' ? parseInt(index) : index;
+        
+        if(value === undefined) {
+            if(!this.allowItemDeletion) return false;
+            if(index == this.length - 1) this.length--;
+            const result = super.delete(index.toString());
+            if(result) this.raw.splice(index, 1);
+            return result;
         }
 
-        const result = super.set(index, value);
+        if(!this.allowItemAddition && index >= this.length) return false;
+        if(!this.allowItemChange && index < this.length) return false;
+
+        const result = super.set(index.toString(), value);
         if(result) {
-            this.length = Math.max(parseInt(index)+1, this.length);
+            this.length = Math.max(index+1, this.length);
             const item = this.get(index);
-            this.raw[parseInt(index)] = item instanceof MultyxValue ? item.value : item.raw
+            this.raw[index] = item instanceof MultyxValue ? item.value : item.raw
         }
         return result;
     }
@@ -240,7 +258,9 @@ export class MultyxList extends MultyxObject {
     pop(): MultyxObject | MultyxValue {
         this.length--;
         this.raw.pop();
-        return this.get(this.length);
+        const result = this.get(this.length);
+        this.delete(this.length.toString());
+        return result;
     }
 
     unshift(...items: any[]) {
@@ -379,9 +399,9 @@ export class MultyxValue {
 
     private publicTeams: Set<MultyxTeam>;
     propertyPath: string[];
-    client: Client;
+    client: Client | MultyxTeam;
 
-    constructor(value: Value, client: Client, propertyPath: string[]) {
+    constructor(value: Value, client: Client | MultyxTeam, propertyPath: string[]) {
         this.value = value;
         this.disabled = false;
         this.constraints = new Map();
@@ -391,6 +411,10 @@ export class MultyxValue {
         this.publicTeams = new Set();
         this.propertyPath = propertyPath;
         this.client = client;
+
+        if(this.client instanceof MultyxTeam) {
+            this.publicTeams.add(this.client);
+        }
     }
 
     disable() {
@@ -405,20 +429,14 @@ export class MultyxValue {
 
     public(team: MultyxTeam = MultyxClients) {
         this.publicTeams.add(team);
-        team.publicData.add(this);
+        team.public.add(this);
     }
 
     isPublic(team: MultyxTeam = MultyxClients): boolean {
         return this.publicTeams.has(team);
     }
 
-    set(value: Value | EditWrapper<Value>): false | { clients: Set<Client> } {
-        // If client attempting to edit value
-        const isEditWrapper = value instanceof EditWrapper;
-        if(value instanceof EditWrapper) {
-            if(this.disabled) return false;
-            value = value.data;
-        }
+    set(value: Value): false | { clients: Set<Client> } {
 
         // Check if value setting changes constraints
         const oldValue = value;
@@ -438,14 +456,16 @@ export class MultyxValue {
 
         this.value = value;
 
+        const clients = new Set<Client>(
+            this.client instanceof MultyxTeam ? Array.from(this.client.clients) : [this.client]
+        );
+        
         // Create client list
-        const clients = new Set<Client>([this.client]);
         for(const team of this.publicTeams) {
             for(const client of team.clients) {
                 clients.add(client);
             }
         }
-        if(oldValue === this.value && isEditWrapper) clients.delete(this.client);
 
         // Tell client to relay update
         this.client.server.editUpdate(this, clients);
@@ -512,70 +532,3 @@ export class MultyxValue {
         return this;
     }
 }
-
-export class MultyxTeam {
-    clients: Set<Client>;
-    publicData: Set<MultyxValue>;
-
-    /**
-     * Creates a group of clients sharing public data
-     * @param clients List of clients to add to team
-     * @returns MultyxTeam object
-     */
-    constructor(clients?: Set<Client> | Client[]) {
-        this.publicData = new Set();
-
-        if(!clients) {
-            this.clients = new Set();
-            return;
-        }
-        
-        this.clients = new Set();
-        clients.forEach(c => {
-            c.teams.add(this);
-            this.clients.add(c);
-        });
-    }
-
-    /**
-     * Retrieve a client object in the team
-     * @param uuid UUID of client to retrieve
-     * @returns Client if exists in team, else null
-     */
-    getClient(uuid: string) {
-        const client = Array.from(this.clients.values()).find(x => x.uuid == uuid);
-        return client ?? null;
-    }
-
-    /**
-     * Add a client into the team
-     * @param client Client object to add to team
-     */
-    addClient(client: Client) {
-        this.clients.add(client);
-        client.teams.add(this);
-    }
-
-    /**
-     * Remove a client from the team
-     * @param client Client object to remove from team
-     */
-    removeClient(client: Client) {
-        this.clients.delete(client);
-        client.teams.delete(this);
-    }
-
-    /**
-     * Get raw 
-     * @returns 
-     */
-    getRawPublic(): Map<Client, RawObject> {
-        const parsed = new Map();
-        this.clients.forEach(c =>
-            parsed.set(c, c.self.getRawPublic(this))
-        );
-        return parsed;
-    }
-}
-
-export const MultyxClients = new MultyxTeam();

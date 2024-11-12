@@ -1,19 +1,9 @@
-import { MultyxClients, MultyxObject, MultyxTeam, MultyxValue } from "./multyx";
+import { MultyxObject, MultyxValue } from "./multyx";
 import { WebSocket } from "ws";
 import { RawObject } from "./types";
 import { MultyxServer } from "./index";
-import { EditUpdate } from "./update";
 import Message from "./message";
-
-const UUIDSet = new Set();
-function generateUUID(length: number = 8, radix: number = 36): string {
-    const unit = radix ** (length - 1);
-    const uuid = Math.floor(Math.random() * (radix * unit - unit) + unit).toString(radix);
-
-    if(UUIDSet.has(uuid)) return generateUUID(length, radix);
-    UUIDSet.add(uuid);
-    return uuid;
-}
+import { GenerateUUID } from "./utils";
 
 export class Client {
     data: RawObject;
@@ -33,8 +23,12 @@ export class Client {
         this.teams = new Set();
         this.ws = ws;
         this.server = server;
-        this.uuid = generateUUID();
+        this.uuid = GenerateUUID();
         this.joinTime = Date.now();
+    }
+
+    send(eventName: string, data: any) {
+        this.ws.send(Message.Create(eventName, data));
     }
 
     /**
@@ -102,8 +96,19 @@ export class Controller {
     }
 
     /**
-     * 
+     * Listen to specific input channel from user
      * @param input Input to listen for; If type `string`, client listens for keyboard event code `input`
+     * @example
+     * ```js
+     * client.controller.listenTo(["a", "d", Input.Shift, Input.MouseMove], (state) => {
+     *     console.log("Client did an input");
+     *     console.log(state.mouse.x, state.mouse.y);
+     * 
+     *     if(state.keys["a"] && state.keys["d"]) {
+     *         console.log("bro is NOT moving crying emoji skull emoji");
+     *     }
+     * });
+     * ```
      */
     listenTo(input: Input | string | (Input | string)[], callback?: (state: ControllerState) => void) {
         if(!Array.isArray(input)) input = [input];
@@ -119,7 +124,7 @@ export class Controller {
         });
     }
 
-    parseUpdate(msg: Message) {
+    __parseUpdate(msg: Message) {
         switch(msg.data.input) {
             case Input.MouseDown: {
                 this.state.mouse.down = true;
@@ -165,3 +170,90 @@ export class Controller {
         }
     }
 }
+
+export class MultyxTeam {
+    clients: Set<Client>;
+    public: Set<MultyxValue>;
+    self: MultyxObject;
+    server: MultyxServer;
+    uuid: string;
+
+    /**
+     * Creates a group of clients sharing public data
+     * @param clients List of clients to add to team
+     * @returns MultyxTeam object
+     */
+    constructor(clients?: Set<Client> | Client[]) {
+        this.public = new Set();
+        this.self = new MultyxObject({}, this);
+        this.uuid = GenerateUUID();
+
+        if(!clients) {
+            this.clients = new Set();
+            return;
+        }
+        
+        this.clients = new Set();
+        clients.forEach(c => {
+            c.teams.add(this);
+            this.clients.add(c);
+        });
+
+        this.server = this.clients.values().next().value?.server ?? this.server;
+    }
+
+    /**
+     * Send an event to all clients on team
+     * @param eventName Name of client event
+     * @param data Data to send
+     */
+    send(eventName: string, data: any) {
+        const msg = Message.Create(eventName, data);
+        for(const client of this.clients) {
+            client.ws.send(msg);
+        }
+    }
+
+    /**
+     * Retrieve a client object in the team
+     * @param uuid UUID of client to retrieve
+     * @returns Client if exists in team, else null
+     */
+    getClient(uuid: string) {
+        const client = Array.from(this.clients.values()).find(x => x.uuid == uuid);
+        return client ?? null;
+    }
+
+    /**
+     * Add a client into the team
+     * @param client Client object to add to team
+     */
+    addClient(client: Client) {
+        this.clients.add(client);
+        if(!this.server) this.server = client.server;
+        client.teams.add(this);
+    }
+
+    /**
+     * Remove a client from the team
+     * @param client Client object to remove from team
+     */
+    removeClient(client: Client) {
+        this.clients.delete(client);
+        client.teams.delete(this);
+    }
+
+    /**
+     * Get raw 
+     * @returns 
+     */
+    getRawPublic(): Map<Client, RawObject> {
+        const parsed = new Map();
+        this.clients.forEach(c =>
+            parsed.set(c, c.self.getRawPublic(this))
+        );
+        return parsed;
+    }
+}
+
+export const MultyxClients = new MultyxTeam();

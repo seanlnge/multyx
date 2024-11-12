@@ -7,13 +7,13 @@ exports.MultyxServer = exports.MultyxTeam = exports.MultyxObject = exports.Multy
 const ws_1 = require("ws");
 const client_1 = require("./client");
 Object.defineProperty(exports, "Client", { enumerable: true, get: function () { return client_1.Client; } });
+Object.defineProperty(exports, "MultyxTeam", { enumerable: true, get: function () { return client_1.MultyxTeam; } });
 Object.defineProperty(exports, "Input", { enumerable: true, get: function () { return client_1.Input; } });
 Object.defineProperty(exports, "Controller", { enumerable: true, get: function () { return client_1.Controller; } });
 const update_1 = require("./update");
 const multyx_1 = require("./multyx");
 Object.defineProperty(exports, "MultyxValue", { enumerable: true, get: function () { return multyx_1.MultyxValue; } });
 Object.defineProperty(exports, "MultyxObject", { enumerable: true, get: function () { return multyx_1.MultyxObject; } });
-Object.defineProperty(exports, "MultyxTeam", { enumerable: true, get: function () { return multyx_1.MultyxTeam; } });
 const event_1 = require("./event");
 Object.defineProperty(exports, "Events", { enumerable: true, get: function () { return event_1.Events; } });
 const message_1 = __importDefault(require("./message"));
@@ -24,7 +24,7 @@ class MultyxServer {
         var _a;
         this.events = new Map();
         this.tps = (_a = options.tps) !== null && _a !== void 0 ? _a : 20;
-        this.all = multyx_1.MultyxClients;
+        this.all = client_1.MultyxClients;
         this.updates = new Map();
         this.lastFrame = Date.now();
         this.deltaTime = 0;
@@ -49,7 +49,11 @@ class MultyxServer {
                 }
             }
             const rawClients = (0, utils_1.MapToObject)(publicToClient, c => c.uuid);
-            ws.send(message_1.default.Native([new update_1.InitializeUpdate(client.parse(), client.self._buildConstraintTable(), rawClients)]));
+            const teams = {};
+            for (const team of client.teams) {
+                teams[team.uuid] = team.self.raw;
+            }
+            ws.send(message_1.default.Native([new update_1.InitializeUpdate(client.parse(), client.self._buildConstraintTable(), rawClients, teams, this.all.uuid)]));
             // Find all public data client shares and compile into raw data
             const clientToPublic = new Map();
             this.all.clients.forEach(c => clientToPublic.set(c, c.self.getRawPublic(this.all)));
@@ -115,7 +119,7 @@ class MultyxServer {
         var _a;
         const client = new client_1.Client(ws, this);
         (_a = this.events.get(event_1.Events.Connect)) === null || _a === void 0 ? void 0 : _a.forEach(event => event.call(client));
-        multyx_1.MultyxClients.addClient(client);
+        client_1.MultyxClients.addClient(client);
         return client;
     }
     parseCustomMessage(msg, client) {
@@ -131,8 +135,8 @@ class MultyxServer {
                 break;
             }
             case 'input': {
-                client.controller.parseUpdate(msg);
-                (_b = this.events.get(event_1.Events.Input)) === null || _b === void 0 ? void 0 : _b.forEach(event => event.call(client, msg.data));
+                client.controller.__parseUpdate(msg);
+                (_b = this.events.get(event_1.Events.Input)) === null || _b === void 0 ? void 0 : _b.forEach(event => event.call(client, client.controller.state));
                 break;
             }
         }
@@ -141,8 +145,18 @@ class MultyxServer {
         const path = msg.data.path.slice(0, -1);
         const prop = msg.data.path.slice(-1)[0];
         // Get obj being edited by going through property tree
-        let obj = client.self;
-        for (const p of path) {
+        let obj;
+        if (client.uuid === path[0]) {
+            obj = client.self;
+        }
+        else {
+            for (const team of client.teams)
+                if (path[0] === team.uuid)
+                    obj = team.self;
+            if (!obj)
+                return;
+        }
+        for (const p of path.slice(1)) {
             obj = obj.get(p);
             if (!obj || (obj instanceof multyx_1.MultyxValue))
                 return;
@@ -153,12 +167,12 @@ class MultyxServer {
         if (typeof msg.data.value == 'object')
             return;
         // Set value and verify completion
-        const valid = obj instanceof multyx_1.MultyxList ?
-            obj.set(prop, new utils_1.EditWrapper(msg.data.value))
-            : obj.get(prop).set(new utils_1.EditWrapper(msg.data.value));
+        const valid = obj instanceof multyx_1.MultyxList
+            ? obj.set(prop, msg.data.value)
+            : obj.get(prop).set(msg.data.value);
         // If change rejected
         if (!valid) {
-            return this.addOperation(client, new update_1.EditUpdate(client.uuid, msg.data.path, obj.get(prop).value));
+            return this.addOperation(client, new update_1.EditUpdate(msg.data.path[0], msg.data.path.slice(1), obj.get(prop).value));
         }
     }
     editUpdate(value, clients) {
@@ -177,11 +191,11 @@ class MultyxServer {
         var _a, _b, _c;
         this.deltaTime = (Date.now() - this.lastFrame) / 1000;
         this.lastFrame = Date.now();
-        for (const client of multyx_1.MultyxClients.clients) {
+        for (const client of client_1.MultyxClients.clients) {
             (_a = client.onUpdate) === null || _a === void 0 ? void 0 : _a.call(client, this.deltaTime, client.controller.state);
         }
         (_b = this.events.get(event_1.Events.Update)) === null || _b === void 0 ? void 0 : _b.forEach(event => event.call());
-        for (const client of multyx_1.MultyxClients.clients) {
+        for (const client of client_1.MultyxClients.clients) {
             const updates = this.updates.get(client);
             if (!(updates === null || updates === void 0 ? void 0 : updates.length))
                 continue;

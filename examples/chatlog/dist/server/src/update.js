@@ -44,17 +44,21 @@ class DisconnectUpdate {
 }
 exports.DisconnectUpdate = DisconnectUpdate;
 class InitializeUpdate {
-    constructor(client, constraintTable, clients) {
+    constructor(client, constraintTable, clients, teams, all) {
         this.client = client;
         this.constraintTable = constraintTable;
         this.clients = clients;
+        this.teams = teams;
+        this.all = all;
     }
     raw() {
         return {
             instruction: 'init',
             client: this.client,
             constraintTable: this.constraintTable,
-            clients: this.clients
+            clients: this.clients,
+            teams: this.teams,
+            all: this.all
         };
     }
 }

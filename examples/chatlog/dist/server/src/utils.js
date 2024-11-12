@@ -1,8 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EditWrapper = void 0;
+exports.GenerateUUID = GenerateUUID;
 exports.MergeRawObjects = MergeRawObjects;
 exports.MapToObject = MapToObject;
+const UUIDSet = new Set();
+function GenerateUUID(length = 8, radix = 36) {
+    const unit = radix ** (length - 1);
+    const uuid = Math.floor(Math.random() * (radix * unit - unit) + unit).toString(radix);
+    if (UUIDSet.has(uuid))
+        return GenerateUUID(length, radix);
+    UUIDSet.add(uuid);
+    return uuid;
+}
 /**
  * @example
  * ```js
@@ -46,9 +55,3 @@ function MapToObject(target, key, value) {
         obj[k] = v;
     return obj;
 }
-class EditWrapper {
-    constructor(data) {
-        this.data = data;
-    }
-}
-exports.EditWrapper = EditWrapper;

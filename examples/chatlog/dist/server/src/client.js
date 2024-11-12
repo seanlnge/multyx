@@ -1,16 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Controller = exports.Input = exports.Client = void 0;
+exports.MultyxClients = exports.MultyxTeam = exports.Controller = exports.Input = exports.Client = void 0;
 const multyx_1 = require("./multyx");
-const UUIDSet = new Set();
-function generateUUID(length = 8, radix = 36) {
-    const unit = radix ** (length - 1);
-    const uuid = Math.floor(Math.random() * (radix * unit - unit) + unit).toString(radix);
-    if (UUIDSet.has(uuid))
-        return generateUUID(length, radix);
-    UUIDSet.add(uuid);
-    return uuid;
-}
+const message_1 = __importDefault(require("./message"));
+const utils_1 = require("./utils");
 class Client {
     constructor(ws, server) {
         this.data = {};
@@ -19,8 +15,11 @@ class Client {
         this.teams = new Set();
         this.ws = ws;
         this.server = server;
-        this.uuid = generateUUID();
+        this.uuid = (0, utils_1.GenerateUUID)();
         this.joinTime = Date.now();
+    }
+    send(eventName, data) {
+        this.ws.send(message_1.default.Create(eventName, data));
     }
     /**
      * Create client-side representation of client object
@@ -72,8 +71,19 @@ class Controller {
         this.events = new Map();
     }
     /**
-     *
+     * Listen to specific input channel from user
      * @param input Input to listen for; If type `string`, client listens for keyboard event code `input`
+     * @example
+     * ```js
+     * client.controller.listenTo(["a", "d", Input.Shift, Input.MouseMove], (state) => {
+     *     console.log("Client did an input");
+     *     console.log(state.mouse.x, state.mouse.y);
+     *
+     *     if(state.keys["a"] && state.keys["d"]) {
+     *         console.log("bro is NOT moving crying emoji skull emoji");
+     *     }
+     * });
+     * ```
      */
     listenTo(input, callback) {
         if (!Array.isArray(input))
@@ -88,7 +98,7 @@ class Controller {
             }
         });
     }
-    parseUpdate(msg) {
+    __parseUpdate(msg) {
         var _a, _b, _c, _d, _e, _f, _g, _h;
         switch (msg.data.input) {
             case Input.MouseDown: {
@@ -130,3 +140,75 @@ class Controller {
     }
 }
 exports.Controller = Controller;
+class MultyxTeam {
+    /**
+     * Creates a group of clients sharing public data
+     * @param clients List of clients to add to team
+     * @returns MultyxTeam object
+     */
+    constructor(clients) {
+        var _a, _b;
+        this.public = new Set();
+        this.self = new multyx_1.MultyxObject({}, this);
+        this.uuid = (0, utils_1.GenerateUUID)();
+        if (!clients) {
+            this.clients = new Set();
+            return;
+        }
+        this.clients = new Set();
+        clients.forEach(c => {
+            c.teams.add(this);
+            this.clients.add(c);
+        });
+        this.server = (_b = (_a = this.clients.values().next().value) === null || _a === void 0 ? void 0 : _a.server) !== null && _b !== void 0 ? _b : this.server;
+    }
+    /**
+     * Send an event to all clients on team
+     * @param eventName Name of client event
+     * @param data Data to send
+     */
+    send(eventName, data) {
+        const msg = message_1.default.Create(eventName, data);
+        for (const client of this.clients) {
+            client.ws.send(msg);
+        }
+    }
+    /**
+     * Retrieve a client object in the team
+     * @param uuid UUID of client to retrieve
+     * @returns Client if exists in team, else null
+     */
+    getClient(uuid) {
+        const client = Array.from(this.clients.values()).find(x => x.uuid == uuid);
+        return client !== null && client !== void 0 ? client : null;
+    }
+    /**
+     * Add a client into the team
+     * @param client Client object to add to team
+     */
+    addClient(client) {
+        this.clients.add(client);
+        if (!this.server)
+            this.server = client.server;
+        client.teams.add(this);
+    }
+    /**
+     * Remove a client from the team
+     * @param client Client object to remove from team
+     */
+    removeClient(client) {
+        this.clients.delete(client);
+        client.teams.delete(this);
+    }
+    /**
+     * Get raw
+     * @returns
+     */
+    getRawPublic() {
+        const parsed = new Map();
+        this.clients.forEach(c => parsed.set(c, c.self.getRawPublic(this)));
+        return parsed;
+    }
+}
+exports.MultyxTeam = MultyxTeam;
+exports.MultyxClients = new MultyxTeam();

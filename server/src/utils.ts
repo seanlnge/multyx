@@ -1,5 +1,15 @@
 import { RawObject } from "./types";
 
+const UUIDSet = new Set();
+export function GenerateUUID(length: number = 8, radix: number = 36): string {
+    const unit = radix ** (length - 1);
+    const uuid = Math.floor(Math.random() * (radix * unit - unit) + unit).toString(radix);
+
+    if(UUIDSet.has(uuid)) return GenerateUUID(length, radix);
+    UUIDSet.add(uuid);
+    return uuid;
+}
+
 /**
  * @example
  * ```js
@@ -47,12 +57,4 @@ export function MapToObject<K, V>(
     const obj: RawObject = {};
     for(const [k, v] of entries) obj[k] = v;
     return obj;
-}
-
-export class EditWrapper<T = any> {
-    data: T;
-
-    constructor(data: T) {
-        this.data = data;
-    }
 }
