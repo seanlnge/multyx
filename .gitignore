@@ -1,7 +1,6 @@
 server/node_modules
 server/dist
-example/node_modules
-example/dist
+examples/node_modules
 client/node_modules
 client/dist
 compile.bat

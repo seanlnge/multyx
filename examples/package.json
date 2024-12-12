@@ -1,0 +1,20 @@
+{
+  "name": "examples",
+  "version": "1.0.0",
+  "scripts": {
+    "chatlog": "tsc && node chatlog/chatlog",
+    "movingsquares": "tsc && node movingsquares/movingsquares",
+    "shooter": "tsc && node shooter/shooter"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/express": "^5.0.0",
+    "express": "^4.21.2",
+    "ts-alias": "^0.0.7"
+  },
+  "devDependencies": {
+    "tsc-alias": "^1.8.10"
+  }
+}

@@ -1,0 +1,16 @@
+{
+    "include": ["chatlog/chatlog.ts", "movingsquares/movingsquares.ts", "shooter/shooter.ts"],
+    "compilerOptions": {
+        "target": "es2016",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
+        "module": "CommonJS",
+        "allowJs": true,
+        "baseUrl": "./",
+        "esModuleInterop": true,
+        "strict": true,
+    },
+    "tsc-alias": {
+        "verbose": false,
+        "resolveFullPaths": true,
+    }
+  }
+  
