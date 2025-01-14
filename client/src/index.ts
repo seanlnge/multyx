@@ -56,9 +56,12 @@ class Multyx {
         this.events.set(name, events);
     }
 
-    send(name: string, data: RawObject) {
+    send(name: string, data: RawObject, expectResponse: boolean = false) {
         if(name[0] === '_') name = '_' + name;
         this.ws.send(Message.Create(name, data));
+        if(!expectResponse) return;
+
+        return new Promise(res => this.events.set(Symbol.for("_" + name), [res]));
     }
 
     loop(timesPerSecond: number, callback: () => void) {
@@ -114,6 +117,11 @@ class Multyx {
                 this.clients[update.uuid] = update.data;
                 
                 this.events.get(this.Connection)?.forEach(c => c(update.data));
+            }
+
+            else if(update.instruction == 'resp') {
+                const promiseResolve = this.events.get(Symbol.for("_" + update.data.name))[0];
+                promiseResolve(update.data.response);
             }
         }
     }
