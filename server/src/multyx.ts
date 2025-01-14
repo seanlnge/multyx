@@ -1,25 +1,52 @@
 import { Client, MultyxClients, MultyxTeam } from "./client";
 import { RawObject, Value } from "./types";
 
+export interface MultyxObject {
+    [key: string]: any;
+}
 export class MultyxObject {
     data: { [key: string]: MultyxObject | MultyxValue };
     propertyPath: string[];
     client: Client | MultyxTeam;
     disabled: boolean;
+    shapeDisabled: boolean;
 
     constructor(object: RawObject, client: Client | MultyxTeam, propertyPath: string[] = []) {
         this.data  = {};
         this.propertyPath = propertyPath;
         this.client = client;
         this.disabled = false;
-        
+        this.shapeDisabled = false;
+
         for(const prop in object) {
             this.data[prop] = new (
                 Array.isArray(object[prop]) ? MultyxList
                 : typeof object[prop] == 'object' ? MultyxObject
                 : MultyxValue
             )(object[prop], client, [...propertyPath, prop]);
+
+            if(!(prop in this)) this[prop] = this.data[prop];   
         }
+
+        // Apply proxy inside MultyxList constructor rather than here
+        if(this instanceof MultyxList) return this;
+
+        return new Proxy(this, {
+            // Allow clients to access properties in MultyxObject without using get
+            get: (o, p: string) => {
+                if(p in o) return o[p];
+                return o.get(p);
+            },
+            
+            // Allow clients to set MultyxObject properties by client.self.a = b
+            set: (o, p: string, v) => {
+                if(p in o) {
+                    o[p] = v;
+                    return true;
+                }
+                return !!o.set(p, v);
+            }
+        });
     }
 
     disable() {
@@ -38,6 +65,28 @@ export class MultyxObject {
         this.disabled = false;
 
         return this;
+    }
+
+    disableShape(recursive = false) {
+        if(recursive) {
+            for(const prop in this.data) {
+                if(this.data[prop] instanceof MultyxObject) {
+                    this.data[prop].shapeDisabled = true;
+                }
+            }
+        }
+        this.shapeDisabled = true;
+    }
+
+    enableShape(recursive = false) {
+        if(recursive) {
+            for(const prop in this.data) {
+                if(this.data[prop] instanceof MultyxObject) {
+                    this.data[prop].shapeDisabled = false;
+                }
+            }
+        }
+        this.shapeDisabled = false;
     }
 
     public(team: MultyxTeam = MultyxClients) {
@@ -81,6 +130,7 @@ export class MultyxObject {
             return (this.data[property] as MultyxValue).set(value);
         }
 
+        if(this.shapeDisabled) return null;
         const propertyPath = [...this.propertyPath, property];
 
         if(Array.isArray(value)) {
@@ -116,6 +166,8 @@ export class MultyxObject {
     }
 
     delete(property: string) {
+        if(this.shapeDisabled) return null;
+
         delete this.data[property];
         const clients = this.client instanceof MultyxTeam
             ? new Set(this.client.clients)
@@ -189,18 +241,37 @@ export class MultyxList extends MultyxObject {
     public get raw(): any[] {
         return this._raw;
     }
-    public set raw(value: any[]) {
+    private set raw(value: any[]) {
         this._raw = value;
     }
 
     constructor(list: (RawObject | Value | MultyxObject)[], client: Client | MultyxTeam, propertyPath: string[] = []) {
         super({}, client, propertyPath);
+
         this.length = 0;
         this.allowItemAddition = true;
         this.allowItemChange = true;
         this.allowItemDeletion = true;
         this.raw = [];
+
         this.push(...list);
+
+        return new Proxy(this, {
+            // Allow clients to access properties in MultyxObject without using get
+            get: (o, p: string) => {
+                if(p in o) return o[p];
+                return o.get(p);
+            },
+            
+            // Allow clients to set MultyxObject properties by client.self.a = b
+            set: (o, p: string, v) => {
+                if(p in o) {
+                    o[p] = v;
+                    return true;
+                }
+                return !!o.set(p, v);
+            }
+        });
     }
 
     /**
@@ -225,19 +296,20 @@ export class MultyxList extends MultyxObject {
      * ```
      */
     set(index: number | string, value: Value | RawObject | MultyxObject) {
-        if(this.disabled) return false;
+        if(this.disabled) return null;
+        if(this.shapeDisabled) return null;
         index = typeof index == 'string' ? parseInt(index) : index;
         
         if(value === undefined) {
-            if(!this.allowItemDeletion) return false;
+            if(!this.allowItemDeletion) return null;
             if(index == this.length - 1) this.length--;
             const result = super.delete(index.toString());
             if(result) this.raw.splice(index, 1);
             return result;
         }
 
-        if(!this.allowItemAddition && index >= this.length) return false;
-        if(!this.allowItemChange && index < this.length) return false;
+        if(!this.allowItemAddition && index >= this.length) return null;
+        if(!this.allowItemChange && index < this.length) return null;
 
         const result = super.set(index.toString(), value);
         if(result) {
@@ -255,7 +327,9 @@ export class MultyxList extends MultyxObject {
         return this.length;
     }
 
-    pop(): MultyxObject | MultyxValue {
+    pop(): MultyxObject | MultyxValue | null {
+        if(this.disabled) return null;
+        if(this.shapeDisabled) return null;
         this.length--;
         this.raw.pop();
         const result = this.get(this.length);
@@ -437,9 +511,7 @@ export class MultyxValue {
     }
 
     set(value: Value): false | { clients: Set<Client> } {
-
         // Check if value setting changes constraints
-        const oldValue = value;
         for(const [_, { func }] of this.constraints.entries()) {
             const constrained = func(value);
             if(constrained === null) return false;

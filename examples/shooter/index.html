@@ -49,6 +49,14 @@
                 border: 1px solid #ccc;
                 margin-right: 10px;
             }
+            #gameCanvas {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                display: none;
+            }
         </style>
         
         <script defer src="../../client/multyx.js"></script>
@@ -56,12 +64,9 @@
     </head>
     <body>
         <div class="messages">
-            <h3>Messages</h3>
-            <div class="messageBox"></div>
-            <div class="messageEntryContainer">
-                <input class="messageEntry" placeholder="Enter your message..." />
-                <button onclick="sendMessage()">Send</button>
-            </div>
+            <input class="messageEntry" placeholder="Enter your name..." />
+            <button onclick="joinGame()">Join Game</button>
         </div>
+        <canvas id="gameCanvas"></canvas>
     </body>
 </html>

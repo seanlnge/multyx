@@ -176,17 +176,18 @@ export class MultyxTeam {
     public: Set<MultyxValue>;
     self: MultyxObject;
     server: MultyxServer;
-    uuid: string;
+    name: string;
 
     /**
      * Creates a group of clients sharing public data
      * @param clients List of clients to add to team
      * @returns MultyxTeam object
      */
-    constructor(clients?: Set<Client> | Client[]) {
+    constructor(name: string, clients?: Set<Client> | Client[]) {
         this.public = new Set();
         this.self = new MultyxObject({}, this);
-        this.uuid = GenerateUUID();
+        //this.uuid = GenerateUUID();
+        this.name = name;
 
         if(!clients) {
             this.clients = new Set();
@@ -256,4 +257,4 @@ export class MultyxTeam {
     }
 }
 
-export const MultyxClients = new MultyxTeam();
+export const MultyxClients = new MultyxTeam("all");

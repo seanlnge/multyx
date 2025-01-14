@@ -72,15 +72,14 @@ class MultyxServer {
 
             const teams: RawObject = {};
             for(const team of client.teams) {
-                teams[team.uuid] = team.self.raw;
+                teams[team.name] = team.self.raw;
             }
 
             ws.send(Message.Native([new InitializeUpdate(
                 client.parse(),
                 client.self._buildConstraintTable(),
                 rawClients,
-                teams,
-                this.all.uuid
+                teams
             )]));
 
             // Find all public data client shares and compile into raw data
@@ -202,7 +201,7 @@ class MultyxServer {
         if(client.uuid === path[0]) {
             obj = client.self;
         } else {
-            for(const team of client.teams) if(path[0] === team.uuid) obj = team.self;
+            for(const team of client.teams) if(path[0] === team.name) obj = team.self;
             if(!obj) return;
         }
 
@@ -219,6 +218,21 @@ class MultyxServer {
             ? obj.set(prop, msg.data.value)
             : obj.get(prop).set(msg.data.value);
 
+        if(valid) {
+            const clientUpdates = this.updates.get(client) ?? [];
+            
+            const index = clientUpdates.findIndex(update => {
+                if(!(update instanceof EditUpdate)) return false;
+
+                if(update.path.every((v, i) => msg.data.path[i+1] == v)
+                && update.value == msg.data.value) return true;
+                
+                return false;
+            });
+
+            if(index != -1) clientUpdates?.splice(index, 1);
+        }
+
         // If change rejected
         if(!valid) {
             return this.addOperation(client, new EditUpdate(
@@ -231,7 +245,9 @@ class MultyxServer {
 
     editUpdate(value: MultyxObject | MultyxValue, clients: Set<Client>) {
         const update = new EditUpdate(
-            value.client.uuid,
+            value.client instanceof Client
+                ? value.client.uuid
+                : value.client.name,
             value.propertyPath,
             value instanceof MultyxValue ? value.value : value.raw
         );

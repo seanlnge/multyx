@@ -4,7 +4,7 @@
   "description": "Framework that prioritizes developer experience by making building multiplayer browser games easy on both the client and server-side",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsc && node dist/index"
+    "compile": "tsc"
   },
   "author": "Sean Lange",
   "license": "ISC",

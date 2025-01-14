@@ -80,7 +80,6 @@ class Multyx {
     }
 
     private parseNativeEvent(msg: Message) {
-        console.log(msg);
         for(const update of msg.data) {
             if(update.instruction == 'init') {
                 this.uuid = update.client.uuid;
@@ -92,7 +91,7 @@ class Multyx {
     
                 this.clients = update.clients;
                 this.teams = update.teams;
-                this.all = { uuid: update.all };
+                this.all = update.teams.all;
                 this.setupClientProxy();
 
                 this.events.get(this.Start)?.forEach(c => c(update));

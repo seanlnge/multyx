@@ -260,7 +260,7 @@ export class Controller {
         const ctx = canvas.getContext("2d");
         const transform = ctx.getTransform();
         const bounding = canvas.getBoundingClientRect();
-        console.log(bounding)
+        
         // Ratio between canvas scale to unit pixels
         const canvasRatioX = bounding.width / canvas.width;
         const canvasRatioY = bounding.height / canvas.height;
