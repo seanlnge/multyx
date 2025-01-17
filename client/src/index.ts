@@ -56,7 +56,7 @@ class Multyx {
         this.events.set(name, events);
     }
 
-    send(name: string, data: RawObject, expectResponse: boolean = false) {
+    send(name: string, data: any, expectResponse: boolean = false) {
         if(name[0] === '_') name = '_' + name;
         this.ws.send(Message.Create(name, data));
         if(!expectResponse) return;
@@ -84,44 +84,64 @@ class Multyx {
 
     private parseNativeEvent(msg: Message) {
         for(const update of msg.data) {
-            if(update.instruction == 'init') {
-                this.uuid = update.client.uuid;
-                this.joinTime = update.client.joinTime;
-                this.self = update.client.self;
+            switch(update.instruction) {
 
-                this.unpackConstraints(update.constraintTable);
-                this.controller.addUnpacked(update.client.controller);
+                // Initialize
+                case 'init': {
+                    this.uuid = update.client.uuid;
+                    this.joinTime = update.client.joinTime;
+                    this.self = update.client.self;
     
-                this.clients = update.clients;
-                this.teams = update.teams;
-                this.all = update.teams.all;
-                this.setupClientProxy();
+                    this.unpackConstraints(update.constraintTable);
+                    this.controller.addUnpacked(update.client.controller);
+        
+                    this.clients = update.clients;
+                    this.teams = update.teams;
+                    this.all = update.teams.all;
+                    this.setupClientProxy();
+    
+                    this.events.get(this.Start)?.forEach(c => c(update));
+                    break;
+                }
 
-                this.events.get(this.Start)?.forEach(c => c(update));
-            }
-            
-            else if(update.instruction == 'edit') {
-                let toedit: any = update.uuid in this.teams ? this.teams : this.clients;
+                // Edit
+                case 'edit': {
+                    let toedit: any = update.team ? this.teams : this.clients;
                 
-                for(const p of [update.uuid, ...update.path.slice(0, -1)]) toedit = toedit[p];
-                const prop = update.path.slice(-1)[0];
-    
-                // Check if editable is proxied
-                toedit[prop] = toedit[isProxy] ? new EditWrapper(update.value) : update.value;
-                
-                this.events.get(this.Edit)?.forEach(c => c(update));
-                
-            }
-    
-            else if(update.instruction == 'conn') {
-                this.clients[update.uuid] = update.data;
-                
-                this.events.get(this.Connection)?.forEach(c => c(update.data));
-            }
+                    for(const p of update.path.slice(0, -1)) toedit = toedit[p];
+                    const prop = update.path.slice(-1)[0];
+        
+                    // Check if editable is proxied
+                    toedit[prop] = toedit[isProxy] ? new EditWrapper(update.value) : update.value;
+                    
+                    this.events.get(this.Edit)?.forEach(c => c(update));
+                    break;
+                }
 
-            else if(update.instruction == 'resp') {
-                const promiseResolve = this.events.get(Symbol.for("_" + update.data.name))[0];
-                promiseResolve(update.data.response);
+                // Connection
+                case 'conn': {
+                    this.clients[update.uuid] = update.data;
+                    this.events.get(this.Connection)?.forEach(c => c(update.data));
+                    break;
+                }
+
+                // Disconnection
+                case 'dcon': {
+                    delete this.clients[update.uuid];
+                    this.events.get(this.Connection)?.forEach(c => c(update.data));
+                    break;
+                }
+
+                // Public
+                case 'publ': {
+                    break;
+                }
+
+                // Response
+                case 'resp': {
+                    const promiseResolve = this.events.get(Symbol.for("_" + update.name))[0];
+                    promiseResolve(update.response);
+                }
             }
         }
     }

@@ -1,11 +1,17 @@
 import { RawObject, Value } from "./types";
 export class EditUpdate {
-    clientUUID: string;
+    team: boolean;
     path: string[];
     value: any;
 
-    constructor(clientUUID: string, path: string[], value: any) {
-        this.clientUUID = clientUUID;
+    /**
+     * Used if visible data is being edited
+     * @param team Editing a team?
+     * @param path Full path [uuid, ...path, property]
+     * @param value Value of property
+     */
+    constructor(team: boolean, path: string[], value: any) {
+        this.team = team;
         this.path = path;
         this.value = value;
     }
@@ -13,26 +19,58 @@ export class EditUpdate {
     raw(): RawObject {
         return {
             instruction: 'edit',
-            uuid: this.clientUUID,
+            team: this.team,
             path: this.path,
             value: this.value
         }
     }
 }
 
-export class ConnectionUpdate {
-    clientUUID: string;
+export class PublicUpdate {
+    team: boolean;
+    uuid: string;
     publicData: RawObject;
 
-    constructor(clientUUID: string, publicData: RawObject) {
-        this.clientUUID = clientUUID;
+    /**
+     * Used if previous invisible data is now visible
+     * @param team Team is now public?
+     * @param uuid UUID of team or client
+     * @param publicData Currently visible data
+     */
+    constructor(team: boolean, uuid: string, publicData: RawObject) {
+        this.team = team;
+        this.uuid = uuid;
+        this.publicData = publicData;
+    }
+
+    raw(): RawObject {
+        return {
+            instruction: 'publ',
+            team: this.team,
+            uuid: this.uuid,
+            data: this.publicData
+        }
+    }
+}
+
+export class ConnectionUpdate {
+    uuid: string;
+    publicData: RawObject;
+
+    /**
+     * Used if new client connects
+     * @param uuid UUID of new client
+     * @param publicData Visible data
+     */
+    constructor(uuid: string, publicData: RawObject) {
+        this.uuid = uuid;
         this.publicData = publicData;
     }
 
     raw(): RawObject {
         return {
             instruction: 'conn',
-            uuid: this.clientUUID,
+            uuid: this.uuid,
             data: this.publicData
         }
     }
@@ -41,13 +79,17 @@ export class ConnectionUpdate {
 export class DisconnectUpdate {
     clientUUID: string;
 
+    /**
+     * Used if client disconnects
+     * @param clientUUID UUID of disconnected client
+     */
     constructor(clientUUID: string) {
         this.clientUUID = clientUUID;
     }
 
     raw(): RawObject {
         return {
-            instruction: 'conn',
+            instruction: 'dcon',
             client: this.clientUUID
         }
     }
@@ -59,6 +101,13 @@ export class InitializeUpdate {
     clients: RawObject;
     teams: RawObject;
 
+    /**
+     * Used when client first connecting
+     * @param client All client data
+     * @param constraintTable All client constraints
+     * @param clients All visible data of other clients
+     * @param teams All visible data of other teams
+     */
     constructor(client: RawObject, constraintTable: RawObject, clients: RawObject, teams: RawObject) {
         this.client = client;
         this.constraintTable = constraintTable;

@@ -1,7 +1,6 @@
 import { WebSocket, WebSocketServer } from 'ws';
-import { Client, MultyxClients, MultyxTeam, Input, Controller, ControllerState } from './client';
 import { ConnectionUpdate, DisconnectUpdate, EditUpdate, InitializeUpdate, Update } from './update';
-import { MultyxValue, MultyxObject, MultyxList } from './multyx';
+import { MultyxValue, MultyxObject, MultyxList } from './multyxtypes/index';
 import { Event, EventName, Events } from './event';
 
 import Message from './message';
@@ -10,6 +9,8 @@ import NanoTimer from 'nanotimer';
 import { Server } from 'http';
 import { Options, RawObject } from './types';
 import { MapToObject, MergeRawObjects } from './utils';
+import { Client, Input, Controller, ControllerState } from './agents/client';
+import { MultyxClients, MultyxTeam } from './agents/team';
 
 export {
     Client,
@@ -19,6 +20,7 @@ export {
     Events,
 
     MultyxValue,
+    MultyxList,
     MultyxObject,
     MultyxTeam,
     MultyxServer,
@@ -72,7 +74,7 @@ class MultyxServer {
 
             const teams: RawObject = {};
             for(const team of client.teams) {
-                teams[team.name] = team.self.raw;
+                teams[team.uuid] = team.self.raw;
             }
 
             ws.send(Message.Native([new InitializeUpdate(
@@ -113,9 +115,9 @@ class MultyxServer {
                 
                 if(msg.native) {
                     this.parseNativeMessage(msg, client);
-                    this.events.get(Events.Native)?.forEach(cb => cb.call(client));
+                    this.events.get(Events.Native)?.forEach(cb => cb.call(client, msg.data));
                 } else {
-                    this.events.get(Events.Custom)?.forEach(cb => cb.call(client));
+                    this.events.get(Events.Custom)?.forEach(cb => cb.call(client, msg.data));
                     this.parseCustomMessage(msg, client);
                 }
 
@@ -143,10 +145,10 @@ class MultyxServer {
         );
     }
 
-    public on(event: EventName, callback: (client: Client, data: any) => void): Event {
+    public on(event: EventName, callback: (client: Client, data: any) => any): Event {
         if(!this.events.has(event)) this.events.set(event, []);
 
-        const eventObj = new Event(event, callback as ((client: Client | undefined) => void));
+        const eventObj = new Event(event, callback as ((client: Client | undefined) => any));
 
         this.events.get(event)!.push(eventObj);
         return eventObj;
@@ -193,37 +195,38 @@ class MultyxServer {
     }
 
     private parseEditUpdate(msg: Message, client: Client) {
+        // Use path to search for object, prop to work with object
         const path = msg.data.path.slice(0, -1);
         const prop = msg.data.path.slice(-1)[0];
         
-        // Get obj being edited by going through property tree
+        // First value in path array is client uuid / team name
         let obj;
         if(client.uuid === path[0]) {
             obj = client.self;
         } else {
-            for(const team of client.teams) if(path[0] === team.name) obj = team.self;
+            for(const team of client.teams) {
+                if(path[0] === team.uuid) obj = team.self;
+            }
             if(!obj) return;
         }
-
+        
+        // Get object being edited by going through property tree
         for(const p of path.slice(1)) {
             obj = obj.get(p);
             if(!obj || (obj instanceof MultyxValue)) return;
         }
-        // Verify value exists
-        if(!obj.has(prop) && !(obj instanceof MultyxList)) return;
-        if(typeof msg.data.value == 'object') return;
 
         // Set value and verify completion
-        const valid = obj instanceof MultyxList
-            ? obj.set(prop, msg.data.value)
-            : obj.get(prop).set(msg.data.value);
+        const valid = obj.set(prop, msg.data.value);
 
+        // Setting object adds an editUpdate to client update list, this removes the redundancy
         if(valid) {
             const clientUpdates = this.updates.get(client) ?? [];
             
             const index = clientUpdates.findIndex(update => {
                 if(!(update instanceof EditUpdate)) return false;
 
+                // Check if the update path matches with the 
                 if(update.path.every((v, i) => msg.data.path[i+1] == v)
                 && update.value == msg.data.value) return true;
                 
@@ -245,9 +248,7 @@ class MultyxServer {
 
     editUpdate(value: MultyxObject | MultyxValue, clients: Set<Client>) {
         const update = new EditUpdate(
-            value.client instanceof Client
-                ? value.client.uuid
-                : value.client.name,
+            value.client instanceof MultyxTeam,
             value.propertyPath,
             value instanceof MultyxValue ? value.value : value.raw
         );

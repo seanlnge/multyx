@@ -1,4 +1,4 @@
-import Multyx from '../../server/dist/index';
+/* import Multyx from '../../server/dist/index';
 import express from 'express';
 
 const server = express().listen(8080, () => console.log('server started'));
@@ -16,4 +16,4 @@ multyx.on(Multyx.Events.Connect, (client: Multyx.Client) => {
 });
 multyx.on(Multyx.Events.Edit, () => {
     console.log(multyx.all.self.get('messages'));
-});
+}); */

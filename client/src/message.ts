@@ -29,7 +29,7 @@ export class Message {
         return new Message(parsed.name, parsed.data, parsed.name == '');
     }
 
-    static Create(name, data) {
+    static Create(name: string, data: any) {
         if(name.length == 0) throw new Error('Multyx message cannot have empty name');
         if(name[0] == '_') name = '_' + name;
         

@@ -4,5 +4,5 @@ examples/node_modules
 client/node_modules
 client/dist
 compile.bat
-TODO.md
 .gitignore
+keepinmind.md

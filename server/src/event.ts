@@ -1,4 +1,4 @@
-import { Client } from "./client";
+import { Client } from "./agents/client";
 import Message from "./message";
 
 export const Events = {

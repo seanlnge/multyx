@@ -1,4 +1,4 @@
-import Multyx from '../../server/dist/index';
+/* import Multyx from '../../server/dist/index';
 import express from 'express';
 
 const server = express().listen(8080, () => console.log('server started'));
@@ -42,4 +42,4 @@ multyx.on(Multyx.Events.Connect, (client: Multyx.Client) => {
         x.set(x.value + dt * (6000 / player.raw.size) * Math.cos(player.raw.direction));
         y.set(y.value + dt * (6000 / player.raw.size) * Math.sin(player.raw.direction));
     };
-});
+}); */
