@@ -1,7 +1,4 @@
 import { WebSocket, WebSocketServer } from 'ws';
-import { ConnectionUpdate, DisconnectUpdate, EditUpdate, InitializeUpdate, Update } from './update';
-import { MultyxValue, MultyxObject, MultyxList } from './multyxtypes/index';
-import { Event, EventName, Events } from './event';
 
 import Message from './message';
 import NanoTimer from 'nanotimer';
@@ -11,6 +8,25 @@ import { Options, RawObject } from './types';
 import { MapToObject, MergeRawObjects } from './utils';
 import { Client, Input, Controller, ControllerState } from './agents/client';
 import { MultyxClients, MultyxTeam } from './agents/team';
+
+import {
+    MultyxItem,
+    MultyxList,
+    MultyxObject,
+    MultyxValue
+} from './items';
+
+import {
+    ConnectionUpdate,
+    DisconnectUpdate,
+    EditUpdate,
+    InitializeUpdate,
+    PublicUpdate,
+    Update
+} from './update';
+
+import { Event, EventName, Events } from './event';
+
 
 export {
     Client,
@@ -246,9 +262,9 @@ class MultyxServer {
         }
     }
 
-    editUpdate(value: MultyxObject | MultyxValue, clients: Set<Client>) {
+    editUpdate(value: MultyxItem, clients: Set<Client>) {
         const update = new EditUpdate(
-            value.client instanceof MultyxTeam,
+            value.agent instanceof MultyxTeam,
             value.propertyPath,
             value instanceof MultyxValue ? value.value : value.raw
         );
@@ -256,6 +272,14 @@ class MultyxServer {
         for(const client of clients) {
             this.addOperation(client, update);
         }
+    }
+
+    publicUpdate(value: MultyxValue, clients: Set<Client>, visible: boolean) {
+        const update = new PublicUpdate(
+            visible,
+            value.propertyPath,
+            value.value
+        );
     }
 
     private addOperation(client: Client, update: Update) {

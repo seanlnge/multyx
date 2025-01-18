@@ -1,20 +1,22 @@
-import { RawObject, Value } from "../types";
-import { MultyxValue } from "./value";
-import { MultyxList } from "./list";
-import { MultyxType } from ".";
-import { Client } from "../agents/client";
-import { MultyxClients, MultyxTeam } from "../agents/team";
+import type { Client } from "../agents/client";
+import type { MultyxTeam } from "../agents/team";
 
-export class MultyxObject {
-    data: { [key: string]: MultyxType<any> };
+import MultyxValue from './value';
+import MultyxItemRouter from './router';
+import { MultyxItem } from ".";
+
+import { RawObject } from "../types";
+
+export default class MultyxObject {
+    data: { [key: string]: MultyxItem };
     propertyPath: string[];
     agent: Client | MultyxTeam;
     disabled: boolean;
     shapeDisabled: boolean;
-    
-    // spent 2 hours tryna make this [key: Exclude<string, keyof MultyxObject>]: MultyxType<any>
+
+    // spent 2 hours tryna make this [key: Exclude<string, keyof MultyxObject>]: MultyxItem<any>
     // fuck you ryan cavanaugh https://github.com/microsoft/TypeScript/issues/17867
-    [key: string]: any;
+    [key: string]: any
 
     constructor(object: RawObject, agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
         this.data  = {};
@@ -24,23 +26,23 @@ export class MultyxObject {
         this.shapeDisabled = false;
 
         for(const prop in object) {
-            this.data[prop] = new (
-                Array.isArray(object[prop]) ? MultyxList
-                : typeof object[prop] == 'object' ? MultyxObject
-                : MultyxValue
-            )(object[prop], agent, [...propertyPath, prop]);
+            this.data[prop] = new (MultyxItemRouter(object[prop]))(
+                object[prop],
+                agent,
+                [...propertyPath, prop]
+            );
 
             if(!(prop in this)) this[prop] = this.data[prop];   
         }
 
-        // Apply proxy inside MultyxList constructor rather than here
-        if(this instanceof MultyxList) return this;
+        // Apply proxy inside other constructor rather than here
+        if(this.constructor !== MultyxObject) return this;
 
         return new Proxy(this, {
             // Allow clients to access properties in MultyxObject without using get
             get: (o, p: string) => {
                 if(p in o) return o[p];
-                return o.get(p) as MultyxType<any>; 
+                return o.get(p) as MultyxItem<any>; 
             },
             
             // Allow clients to set MultyxObject properties by client.self.a = b
@@ -94,7 +96,7 @@ export class MultyxObject {
         this.shapeDisabled = false;
     }
 
-    public(team: MultyxTeam = MultyxClients) {
+    public(team: MultyxTeam) {
         for(const prop in this.data) {
             this.data[prop].public(team);
         }
@@ -139,34 +141,20 @@ export class MultyxObject {
         if(this.shapeDisabled) return false;
         const propertyPath = [...this.propertyPath, property];
 
-        if(Array.isArray(value)) {
-            this.data[property] = new MultyxList(
-                value,
-                this.agent,
-                propertyPath
-            );
-        } else if(typeof value !== "object") {
-            this.data[property] = new MultyxValue(
-                value,
-                this.agent,
-                propertyPath
-            );
-        } else if(!(value instanceof MultyxObject)) {
-            this.data[property] = new MultyxObject(
-                value,
-                this.agent,
-                propertyPath
-            );
-        } else {
+        if(value instanceof MultyxObject) {
             this.data[property] = value;
             value.editPropertyPath(propertyPath);
+        } else {
+            this.data[property] = new (MultyxItemRouter(value))(
+                value,
+                this.agent,
+                this.propertyPath
+            );
         }
 
-        const clients = this.agent instanceof MultyxTeam
-            ? new Set(this.agent.clients)
-            : new Set([this.agent]);
+        const clients = new Set(this.agent.clients)
         this.agent.server?.editUpdate(this, clients);
-        
+
         return this;
     }
 
@@ -174,9 +162,7 @@ export class MultyxObject {
         if(this.shapeDisabled) return false;
 
         delete this.data[property];
-        const clients = this.agent instanceof MultyxTeam
-            ? new Set(this.agent.clients)
-            : new Set([this.agent]);
+        const clients = new Set(this.agent.clients);
         this.agent.server?.editUpdate(this, clients);
         return this;
     }
@@ -197,7 +183,7 @@ export class MultyxObject {
         return parsed;
     }
 
-    getRawPublic(team: MultyxTeam = MultyxClients): RawObject {
+    getRawPublic(team: MultyxTeam): RawObject {
         const parsed: RawObject = {};
         
         for(const prop in this.data) {

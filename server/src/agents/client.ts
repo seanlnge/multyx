@@ -1,10 +1,11 @@
-import { MultyxObject, MultyxValue } from "../multyxtypes/index";
 import { WebSocket } from "ws";
 import { RawObject } from "../types";
 import { MultyxServer } from "../index";
 import Message from "../message";
 import { GenerateUUID } from "../utils";
+
 import { MultyxTeam } from "./team";
+import { MultyxObject } from "../items";
 
 export class Client {
     data: RawObject;
@@ -15,6 +16,7 @@ export class Client {
     server: MultyxServer;
     uuid: string;
     joinTime: number;
+    clients: Client[];
     onUpdate: (deltaTime: number, controllerState: ControllerState) => void;
 
     constructor(ws: WebSocket, server: MultyxServer) {
@@ -26,6 +28,7 @@ export class Client {
         this.server = server;
         this.uuid = GenerateUUID();
         this.joinTime = Date.now();
+        this.clients = [this];
     }
 
     send(eventName: string, data: any) {

@@ -17,7 +17,9 @@ class Multyx {
 
     Start = Symbol('start');
     Connection = Symbol('connection');
+    Disconnect = Symbol('disconnect');
     Edit = Symbol('edit');
+    Public = Symbol('public');
     Native = Symbol('native');
     Custom = Symbol('custom');
     Any = Symbol('any');
@@ -106,13 +108,18 @@ class Multyx {
 
                 // Edit
                 case 'edit': {
-                    let toedit: any = update.team ? this.teams : this.clients;
+                    let route: any = update.team ? this.teams : this.clients;
                 
-                    for(const p of update.path.slice(0, -1)) toedit = toedit[p];
+                    for(const p of update.path.slice(0, -1)) {
+                        if(!(p in route)) route[p] = {};
+                        route = route[p];
+                    }
                     const prop = update.path.slice(-1)[0];
         
                     // Check if editable is proxied
-                    toedit[prop] = toedit[isProxy] ? new EditWrapper(update.value) : update.value;
+                    route[prop] = route[isProxy]
+                        ? new EditWrapper(update.value)
+                        : update.value;
                     
                     this.events.get(this.Edit)?.forEach(c => c(update));
                     break;
@@ -121,19 +128,35 @@ class Multyx {
                 // Connection
                 case 'conn': {
                     this.clients[update.uuid] = update.data;
-                    this.events.get(this.Connection)?.forEach(c => c(update.data));
+                    this.events.get(this.Connection)?.forEach(c => c(update));
                     break;
                 }
 
                 // Disconnection
                 case 'dcon': {
                     delete this.clients[update.uuid];
-                    this.events.get(this.Connection)?.forEach(c => c(update.data));
+                    this.events.get(this.Disconnect)?.forEach(c => c(update));
                     break;
                 }
 
                 // Public
                 case 'publ': {
+                    let route = this.teams;
+
+                    for(const p of update.path.slice(0, -1)) {
+                        if(!(p in route)) route[p] = {};
+                        route = route[p];
+                    }
+                    const prop = update.path.slice(-1)[0];
+
+                    if(update.visible) {
+                        route[prop] = update.data;
+                    } else {
+                        delete route[prop];
+                    }
+
+                    this.events.get(this.Public)?.forEach(c => c(update));
+
                     break;
                 }
 

@@ -27,9 +27,9 @@ export class EditUpdate {
 }
 
 export class PublicUpdate {
-    team: boolean;
-    uuid: string;
-    publicData: RawObject;
+    visible: boolean;
+    propertyPath: string[];
+    value: Value;
 
     /**
      * Used if previous invisible data is now visible
@@ -37,18 +37,18 @@ export class PublicUpdate {
      * @param uuid UUID of team or client
      * @param publicData Currently visible data
      */
-    constructor(team: boolean, uuid: string, publicData: RawObject) {
-        this.team = team;
-        this.uuid = uuid;
-        this.publicData = publicData;
+    constructor(visible: boolean, propertyPath: string[], value: Value) {
+        this.visible = visible;
+        this.propertyPath = propertyPath;
+        this.value = value;
     }
 
     raw(): RawObject {
         return {
             instruction: 'publ',
-            team: this.team,
-            uuid: this.uuid,
-            data: this.publicData
+            visible: this.visible,
+            path: this.propertyPath,
+            data: this.value
         }
     }
 }

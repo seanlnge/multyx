@@ -1,10 +1,13 @@
-import { Client } from "../agents/client";
-import { MultyxClients, MultyxTeam } from "../agents/team";
-import { RawObject, Value } from "../types";
-import { MultyxObject } from "./object";
-import { MultyxValue } from "./value";
+import type { Client } from "../agents/client";
+import type { MultyxTeam } from "../agents/team";
 
-export class MultyxList extends MultyxObject {
+import { RawObject, Value } from "../types";
+
+import MultyxValue from "./value";
+import MultyxObject from "./object";
+import { MultyxItem } from ".";
+
+export default class MultyxList extends MultyxObject {
     length: number;
 
     allowItemChange: boolean;
@@ -34,7 +37,7 @@ export class MultyxList extends MultyxObject {
             // Allow clients to access properties in MultyxObject without using get
             get: (o, p: string) => {
                 if(p in o) return o[p];
-                return o.get(p);
+                return o.get(p) as MultyxItem<any>; 
             },
             
             // Allow clients to set MultyxObject properties by client.self.a = b

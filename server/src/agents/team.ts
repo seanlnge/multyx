@@ -1,15 +1,20 @@
 import { MultyxServer } from "..";
 import Message from "../message";
-import { MultyxObject, MultyxValue } from "../multyxtypes";
 import { RawObject } from "../types";
 import { Client } from "./client";
 
+import { MultyxValue, MultyxObject } from "../items";
+
 export class MultyxTeam {
-    clients: Set<Client>;
-    public: Set<MultyxValue>;
+    private _clients: Set<Client>;
+    private public: Set<MultyxValue>;
     self: MultyxObject;
     server: MultyxServer;
     uuid: string;
+
+    get clients() {
+        return Array.from(this._clients);
+    }
 
     /**
      * Creates a group of clients sharing public data
@@ -19,18 +24,17 @@ export class MultyxTeam {
     constructor(name: string, clients?: Set<Client> | Client[]) {
         this.public = new Set();
         this.self = new MultyxObject({}, this);
-        //this.uuid = GenerateUUID();
         this.uuid = name;
 
         if(!clients) {
-            this.clients = new Set();
+            this._clients = new Set();
             return;
         }
         
-        this.clients = new Set();
+        this._clients = new Set();
         clients.forEach(c => {
             c.teams.add(this);
-            this.clients.add(c);
+            this._clients.add(c);
         });
 
         this.server = this.clients.values().next().value?.server ?? this.server;
@@ -63,7 +67,7 @@ export class MultyxTeam {
      * @param client Client object to add to team
      */
     addClient(client: Client) {
-        this.clients.add(client);
+        this._clients.add(client);
         if(!this.server) this.server = client.server;
         client.teams.add(this);
     }
@@ -73,8 +77,24 @@ export class MultyxTeam {
      * @param client Client object to remove from team
      */
     removeClient(client: Client) {
-        this.clients.delete(client);
+        this._clients.delete(client);
         client.teams.delete(this);
+    }
+
+    addPublic(value: MultyxValue) {
+        this.public.add(value);
+
+        // Tell server to relay update to all clients
+        this.server.publicUpdate(value, this._clients, true);
+        return true;
+    }
+
+    removePublic(value: MultyxValue) {
+        const exists = this.public.delete(value);
+
+        if(exists) this.server.publicUpdate(value, this._clients, false);
+        
+        return exists;
     }
 
     /**

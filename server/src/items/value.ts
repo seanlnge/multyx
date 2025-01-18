@@ -1,32 +1,31 @@
-import { Client } from "../agents/client";
-import { MultyxClients, MultyxTeam } from "../agents/team";
+import type { Client } from "../agents/client";
+import type { MultyxTeam } from "../agents/team";
+
 import { RawObject, Value } from "../types";
 
-export class MultyxValue {
+export default class MultyxValue {
     value: Value;
     disabled: boolean;
     constraints: Map<string, { args: any[], func: (value: Value) => Value | null }>;
     manualConstraints: ((value: Value) => Value | null)[];
     bannedValues: Set<Value>;
 
-    private publicTeams: Set<MultyxTeam>;
+    private publicAgents: Set<Client | MultyxTeam>;
     propertyPath: string[];
-    client: Client | MultyxTeam;
+    agent: Client | MultyxTeam;
 
-    constructor(value: Value | MultyxValue, client: Client | MultyxTeam, propertyPath: string[]) {
+    constructor(value: Value | MultyxValue, agent: Client | MultyxTeam, propertyPath: string[]) {
         this.value = value instanceof MultyxValue ? value.value : value;
         this.disabled = false;
         this.constraints = new Map();
         this.manualConstraints = [];
         this.bannedValues = new Set();
 
-        this.publicTeams = new Set();
+        this.publicAgents = new Set();
         this.propertyPath = propertyPath;
-        this.client = client;
+        this.agent = agent;
 
-        if(this.client instanceof MultyxTeam) {
-            this.publicTeams.add(this.client);
-        }
+        this.publicAgents.add(this.agent);
     }
 
     // Allows MultyxValue to be treated as any other standard value
@@ -54,13 +53,13 @@ export class MultyxValue {
     }
 
     // Just to store information, Multyx engine determines what info gets shared
-    public(team: MultyxTeam = MultyxClients) {
-        this.publicTeams.add(team);
-        team.public.add(this);
+    public(team: MultyxTeam) {
+        this.publicAgents.add(team);
+        team.addPublic(this);
     }
 
-    isPublic(team: MultyxTeam = MultyxClients): boolean {
-        return this.publicTeams.has(team);
+    isPublic(team: MultyxTeam): boolean {
+        return this.publicAgents.has(team);
     }
 
     // Only proper way to set value of MultyxValue to ensure client sync
@@ -85,19 +84,17 @@ export class MultyxValue {
         this.value = value;
 
         // Get all clients affected by this change
-        const clients = new Set<Client>(
-            this.client instanceof MultyxTeam ? Array.from(this.client.clients) : [this.client]
-        );
+        const clients = new Set<Client>();
         
         // Get all clients informed of this change
-        if(this.client instanceof Client) for(const team of this.publicTeams) {
+        for(const team of this.publicAgents) {
             for(const client of team.clients) {
                 clients.add(client);
             }
         }
 
         // Tell server to relay update to all clients
-        this.client.server.editUpdate(this, clients);
+        this.agent.server.editUpdate(this, clients);
         return true;
     }
 

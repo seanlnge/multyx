@@ -3,7 +3,6 @@ import {
     MultyxServer,
     MultyxTeam,
     Events,
-    MultyxValue,
     Input
 } from '../../server/dist/src';
 
