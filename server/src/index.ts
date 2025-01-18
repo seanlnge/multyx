@@ -23,12 +23,12 @@ import {
     DisconnectUpdate,
     EditUpdate,
     InitializeUpdate,
-    PublicUpdate,
+    SelfUpdate,
     Update
 } from './update';
 
 import { Event, EventName, Events } from './event';
-import { Edit, Parse, Value } from './utils/native';
+import { Edit, Get, Parse, Self, Value } from './utils/native';
 
 
 export {
@@ -127,7 +127,7 @@ class MultyxServer {
         publicToClient.set(client, client.self[Value]);
         
         for(const team of client.teams) {
-            const clients = team.getRawPublic();
+            const clients = team[Get]();
 
             for(const [c, curr] of clients) {
                 if(c === client) continue;
@@ -145,7 +145,7 @@ class MultyxServer {
 
         const teams: RawObject = {};
         for(const team of client.teams) {
-            teams[team.uuid] = team.self.raw;
+            teams[team.uuid] = team.self[Value]();
         }
 
         // Build table of constraints for client-side prediction
@@ -175,10 +175,10 @@ class MultyxServer {
 
         // Find all public data client shares and compile into raw data
         const clientToPublic: Map<Client, RawObject> = new Map();
-        this.all.clients.forEach(c => clientToPublic.set(c, c.self.getRawPublic(this.all)));
+        this.all.clients.forEach(c => clientToPublic.set(c, c.self[Get](this.all)));
 
         for(const team of client.teams) {
-            const publicData = client.self.getRawPublic(team);
+            const publicData = client.self[Get](team);
 
             for(const c of team.clients) {
                 if(c === client) continue;
@@ -304,19 +304,33 @@ class MultyxServer {
     }
 
     /**
-     * @param value 
-     * @param clients 
+     * Create an EditUpdate event to send to list of clients
+     * @param item MultyxItem to relay state of
+     * @param clients Set of all clients to relay event to
      */
-    [Edit](value: MultyxItem, clients: Set<Client>) {
+    [Edit](item: MultyxItem, clients: Set<Client>) {
         const update = new EditUpdate(
-            value.agent instanceof MultyxTeam,
-            value.propertyPath,
-            value instanceof MultyxValue ? value.value : value[Value]
+            item.agent instanceof MultyxTeam,
+            item.propertyPath,
+            item instanceof MultyxValue ? item.value : item[Value]
         );
         
         for(const client of clients) {
             this.addOperation(client, update);
         }
+    }
+
+    /**
+     * Create a SelfUpdate event to send to client
+     * @param property 
+     */
+    [Self](client: Client, property: typeof SelfUpdate.Properties[number], data: any) {
+        const update = new SelfUpdate(
+            property,
+            data
+        );
+
+        this.addOperation(client, update);
     }
 
     

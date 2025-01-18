@@ -1,10 +1,10 @@
 import { MultyxServer } from "..";
 import Message from "../message";
 import { RawObject } from "../types";
-import { Client } from "./client";
-
-import { MultyxValue, MultyxObject } from "../items";
 import { AddUUID } from "../utils/uuid";
+import { Get } from "../utils/native";
+import { Client } from "./client";
+import { MultyxValue, MultyxObject } from "../items";
 
 export class MultyxTeam {
     private _clients: Set<Client>;
@@ -24,11 +24,12 @@ export class MultyxTeam {
      */
     constructor(name: string, clients?: Set<Client> | Client[]) {
         this.public = new Set();
-        this.self = new MultyxObject({}, this);
         this.uuid = name;
         
         if(!AddUUID(name)) throw new Error("MultyxTeam name must be unique");
 
+        this.self = new MultyxObject({}, this);
+        
         if(!clients) {
             this._clients = new Set();
             return;
@@ -97,13 +98,13 @@ export class MultyxTeam {
     }
 
     /**
-     * Get raw 
-     * @returns 
+     * Get publicized data of all clients in team
+     * @returns Map between client and publicized data
      */
-    getRawPublic(): Map<Client, RawObject> {
+    [Get](): Map<Client, RawObject> {
         const parsed = new Map();
         this.clients.forEach(c =>
-            parsed.set(c, c.self.getRawPublic(this))
+            parsed.set(c, c.self[Get](this))
         );
         return parsed;
     }

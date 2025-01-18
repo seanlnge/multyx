@@ -29,19 +29,25 @@ export class Controller {
 
         document.addEventListener('keydown', e => {
             // When holding down key
-            if(this.keys[e.code]) {
-                if(this.listening.has('keyhold'))
+            if(this.keys[e.key] || this.keys[e.code]) {
+                if(this.keys[e.key] && this.listening.has('keyhold')) {
+                    this.relayInput('keyhold', { code: e.key });
+                }
+                if(this.keys[e.code] && this.listening.has('keyhold')) {
                     this.relayInput('keyhold', { code: e.code });
+                }
                 return;
             }
+            this.keys[e.key] = true;
             this.keys[e.code] = true;
-            if(this.listening.has(e.code))
-                this.relayInput('keydown', { code: e.code });
+            if(this.listening.has(e.key)) this.relayInput('keydown', { code: e.key });
+            if(this.listening.has(e.code)) this.relayInput('keydown', { code: e.code });
         });
         document.addEventListener('keyup', e => {
+            delete this.keys[e.key];
             delete this.keys[e.code];
-            if(this.listening.has(e.code))
-                this.relayInput('keyup', { code: e.code });
+            if(this.listening.has(e.key)) this.relayInput('keyup', { code: e.key });
+            if(this.listening.has(e.code)) this.relayInput('keyup', { code: e.code });
         });
 
         // Mouse input events
@@ -272,14 +278,7 @@ export class Controller {
         this.mouse.scaleY = canvasRatioY * transform.d;
     }
 
-    addUnpacked(controller: string[]) {
-        controller.forEach(c => {
-            this.listening.add(c);
-        });
-    }
-
-    relayInput(input: string, data?: RawObject) {
-        console.log(this.mouse);
+    private relayInput(input: string, data?: RawObject) {
         if(this.ws.readyState !== 1) {
             throw new Error('Websocket connection is ' + (this.ws.readyState == 2 ? 'closing' : 'closed'));
         }

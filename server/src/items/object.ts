@@ -27,7 +27,7 @@ export default class MultyxObject {
      * @returns MultyxObject
      */
     constructor(object: RawObject, agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
-        this.data  = {};
+        this.data = {};
         this.propertyPath = propertyPath;
         this.agent = agent;
         this.disabled = false;
@@ -188,6 +188,10 @@ export default class MultyxObject {
         return this;
     }
 
+    /**
+     * Turn MultyxObject back into regular object
+     * @returns RawObject mirroring shape and values of MultyxObject
+     */
     [Value]() {
         const parsed: RawObject = {};
         
@@ -197,13 +201,18 @@ export default class MultyxObject {
             if(m instanceof MultyxValue) {
                 parsed[prop] = m.value;
             } else {
-                parsed[prop] = m.raw;
+                parsed[prop] = m[Value];
             }
         }
 
         return parsed;
     }
 
+    /**
+     * Get all properties in object publicized to specific team
+     * @param team Team get public data for
+     * @returns Raw object
+     */
     [Get](team: MultyxTeam): RawObject {
         const parsed: RawObject = {};
         
@@ -213,13 +222,17 @@ export default class MultyxObject {
             if(m instanceof MultyxValue) {
                 if(m.isPublic(team)) parsed[prop] = m.value;
             } else {
-                parsed[prop] = m.raw;
+                parsed[prop] = m[Get];
             }
         }
 
         return parsed;
     }
 
+    /**
+     * Edit the property path of MultyxObject and any children
+     * @param newPath New property path to take
+     */
     [Edit](newPath: string[]) {
         this.propertyPath = newPath;
 

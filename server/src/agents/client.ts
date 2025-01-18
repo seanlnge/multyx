@@ -7,7 +7,7 @@ import { GenerateUUID } from "../utils/uuid";
 
 import { MultyxTeam } from "./team";
 import { MultyxObject } from "../items";
-import { Parse } from "../utils/native";
+import { Parse, Self, Value } from "../utils/native";
 
 export class Client {
     data: RawObject;
@@ -23,14 +23,15 @@ export class Client {
 
     constructor(ws: WebSocket, server: MultyxServer) {
         this.data = {};
-        this.self = new MultyxObject({}, this);
-        this.controller = new Controller(this);
         this.teams = new Set();
         this.ws = ws;
         this.server = server;
         this.uuid = GenerateUUID();
         this.joinTime = Date.now();
         this.clients = [this];
+        
+        this.self = new MultyxObject({}, this);
+        this.controller = new Controller(this);
     }
 
     send(eventName: string, data: any) {
@@ -45,7 +46,7 @@ export class Client {
             uuid: this.uuid,
             joinTime: this.joinTime,
             controller: Array.from(this.controller.listening.values()),
-            self: this.self.raw,
+            self: this.self[Value](),
         }
     }
 }
@@ -128,8 +129,15 @@ export class Controller {
                 this.events.set(inp, events);
             }
         });
+
+        // Relay changes to client
+        this.client.server[Self](this.client, 'controller', Array.from(this.listening));
     }
 
+    /**
+     * Parse an input update from client
+     * @param msg Message containing input data
+     */
     [Parse](msg: Message) {
         switch(msg.data.input) {
             case Input.MouseDown: {

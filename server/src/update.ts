@@ -26,29 +26,28 @@ export class EditUpdate {
     }
 }
 
-export class PublicUpdate {
-    visible: boolean;
-    propertyPath: string[];
-    value: Value;
+export class SelfUpdate {
+    static Properties = ['controller', 'uuid'] as const;
+
+    property: typeof SelfUpdate.Properties[number];
+    data: any;
 
     /**
-     * Used if previous invisible data is now visible
-     * @param team Team is now public?
-     * @param uuid UUID of team or client
-     * @param publicData Currently visible data
+     * Used if client metadata is being changed, such as 
+     * changing which inputs the controller is listening to
+     * @param property Property of client metadata being altered
+     * @param data Data to put in place of client property
      */
-    constructor(visible: boolean, propertyPath: string[], value: Value) {
-        this.visible = visible;
-        this.propertyPath = propertyPath;
-        this.value = value;
+    constructor(property: typeof SelfUpdate.Properties[number], data: any) {
+        this.property = property;
+        this.data = data;
     }
 
     raw(): RawObject {
         return {
-            instruction: 'publ',
-            visible: this.visible,
-            path: this.propertyPath,
-            data: this.value
+            instruction: 'self',
+            prop: this.property,
+            data: this.data
         }
     }
 }
@@ -126,4 +125,4 @@ export class InitializeUpdate {
     }
 }
 
-export type Update = EditUpdate | InitializeUpdate | ConnectionUpdate | DisconnectUpdate;
+export type Update = EditUpdate | SelfUpdate | InitializeUpdate | ConnectionUpdate | DisconnectUpdate;

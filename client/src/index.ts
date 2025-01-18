@@ -89,14 +89,14 @@ class Multyx {
         for(const update of msg.data) {
             switch(update.instruction) {
 
-                // Initialize
+                // Initialization
                 case 'init': {
                     this.uuid = update.client.uuid;
                     this.joinTime = update.client.joinTime;
                     this.self = update.client.self;
     
                     this.unpackConstraints(update.constraintTable);
-                    this.controller.addUnpacked(update.client.controller);
+                    this.controller.listening = new Set(update.client.controller);
         
                     this.clients = update.clients;
                     this.teams = update.teams;
@@ -107,7 +107,7 @@ class Multyx {
                     break;
                 }
 
-                // Edit
+                // Client or team data edit
                 case 'edit': {
                     let route: any = update.team ? this.teams : this.clients;
                 
@@ -126,6 +126,16 @@ class Multyx {
                     break;
                 }
 
+                // Self meta-data change
+                case 'self': {
+                    if(update.prop == 'controller') {
+                        this.controller.listening = new Set(update.data);
+                    } else if(update.prop == 'uuid') {
+                        this.uuid = update.data;
+                    }
+                }
+
+
                 // Connection
                 case 'conn': {
                     this.clients[update.uuid] = update.data;
@@ -140,28 +150,7 @@ class Multyx {
                     break;
                 }
 
-                // Public
-                case 'publ': {
-                    let route = this.teams;
-
-                    for(const p of update.path.slice(0, -1)) {
-                        if(!(p in route)) route[p] = {};
-                        route = route[p];
-                    }
-                    const prop = update.path.slice(-1)[0];
-
-                    if(update.visible) {
-                        route[prop] = update.data;
-                    } else {
-                        delete route[prop];
-                    }
-
-                    this.events.get(this.Public)?.forEach(c => c(update));
-
-                    break;
-                }
-
-                // Response
+                // Response to client
                 case 'resp': {
                     const promiseResolve = this.events.get(Symbol.for("_" + update.name))[0];
                     promiseResolve(update.response);
