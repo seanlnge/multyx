@@ -1,11 +1,13 @@
-import { WebSocket } from "ws";
-import { RawObject } from "../types";
-import { MultyxServer } from "../index";
+import type { WebSocket } from "ws";
+import type { RawObject } from "../types";
+import type { MultyxServer } from "../index";
+
 import Message from "../message";
-import { GenerateUUID } from "../utils";
+import { GenerateUUID } from "../utils/uuid";
 
 import { MultyxTeam } from "./team";
 import { MultyxObject } from "../items";
+import { Parse } from "../utils/native";
 
 export class Client {
     data: RawObject;
@@ -38,7 +40,7 @@ export class Client {
     /**
      * Create client-side representation of client object
      */
-    parse(): RawObject {
+    [Parse](): RawObject {
         return {
             uuid: this.uuid,
             joinTime: this.joinTime,
@@ -128,7 +130,7 @@ export class Controller {
         });
     }
 
-    __parseUpdate(msg: Message) {
+    [Parse](msg: Message) {
         switch(msg.data.input) {
             case Input.MouseDown: {
                 this.state.mouse.down = true;

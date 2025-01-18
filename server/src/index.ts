@@ -1,11 +1,13 @@
+import { Server } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 
-import Message from './message';
 import NanoTimer from 'nanotimer';
 
-import { Server } from 'http';
 import { Options, RawObject } from './types';
-import { MapToObject, MergeRawObjects } from './utils';
+import { MapToObject, MergeRawObjects } from './utils/objects';
+
+import Message from './message';
+
 import { Client, Input, Controller, ControllerState } from './agents/client';
 import { MultyxClients, MultyxTeam } from './agents/team';
 
@@ -26,6 +28,7 @@ import {
 } from './update';
 
 import { Event, EventName, Events } from './event';
+import { Edit, Parse, Value } from './utils/native';
 
 
 export {
@@ -65,66 +68,7 @@ class MultyxServer {
         const WSServer = new WebSocketServer({ server });
 
         WSServer.on('connection', (ws: WebSocket) => {
-            const client = this.initializeClient(ws);
-            this.updates.set(client, []);
-
-            // Find all public data shared to client and compile into raw data
-            const publicToClient: Map<Client, RawObject> = new Map();
-            publicToClient.set(client, client.self.raw);
-            for(const team of client.teams) {
-                const clients = team.getRawPublic();
-
-                for(const [c, curr] of clients) {
-                    if(c === client) continue;
-
-                    const prev = publicToClient.get(c);
-                    if(!prev) {
-                        publicToClient.set(c, curr);
-                        continue;
-                    }
-                    publicToClient.set(c, MergeRawObjects(curr, prev));
-                }
-            }
-
-            const rawClients = MapToObject(publicToClient, c => c.uuid);
-
-            const teams: RawObject = {};
-            for(const team of client.teams) {
-                teams[team.uuid] = team.self.raw;
-            }
-
-            ws.send(Message.Native([new InitializeUpdate(
-                client.parse(),
-                client.self._buildConstraintTable(),
-                rawClients,
-                teams
-            )]));
-
-            // Find all public data client shares and compile into raw data
-            const clientToPublic: Map<Client, RawObject> = new Map();
-            this.all.clients.forEach(c => clientToPublic.set(c, c.self.getRawPublic(this.all)));
-
-            for(const team of client.teams) {
-                const publicData = client.self.getRawPublic(team);
-
-                for(const c of team.clients) {
-                    if(c === client) continue;
-
-                    clientToPublic.set(c, MergeRawObjects(
-                        clientToPublic.get(c)!,
-                        publicData
-                    ));
-                }
-            }
-
-            for(const c of this.all.clients) {
-                if(c === client) continue;
-                
-                this.addOperation(c, new ConnectionUpdate(
-                    client.uuid,
-                    clientToPublic.get(c)!
-                ));
-            }
+            const client = this.connectionSetup(ws);
 
             ws.on('message', (str: string) => {
                 const msg = Message.Parse(str);
@@ -136,15 +80,15 @@ class MultyxServer {
                     this.events.get(Events.Custom)?.forEach(cb => cb.call(client, msg.data));
                     this.parseCustomMessage(msg, client);
                 }
-
+    
                 this.events.get(Events.Any)?.forEach(cb => cb.call(client));
             });
-
+    
             ws.on('close', () => {
                 this.events.get(Events.Disconnect)?.forEach(event => event.call(client));
-
+    
                 for(const t of client.teams) t.removeClient(client);
-
+    
                 for(const c of this.all.clients) {
                     if(c === client) continue;
                     
@@ -161,33 +105,101 @@ class MultyxServer {
         );
     }
 
-    public on(event: EventName, callback: (client: Client, data: any) => any): Event {
-        if(!this.events.has(event)) this.events.set(event, []);
-
-        const eventObj = new Event(event, callback as ((client: Client | undefined) => any));
-
-        this.events.get(event)!.push(eventObj);
-        return eventObj;
-    }
-
     /**
-     * Apply a function to all connected clients, and all clients that will ever be connected
-     * @param callback 
+     * Setup connection between server and client, including
+     * sending client all initialization information, and relaying
+     * public information to all other clients
+     * 
+     * @param ws Websocket object from connection
+     * @returns Client object
      */
-    public forAll(callback: (client: Client) => void) {
-        for(const client of this.all.clients) {
-            callback(client);
-        }
-
-        this.on(Events.Connect, callback as ((client: Client | undefined) => void));
-    }
-
-    private initializeClient(ws: WebSocket): Client {
+    private connectionSetup(ws: WebSocket): Client {
         const client = new Client(ws, this);
         
         this.events.get(Events.Connect)?.forEach(event => event.call(client));
 
         MultyxClients.addClient(client);
+
+        this.updates.set(client, []);
+
+        // Find all public data shared to client and compile into raw data
+        const publicToClient: Map<Client, RawObject> = new Map();
+        publicToClient.set(client, client.self[Value]);
+        
+        for(const team of client.teams) {
+            const clients = team.getRawPublic();
+
+            for(const [c, curr] of clients) {
+                if(c === client) continue;
+
+                const prev = publicToClient.get(c);
+                if(!prev) {
+                    publicToClient.set(c, curr);
+                    continue;
+                }
+                publicToClient.set(c, MergeRawObjects(curr, prev));
+            }
+        }
+
+        const rawClients = MapToObject(publicToClient, c => c.uuid);
+
+        const teams: RawObject = {};
+        for(const team of client.teams) {
+            teams[team.uuid] = team.self.raw;
+        }
+
+        // Build table of constraints for client-side prediction
+        const buildConstraintTable = (item: MultyxItem) => {
+            if(item instanceof MultyxValue) {
+                const obj: RawObject = {};
+                for(const [cname, { args }] of item.constraints.entries()) {
+                    obj[cname] = args;
+                }
+                return obj;
+            }
+
+            const table: RawObject = {};
+            for(const prop in item.data) {
+                table[prop] = buildConstraintTable(item.data[prop]);
+            }
+            return table;
+        }
+
+        // Only time InitializeUpdate is called to setup client
+        ws.send(Message.Native([new InitializeUpdate(
+            client[Parse](),
+            buildConstraintTable(client.self),
+            rawClients,
+            teams
+        )]));
+
+        // Find all public data client shares and compile into raw data
+        const clientToPublic: Map<Client, RawObject> = new Map();
+        this.all.clients.forEach(c => clientToPublic.set(c, c.self.getRawPublic(this.all)));
+
+        for(const team of client.teams) {
+            const publicData = client.self.getRawPublic(team);
+
+            for(const c of team.clients) {
+                if(c === client) continue;
+
+                clientToPublic.set(c, MergeRawObjects(
+                    clientToPublic.get(c)!,
+                    publicData
+                ));
+            }
+        }
+
+        // Send connection update and public data to all other clients
+        for(const c of this.all.clients) {
+            if(c === client) continue;
+            
+            this.addOperation(c, new ConnectionUpdate(
+                client.uuid,
+                clientToPublic.get(c)!
+            ));
+        }
+
         return client;
     }
 
@@ -203,7 +215,7 @@ class MultyxServer {
                 break;
             }
             case 'input': {
-                client.controller.__parseUpdate(msg);
+                client.controller[Parse](msg);
                 this.events.get(Events.Input)?.forEach(event => event.call(client, client.controller.state));
                 break;
             }
@@ -262,26 +274,6 @@ class MultyxServer {
         }
     }
 
-    editUpdate(value: MultyxItem, clients: Set<Client>) {
-        const update = new EditUpdate(
-            value.agent instanceof MultyxTeam,
-            value.propertyPath,
-            value instanceof MultyxValue ? value.value : value.raw
-        );
-        
-        for(const client of clients) {
-            this.addOperation(client, update);
-        }
-    }
-
-    publicUpdate(value: MultyxValue, clients: Set<Client>, visible: boolean) {
-        const update = new PublicUpdate(
-            visible,
-            value.propertyPath,
-            value.value
-        );
-    }
-
     private addOperation(client: Client, update: Update) {
         const updates = this.updates.get(client) ?? [];
         updates.push(update);
@@ -309,5 +301,51 @@ class MultyxServer {
         }
         
         this.events.get(Events.PostUpdate)?.forEach(event => event.call());
+    }
+
+    /**
+     * @param value 
+     * @param clients 
+     */
+    [Edit](value: MultyxItem, clients: Set<Client>) {
+        const update = new EditUpdate(
+            value.agent instanceof MultyxTeam,
+            value.propertyPath,
+            value instanceof MultyxValue ? value.value : value[Value]
+        );
+        
+        for(const client of clients) {
+            this.addOperation(client, update);
+        }
+    }
+
+    
+    /* All public methods for user use */
+
+    /**
+     * Create an event listener for any MultyxEvents
+     * @param event 
+     * @param callback 
+     * @returns 
+     */
+    on(event: EventName, callback: (client: Client, data: any) => any): Event {
+        if(!this.events.has(event)) this.events.set(event, []);
+
+        const eventObj = new Event(event, callback as ((client: Client | undefined) => any));
+
+        this.events.get(event)!.push(eventObj);
+        return eventObj;
+    }
+
+    /**
+     * Apply a function to all connected clients, and all clients that will ever be connected
+     * @param callback 
+     */
+    forAll(callback: (client: Client) => void) {
+        for(const client of this.all.clients) {
+            callback(client);
+        }
+
+        this.on(Events.Connect, callback as ((client: Client | undefined) => void));
     }
 }

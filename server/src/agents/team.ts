@@ -4,6 +4,7 @@ import { RawObject } from "../types";
 import { Client } from "./client";
 
 import { MultyxValue, MultyxObject } from "../items";
+import { AddUUID } from "../utils/uuid";
 
 export class MultyxTeam {
     private _clients: Set<Client>;
@@ -25,6 +26,8 @@ export class MultyxTeam {
         this.public = new Set();
         this.self = new MultyxObject({}, this);
         this.uuid = name;
+        
+        if(!AddUUID(name)) throw new Error("MultyxTeam name must be unique");
 
         if(!clients) {
             this._clients = new Set();
@@ -83,17 +86,13 @@ export class MultyxTeam {
 
     addPublic(value: MultyxValue) {
         this.public.add(value);
-
-        // Tell server to relay update to all clients
-        this.server.publicUpdate(value, this._clients, true);
+        value.addPublic(this);
         return true;
     }
 
     removePublic(value: MultyxValue) {
         const exists = this.public.delete(value);
-
-        if(exists) this.server.publicUpdate(value, this._clients, false);
-        
+        value.removePublic(this)
         return exists;
     }
 

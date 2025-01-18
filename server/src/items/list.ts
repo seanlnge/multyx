@@ -14,14 +14,15 @@ export default class MultyxList extends MultyxObject {
     allowItemAddition: boolean;
     allowItemDeletion: boolean;
 
-    private _raw: any[];
-    public get raw(): any[] {
-        return this._raw;
-    }
-    private set raw(value: any[]) {
-        this._raw = value;
-    }
+    raw: any[];
 
+    /**
+     * Create a MultyxItem representation of an array
+     * @param list Array to turn into MultyxObject
+     * @param agent Client or MultyxTeam hosting this MultyxItem
+     * @param propertyPath Entire path from agent to this MultyxList
+     * @returns MultyxList
+     */
     constructor(list: (RawObject | Value | MultyxObject)[], agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
         super({}, agent, propertyPath);
 
@@ -34,19 +35,24 @@ export default class MultyxList extends MultyxObject {
         this.push(...list);
 
         return new Proxy(this, {
-            // Allow clients to access properties in MultyxObject without using get
+            // Allow users to access properties in MultyxObject without using get
             get: (o, p: string) => {
                 if(p in o) return o[p];
                 return o.get(p) as MultyxItem<any>; 
             },
             
-            // Allow clients to set MultyxObject properties by client.self.a = b
+            // Allow users to set MultyxObject properties by client.self.a = b
             set: (o, p: string, v) => {
                 if(p in o) {
                     o[p] = v;
                     return true;
                 }
                 return !!o.set(p, v);
+            },
+            
+            // Allow users to delete MultyxObject properties by delete client.self.a;
+            deleteProperty(o, p: string) {
+                return !!o.delete(p);
             }
         });
     }

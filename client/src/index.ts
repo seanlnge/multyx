@@ -85,6 +85,7 @@ class Multyx {
     }
 
     private parseNativeEvent(msg: Message) {
+        console.log(msg);
         for(const update of msg.data) {
             switch(update.instruction) {
 
