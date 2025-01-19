@@ -3,7 +3,7 @@ import type { MultyxTeam } from "../agents/team";
 
 import MultyxValue from './value';
 import MultyxItemRouter from './router';
-import { MultyxItem } from ".";
+import { MultyxItem, MultyxUndefined } from ".";
 
 import { RawObject } from "../types";
 import { Edit, Get, Value } from "../utils/native";
@@ -139,7 +139,7 @@ export default class MultyxObject {
      * @example
      * ```js
      * // Server
-     * multyx.on('reset', client => client.player.setValue('x', 5));
+     * multyx.on('reset', client => client.player.set('x', 5));
      * 
      * // Client
      * client.player.x = 20 * Math.random();
@@ -150,23 +150,23 @@ export default class MultyxObject {
     set(property: string, value: any): MultyxObject | false {
         // If just a normal value change, no need to update shape, can return
         if(typeof value !== "object" && this.data[property] instanceof MultyxValue) {
-            const attempt = (this.data[property] as MultyxValue).set(value);
-            return attempt ? this : false;
+            return (this.data[property] as MultyxValue).set(value) ? this : false;
         }
 
         if(this.shapeDisabled) return false;
         const propertyPath = [...this.propertyPath, property];
 
         if(value instanceof MultyxObject) {
+            value[Edit](propertyPath);
             this.data[property] = value;
-            value.editPropertyPath(propertyPath);
         } else {
-            this.data[property] = new (MultyxItemRouter(value))(
-                value,
+            const trueValue = value instanceof MultyxValue ? value.value : value;
+
+            this.data[property] = new (MultyxItemRouter(trueValue))(
+                trueValue,
                 this.agent,
                 propertyPath
             );
-
         }
 
         return this;
@@ -181,10 +181,11 @@ export default class MultyxObject {
         if(this.shapeDisabled) return false;
         delete this.data[property];
 
-        // Only time that an EditUpdate gets created by MultyxObject
-        // Otherwise, MultyxValue is exclusively the creator of EditUpdate
-        const clients = new Set(this.agent.clients);
-        this.agent.server[Edit](this, clients);
+        new MultyxUndefined(
+            this.agent,
+            [...this.propertyPath, property]
+        );
+
         return this;
     }
 
@@ -192,19 +193,9 @@ export default class MultyxObject {
      * Turn MultyxObject back into regular object
      * @returns RawObject mirroring shape and values of MultyxObject
      */
-    [Value]() {
+    get value() {
         const parsed: RawObject = {};
-        
-        for(const prop in this.data) {
-            const m = this.data[prop];
-
-            if(m instanceof MultyxValue) {
-                parsed[prop] = m.value;
-            } else {
-                parsed[prop] = m[Value];
-            }
-        }
-
+        for(const p in this.data) parsed[p] = this.data[p].value;
         return parsed;
     }
 

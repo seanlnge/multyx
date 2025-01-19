@@ -2,7 +2,7 @@ import { MultyxServer } from "..";
 import Message from "../message";
 import { RawObject } from "../types";
 import { AddUUID } from "../utils/uuid";
-import { Get } from "../utils/native";
+import { Edit, Get, Value } from "../utils/native";
 import { Client } from "./client";
 import { MultyxValue, MultyxObject } from "../items";
 
@@ -28,8 +28,10 @@ export class MultyxTeam {
         
         if(!AddUUID(name)) throw new Error("MultyxTeam name must be unique");
 
+        // Team comes pre-initialized with object of { [client.uuid]: client.self }
         this.self = new MultyxObject({}, this);
-        
+        this.self.clients = [];
+
         if(!clients) {
             this._clients = new Set();
             return;
@@ -37,11 +39,13 @@ export class MultyxTeam {
         
         this._clients = new Set();
         clients.forEach(c => {
+            this.self.clients.push(c.uuid);
             c.teams.add(this);
             this._clients.add(c);
         });
 
         this.server = this.clients.values().next().value?.server ?? this.server;
+        this.server[Edit](this.self, this._clients);
     }
 
     /**
@@ -71,9 +75,13 @@ export class MultyxTeam {
      * @param client Client object to add to team
      */
     addClient(client: Client) {
-        this._clients.add(client);
         if(!this.server) this.server = client.server;
+        this.self.clients.push(client.uuid);
+
+        this._clients.add(client);
         client.teams.add(this);
+
+        this.server[Edit](this.self, new Set([client]));
     }
 
     /**
@@ -81,6 +89,11 @@ export class MultyxTeam {
      * @param client Client object to remove from team
      */
     removeClient(client: Client) {
+        const index = this.self.clients.findIndex((c: string) => c == client.uuid);
+        if(index == -1) return;
+
+        this.self.clients.splice(index, 1);
+
         this._clients.delete(client);
         client.teams.delete(this);
     }

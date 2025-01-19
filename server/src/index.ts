@@ -15,6 +15,7 @@ import {
     MultyxItem,
     MultyxList,
     MultyxObject,
+    MultyxUndefined,
     MultyxValue
 } from './items';
 
@@ -124,7 +125,7 @@ class MultyxServer {
 
         // Find all public data shared to client and compile into raw data
         const publicToClient: Map<Client, RawObject> = new Map();
-        publicToClient.set(client, client.self[Value]);
+        publicToClient.set(client, client.self.value);
         
         for(const team of client.teams) {
             const clients = team[Get]();
@@ -145,7 +146,7 @@ class MultyxServer {
 
         const teams: RawObject = {};
         for(const team of client.teams) {
-            teams[team.uuid] = team.self[Value]();
+            teams[team.uuid] = team.self.value;
         }
 
         // Build table of constraints for client-side prediction
@@ -308,11 +309,11 @@ class MultyxServer {
      * @param item MultyxItem to relay state of
      * @param clients Set of all clients to relay event to
      */
-    [Edit](item: MultyxItem, clients: Set<Client>) {
+    [Edit](item: MultyxItem | MultyxUndefined, clients: Set<Client>) {
         const update = new EditUpdate(
             item.agent instanceof MultyxTeam,
             item.propertyPath,
-            item instanceof MultyxValue ? item.value : item[Value]
+            item.value
         );
         
         for(const client of clients) {

@@ -46,7 +46,7 @@ export class Client {
             uuid: this.uuid,
             joinTime: this.joinTime,
             controller: Array.from(this.controller.listening.values()),
-            self: this.self[Value](),
+            self: this.self.value,
         }
     }
 }

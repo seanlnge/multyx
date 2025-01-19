@@ -2,10 +2,9 @@
 
 ## Priority 1
 
-Send changes in visibility of MultyxValue to all clients affected
+Let changes in which teams client is in be relayed to client
 
-Make sure client side list of all clients is MultyxClients team instead of
-individual
+Remove redundant MultyxItem edits
 
 ## Priority 2
 

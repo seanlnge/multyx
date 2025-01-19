@@ -24,9 +24,13 @@ Multyx.loop(60, () => {
     if(!Multyx.teams.players) return;
 
     ctx.clearRect(-1000, -1000, 2000, 2000);
-    console.log(Multyx.self)
-    for(const client of Object.values(Multyx.teams.players)) {
+    ctx.fillStyle = "white";
+    ctx.fillRect(-1000, -1000, 2000, 2000);
+
+    for(const uuid of Multyx.teams.players.clients) {
+        const client = Multyx.clients[uuid];
+       // console.log(client, uuid)
         ctx.fillStyle = "black";
-        ctx.fillRect(client.x-20, client.y-20, 40, 40);
+    //    / ctx.fillRect(client.x-20, client.y-20, 40, 40);
     }
 });

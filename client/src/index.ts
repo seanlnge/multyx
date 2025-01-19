@@ -28,6 +28,8 @@ class Multyx {
     Interpolate = Interpolate;
     PredictiveLerp = PredictiveLerp;
 
+    private ProxySet: Set<RawObject> = new Set();
+
     constructor() {
         this.ws = new WebSocket('ws://localhost:8080/');
         this.ping = 0;
@@ -67,7 +69,7 @@ class Multyx {
     }
 
     loop(timesPerSecond: number, callback: () => void) {
-        setInterval(callback, 1000/timesPerSecond);
+        setInterval(callback, Math.round(1000/timesPerSecond));
     }
 
     forAll(callback: (client: RawObject) => void) {
@@ -88,41 +90,15 @@ class Multyx {
         console.log(msg);
         for(const update of msg.data) {
             switch(update.instruction) {
-
                 // Initialization
                 case 'init': {
-                    this.uuid = update.client.uuid;
-                    this.joinTime = update.client.joinTime;
-                    this.self = update.client.self;
-    
-                    this.unpackConstraints(update.constraintTable);
-                    this.controller.listening = new Set(update.client.controller);
-        
-                    this.clients = update.clients;
-                    this.teams = update.teams;
-                    this.all = update.teams.all;
-                    this.setupClientProxy();
-    
-                    this.events.get(this.Start)?.forEach(c => c(update));
+                    this.initialize(update);
                     break;
                 }
 
                 // Client or team data edit
                 case 'edit': {
-                    let route: any = update.team ? this.teams : this.clients;
-                
-                    for(const p of update.path.slice(0, -1)) {
-                        if(!(p in route)) route[p] = {};
-                        route = route[p];
-                    }
-                    const prop = update.path.slice(-1)[0];
-        
-                    // Check if editable is proxied
-                    route[prop] = route[isProxy]
-                        ? new EditWrapper(update.value)
-                        : update.value;
-                    
-                    this.events.get(this.Edit)?.forEach(c => c(update));
+                    this.parseEdit(update);
                     break;
                 }
 
@@ -133,8 +109,8 @@ class Multyx {
                     } else if(update.prop == 'uuid') {
                         this.uuid = update.data;
                     }
+                    break;
                 }
-
 
                 // Connection
                 case 'conn': {
@@ -154,9 +130,64 @@ class Multyx {
                 case 'resp': {
                     const promiseResolve = this.events.get(Symbol.for("_" + update.name))[0];
                     promiseResolve(update.response);
+                    break;
+                }
+
+                default: {
+                    console.error("Unknown native Multyx instruction");
                 }
             }
         }
+    }
+
+    private initialize(update: RawObject) {
+        this.uuid = update.client.uuid;
+        this.joinTime = update.client.joinTime;
+        this.self = update.client.self;
+
+        this.unpackConstraints(update.constraintTable);
+        this.controller.listening = new Set(update.client.controller);
+
+        this.clients = update.clients;
+        this.teams = update.teams;
+        this.all = update.teams.all;
+
+        this.self = this.applyProxy(this.self, [this.uuid]);
+        for(const team of Object.keys(this.teams)) {
+            this.teams[team] = this.applyProxy(this.teams[team], [team]);
+        }
+        
+        this.all = this.teams['all'];
+        this.clients[this.uuid] = this.self;
+
+        this.events.get(this.Start)?.forEach(c => c(update));
+    }
+
+    private parseEdit(update: RawObject) {
+        let route: any = update.team ? this.teams : this.clients;
+        let proxyObject = update.team && !(update.path[0] in this.teams);
+        console.log(update.path[0], proxyObject)
+    
+        for(const p of update.path.slice(0, -1)) {
+            if(!(p in route)) route[p] = {};
+            route = route[p];
+        }
+        const prop = update.path.slice(-1)[0];
+
+        // Check if editable is proxied
+        route[prop] = route[isProxy]
+            ? new EditWrapper(update.value)
+            : update.value;
+
+        // Client joined a new team
+        if(proxyObject) {
+            this.teams[update.path[0]] = this.applyProxy(
+                this.teams[update.path[0]],
+                [update.path[0]]
+            );
+        }
+        
+        this.events.get(this.Edit)?.forEach(c => c(update));
     }
 
     private unpackConstraints(packedConstraints) {
@@ -178,49 +209,48 @@ class Multyx {
         recurse(this.self, packedConstraints, this.constraintTable);
     }
 
-    private setupClientProxy() {
-        const proxySet = new WeakSet();
-        const multyx = this;
+    private applyProxy(object: RawObject, path: string[]) {
+        let constraintList = this.constraintTable;
+        for(const prop of path) {
+            if(!(prop in constraintList)) break;
+            constraintList = constraintList[prop] as RawObject;
+        }
 
-        function recurse(object, path=[]) {
-            let constraintList = multyx.constraintTable;
-            for(const prop of path) {
-                if(!(prop in constraintList)) break;
-                constraintList = constraintList[prop] as RawObject;
+        const proxyGetter = (_, prop) => {
+            // Proxy checker
+            if(prop === isProxy) return true;
+
+            // Nest proxy if getting object for first time
+            if(typeof object[prop] == 'object' && !this.ProxySet.has(object[prop])) {
+                object[prop] = this.applyProxy(object[prop], [...path, prop]);
+                this.ProxySet.add(object[prop]);
             }
 
-            const proxyGetter = (_, prop) => {
-                // Proxy checker
-                if(prop === isProxy) return true;
+            // Now getting a value or an already proxied object
+            return object[prop];
+        };
 
-                // Nest proxy if getting object for first time
-                if(typeof object[prop] == 'object' && !proxySet.has(object[prop])) {
-                    object[prop] = recurse(object[prop], [...path, prop]);
-                    proxySet.add(object[prop]);
-                }
+        const proxySetter = (_, prop, value) => {
+            if(value === object[prop]) return true;
 
-                // Now getting a value or an already proxied object
-                return object[prop];
-            };
+            // So that native operations can edit without sending redundant requests
+            if(value instanceof EditWrapper) {
+                if(value.data === undefined) return delete object[prop];
+                object[prop] = value.data;
+                return true;
+            }
 
-            const proxySetter = (_, prop, value) => {
-                if(value === object[prop]) return true;
+            // Operations not editing values of list can stay
+            if(Array.isArray(object) && Number.isNaN(parseInt(prop))) {
+                object[prop] = value;
+                return true;
+            }
 
-                // So that native operations can edit without sending redundant requests
-                if(value instanceof EditWrapper) {
-                    if(value.data === undefined) return delete object[prop];
-                    object[prop] = value.data;
-                    return true;
-                }
-
-                // Operations not editing values of list can stay
-                if(Array.isArray(object) && Number.isNaN(parseInt(prop))) {
-                    object[prop] = value;
-                    return true;
-                }
-
-                // Constrain value according to constraint list
-                let nv = value;
+            // Constrain value according to constraint list
+            let nv = value;
+            if(value === undefined) {
+                delete object[prop];
+            } else {
                 if(prop in constraintList) {
                     for(const func of Object.values(constraintList[prop])) nv = func(nv);
                 }
@@ -229,39 +259,31 @@ class Multyx {
                 if(object[prop] === nv) return true;
                 object[prop] = nv;
                 if(nv === undefined) delete object[prop];
-
-                multyx.ws.send(Message.Native({
-                    instruction: 'edit',
-                    path: [...path, prop],
-                    value: nv
-                }));
-                return true;
             }
 
-            const proxyDeleter = (_, prop: string) => {
-                delete object[prop];
-                multyx.ws.send(Message.Native({
-                    instruction: 'edit',
-                    path: [...path, prop],
-                    value: undefined
-                }));
-                return true;
-            }
-
-            return new Proxy(object, {
-                get: proxyGetter,
-                set: proxySetter,
-                deleteProperty: proxyDeleter,
-            });
+            this.ws.send(Message.Native({
+                instruction: 'edit',
+                path: [...path, prop],
+                value: nv
+            }));
+            return true;
         }
 
-        this.self = recurse(this.self, [this.uuid]);
-        for(const team of Object.keys(this.teams)) {
-            this.teams[team] = recurse(this.teams[team], [team]);
+        const proxyDeleter = (_, prop: string) => {
+            delete object[prop];
+            this.ws.send(Message.Native({
+                instruction: 'edit',
+                path: [...path, prop],
+                value: undefined
+            }));
+            return true;
         }
-        
-        this.all = this.teams[this.all.uuid];
-        this.clients[this.uuid] = this.self;
+
+        return new Proxy(object, {
+            get: proxyGetter,
+            set: proxySetter,
+            deleteProperty: proxyDeleter,
+        });
     }
 }
 
