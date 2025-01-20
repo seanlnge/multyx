@@ -31,20 +31,16 @@ multyx.on("join", (client, name) => {
     client.self.y.min(-1000).max(1000);
     return true;
 });
-/* multyx.on(Events.Input, ({ controller, self, uuid }) => {
-    if(!controller.state.mouse.down) return;
-
-    const direction = Math.atan2(
-        controller.state.mouse.y - self.y.value,
-        controller.state.mouse.x - self.x.value
-    );
-
-    if(!activePlayers.getClient(uuid)) return;
-
-    const speed = self.bulletSpeed.value;
+multyx.on(src_1.Events.Input, ({ controller, self, uuid }) => {
+    if (!controller.state.mouse.down)
+        return;
+    const direction = Math.atan2(controller.state.mouse.y - self.y, controller.state.mouse.x - self.x);
+    if (!activePlayers.getClient(uuid))
+        return;
+    const speed = self.bulletSpeed;
     const speedX = Math.cos(direction) * speed;
     const speedY = Math.sin(direction) * speed;
-
+    console.log(self.x, self.y, uuid, self.bulletDamage, speedX, speedY);
     activePlayers.self.bullets.push({
         x: self.x,
         y: self.y,
@@ -52,7 +48,7 @@ multyx.on("join", (client, name) => {
         damage: self.bulletDamage,
         speedX, speedY,
     });
-}); */
+});
 multyx.on(src_1.Events.Update, () => {
     for (const { self, controller } of activePlayers.clients) {
         if (controller.state.keys["w"])

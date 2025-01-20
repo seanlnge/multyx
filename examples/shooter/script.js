@@ -29,8 +29,8 @@ Multyx.loop(60, () => {
 
     for(const uuid of Multyx.teams.players.clients) {
         const client = Multyx.clients[uuid];
-       // console.log(client, uuid)
+
         ctx.fillStyle = "black";
-    //    / ctx.fillRect(client.x-20, client.y-20, 40, 40);
+        //ctx.fillRect(client.x-20, client.y-20, 40, 40);
     }
 });

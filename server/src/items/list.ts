@@ -23,7 +23,7 @@ export default class MultyxList extends MultyxObject {
      * @param propertyPath Entire path from agent to this MultyxList
      * @returns MultyxList
      */
-    constructor(list: (RawObject | Value | MultyxObject)[], agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
+    constructor(list: (RawObject | Value | MultyxItem)[], agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
         super({}, agent, propertyPath);
 
         this.length = 0;

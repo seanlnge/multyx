@@ -1,5 +1,5 @@
 import type { Client } from "../agents/client";
-import type { MultyxTeam } from "../agents/team";
+import { MultyxTeam } from "../agents/team";
 
 import MultyxValue from './value';
 import MultyxItemRouter from './router';
@@ -26,19 +26,26 @@ export default class MultyxObject {
      * @param propertyPath Entire path from agent to this MultyxObject
      * @returns MultyxObject
      */
-    constructor(object: RawObject, agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
+    constructor(object: RawObject | MultyxObject, agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
         this.data = {};
         this.propertyPath = propertyPath;
         this.agent = agent;
         this.disabled = false;
         this.shapeDisabled = false;
 
+        if(object instanceof MultyxObject) object = object.value;
+
         // Mirror object to be made of strictly MultyxItems
         for(const prop in object) {
+            let child = object[prop];
+            if(child instanceof MultyxObject || child instanceof MultyxValue) {
+                child = child.value;
+            }
+
             // MultyxItemRouter used to circumvent circular dependencies
             // Check /items/router.ts for extra information
-            this.data[prop] = new (MultyxItemRouter(object[prop]))(
-                object[prop],
+            this.data[prop] = new (MultyxItemRouter(child))(
+                child,
                 agent,
                 [...propertyPath, prop]
             );
@@ -161,7 +168,7 @@ export default class MultyxObject {
             this.data[property] = value;
         } else {
             const trueValue = value instanceof MultyxValue ? value.value : value;
-
+            
             this.data[property] = new (MultyxItemRouter(trueValue))(
                 trueValue,
                 this.agent,
