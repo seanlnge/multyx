@@ -1,19 +1,20 @@
-import type { Client } from "../agents/client";
-import { MultyxTeam } from "../agents/team";
-
 import MultyxValue from './value';
 import MultyxItemRouter from './router';
 import { MultyxItem, MultyxUndefined } from ".";
 
 import { RawObject } from "../types";
-import { Edit, Get, Value } from "../utils/native";
+import { Edit, Get, Value, EditWrapper } from '../utils/native';
+
+import type { Agent, MultyxTeam } from "../agents";
 
 export default class MultyxObject {
     data: { [key: string]: MultyxItem };
     propertyPath: string[];
-    agent: Client | MultyxTeam;
+    agent: Agent;
     disabled: boolean;
     shapeDisabled: boolean;
+
+    private publicTeams: Set<MultyxTeam>;
 
     // spent 2 hours tryna make this [key: Exclude<string, keyof MultyxObject>]: MultyxItem<any>
     // fuck you ryan cavanaugh https://github.com/microsoft/TypeScript/issues/17867
@@ -26,12 +27,13 @@ export default class MultyxObject {
      * @param propertyPath Entire path from agent to this MultyxObject
      * @returns MultyxObject
      */
-    constructor(object: RawObject | MultyxObject, agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
+    constructor(object: RawObject | MultyxObject, agent: Agent, propertyPath: string[] = [agent.uuid]) {
         this.data = {};
         this.propertyPath = propertyPath;
         this.agent = agent;
         this.disabled = false;
         this.shapeDisabled = false;
+        this.publicTeams = new Set();
 
         if(object instanceof MultyxObject) object = object.value;
 
@@ -117,13 +119,31 @@ export default class MultyxObject {
         this.shapeDisabled = false;
     }
 
+    /**
+     * Publicize MultyxValue from specific MultyxTeam
+     * @param team MultyxTeam to share MultyxValue to
+     * @returns Same MultyxValue
+     */
     addPublic(team: MultyxTeam) {
+        if(this.publicTeams.has(team)) return this;
+
+        this.publicTeams.add(team);
         for(const prop in this.data) this.data[prop].addPublic(team);
+
         return this;
     }
 
+    /**
+     * Privitize MultyxValue from specific MultyxTeam
+     * @param team MultyxTeam to hide MultyxValue from
+     * @returns Same MultyxValue
+     */
     removePublic(team: MultyxTeam) {
+        if(!this.publicTeams.has(team)) return this;
+
+        this.publicTeams.delete(team);
         for(const prop in this.data) this.data[prop].removePublic(team);
+
         return this;
     }
 
@@ -155,25 +175,38 @@ export default class MultyxObject {
      * ```
      */
     set(property: string, value: any): MultyxObject | false {
+        if(value instanceof EditWrapper) return false;
+        
         // If just a normal value change, no need to update shape, can return
         if(typeof value !== "object" && this.data[property] instanceof MultyxValue) {
             return (this.data[property] as MultyxValue).set(value) ? this : false;
         }
 
-        if(this.shapeDisabled) return false;
         const propertyPath = [...this.propertyPath, property];
 
+        // If value is a MultyxObject, don't create new object, change path
         if(value instanceof MultyxObject) {
+            if(value instanceof EditWrapper && this.shapeDisabled) return false;
+
             value[Edit](propertyPath);
             this.data[property] = value;
         } else {
-            const trueValue = value instanceof MultyxValue ? value.value : value;
-            
-            this.data[property] = new (MultyxItemRouter(trueValue))(
-                trueValue,
+            if(value instanceof MultyxValue || value instanceof EditWrapper) {
+                value = value.value;
+            }
+
+            this.data[property] = new (MultyxItemRouter(value))(
+                value,
                 this.agent,
                 propertyPath
             );
+        }
+
+        this.data[property].disabled = this.disabled;
+
+        // Propogate publicAgents to clients
+        for(const team of this.publicTeams) {
+            this.data[property].addPublic(team);
         }
 
         return this;
@@ -208,7 +241,7 @@ export default class MultyxObject {
 
     /**
      * Get all properties in object publicized to specific team
-     * @param team Team get public data for
+     * @param team MultyxTeam to get public data for
      * @returns Raw object
      */
     [Get](team: MultyxTeam): RawObject {
@@ -237,6 +270,10 @@ export default class MultyxObject {
         for(const prop in this.data) {
             this.data[prop][Edit]([...newPath, prop]);
         }
-        const clients = new Set(this.agent.clients);
     }
+
+    /* Native methods to allow MultyxObject to be treated as primitive */
+    toString = () => this.value.toString();
+    valueOf = () => this.value;
+    [Symbol.toPrimitive] = () => this.value;
 }

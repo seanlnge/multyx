@@ -1,11 +1,11 @@
-import type { Client } from "../agents/client";
-import type { MultyxTeam } from "../agents/team";
+import type { Agent } from "../agents";
 
 import { RawObject, Value } from "../types";
 
 import MultyxValue from "./value";
 import MultyxObject from "./object";
 import { MultyxItem } from ".";
+import { EditWrapper } from "../utils/native";
 
 export default class MultyxList extends MultyxObject {
     length: number;
@@ -14,8 +14,6 @@ export default class MultyxList extends MultyxObject {
     allowItemAddition: boolean;
     allowItemDeletion: boolean;
 
-    raw: MultyxItem[];
-
     /**
      * Create a MultyxItem representation of an array
      * @param list Array to turn into MultyxObject
@@ -23,7 +21,7 @@ export default class MultyxList extends MultyxObject {
      * @param propertyPath Entire path from agent to this MultyxList
      * @returns MultyxList
      */
-    constructor(list: (RawObject | Value | MultyxItem)[], agent: Client | MultyxTeam, propertyPath: string[] = [agent.uuid]) {
+    constructor(list: (RawObject | Value | MultyxItem)[], agent: Agent, propertyPath: string[] = [agent.uuid]) {
         super({}, agent, propertyPath);
 
         this.length = 0;
@@ -31,7 +29,6 @@ export default class MultyxList extends MultyxObject {
         this.allowItemChange = true;
         this.allowItemDeletion = true;
 
-        this.raw = [];
         this.push(...list);
 
         return new Proxy(this, {
@@ -59,7 +56,7 @@ export default class MultyxList extends MultyxObject {
 
     get value() {
         const parsed: any[] = [];
-        for(let i=0; i<this.length; i++) parsed[i] = this.raw[i].value;
+        for(let i=0; i<this.length; i++) parsed[i] = this.data[i].value;
         return parsed;
     }
 
@@ -85,32 +82,33 @@ export default class MultyxList extends MultyxObject {
      * ```
      */
     set(index: number | string, value: any): this | false {
-        if(this.disabled) return false;
-        if(this.shapeDisabled) return false;
-
         if(typeof index == 'string') index = parseInt(index);
         if(!Number.isInteger(index)) return false;
+
+        if(value instanceof EditWrapper) {
+            if(this.disabled) return false;
+            if(this.shapeDisabled) return false;
+
+            if(value.value === undefined && !this.allowItemDeletion) return false;
+            if(!this.allowItemAddition && index >= this.length) return false;
+            if(!this.allowItemChange && index < this.length) return false;
+            value = value.value;
+        }
+
         
         // Deleting an element by setting MultyxList[index] = undefined
         if(value === undefined) {
-            if(!this.allowItemDeletion) return false;
             super.delete(index.toString());
-
-            this.length = this.reduce((a, c, i) => c !== undefined ? i : a, 0) + 1;
-            this.raw.splice(this.length);
-
+            this.length = this.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
             return this;
         }
-
-        if(!this.allowItemAddition && index >= this.length) return false;
-        if(!this.allowItemChange && index < this.length) return false;
 
         // See if MultyxItem allows setting value
         const result = super.set(index.toString(), value);
         if(result) {
             this.length = Math.max(index+1, this.length);
             const item = this.get(index);
-            this.raw[index] = item;
+            this.data[index] = item;
         }
         return result ? this : false;
     }
@@ -122,11 +120,11 @@ export default class MultyxList extends MultyxObject {
         return this.length;
     }
 
-    pop(): MultyxObject | MultyxValue | null {
+    pop(): MultyxItem | null {
         if(this.disabled) return null;
         if(this.shapeDisabled) return null;
         this.length--;
-        this.raw.pop();
+
         const result = this.get(this.length);
         this.delete(this.length.toString());
         return result;
@@ -206,11 +204,9 @@ export default class MultyxList extends MultyxObject {
             const item = this.get(i);
 
             if(item instanceof MultyxList) {
-                this.set(i, item.raw[0]);
-                for(const child of item.raw.slice(1)) {
-                    this.length++;
+                for(let j=0; j<item.length; j++) {
                     i++;
-                    this.set(i, child);
+                    this.set(i, item[j]);
                 }
             }
         }
@@ -286,4 +282,9 @@ export default class MultyxList extends MultyxObject {
     keys(): number[] {
         return Array(this.length).fill(0).map((_, i) => i);
     }
+    
+    /* Native methods to allow MultyxList to be treated as primitive */
+    toString = () => this.value.toString();
+    valueOf = () => this.value;
+    [Symbol.toPrimitive] = () => this.value;
 }

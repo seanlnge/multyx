@@ -8,8 +8,14 @@ import { MapToObject, MergeRawObjects } from './utils/objects';
 
 import Message from './message';
 
-import { Client, Input, Controller, ControllerState } from './agents/client';
-import { MultyxClients, MultyxTeam } from './agents/team';
+import {
+    Client,
+    Input,
+    Controller,
+    ControllerState,
+    MultyxClients,
+    MultyxTeam
+} from './agents/index';
 
 import {
     MultyxItem,
@@ -29,7 +35,7 @@ import {
 } from './update';
 
 import { Event, EventName, Events } from './event';
-import { Edit, Get, Parse, Self, Value } from './utils/native';
+import { Edit, Get, Parse, Self, EditWrapper } from './utils/native';
 
 
 export {
@@ -246,7 +252,7 @@ class MultyxServer {
         }
 
         // Set value and verify completion
-        const valid = obj.set(prop, msg.data.value);
+        const valid = obj.disabled ? false : obj.set(prop, new EditWrapper(msg.data.value));
 
         // Setting object adds an editUpdate to client update list, this removes the redundancy
         if(valid) {

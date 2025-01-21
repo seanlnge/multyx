@@ -2,6 +2,8 @@
 
 ## Priority 1
 
+Fix client side array length on MultyxList element delete
+
 Remove redundant MultyxItem edits
 
 ## Priority 2

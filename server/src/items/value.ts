@@ -1,15 +1,15 @@
-import type { Client } from "../agents/client";
-import type { MultyxTeam } from "../agents/team";
+import type { Agent, Client, MultyxTeam } from "../agents";
 
-import { RawObject, Value } from "../types";
-import { Edit } from "../utils/native";
+import { Value } from "../types";
+import { Edit, Send } from "../utils/native";
+import MultyxUndefined from "./undefined";
 
 export default class MultyxValue {
     value: Value;
     propertyPath: string[];
 
-    agent: Client | MultyxTeam;
-    private publicAgents: Set<Client | MultyxTeam>;
+    agent: Agent;
+    private publicAgents: Set<Agent>;
 
     disabled: boolean;
 
@@ -23,7 +23,7 @@ export default class MultyxValue {
      * @param agent Client or MultyxTeam hosting this MultyxItem
      * @param propertyPath Entire path leading from agent to root
      */
-    constructor(value: Value | MultyxValue, agent: Client | MultyxTeam, propertyPath: string[]) {
+    constructor(value: Value | MultyxValue, agent: Agent, propertyPath: string[]) {
         this.disabled = false;
         this.constraints = new Map();
         this.manualConstraints = [];
@@ -35,22 +35,6 @@ export default class MultyxValue {
         this.publicAgents.add(this.agent);
 
         this.set(value);
-    }
-
-    /**
-     * Send an EditUpdate to all public agents
-     */
-    private relayChanges() {
-        // Get all clients informed of this change
-        const clients = new Set<Client>();
-        for(const team of this.publicAgents) {
-            for(const client of team.clients) {
-                clients.add(client);
-            }
-        }
-
-        // Tell server to relay update to all clients
-        this.agent.server[Edit](this, clients);
     }
 
     // Only proper way to set value of MultyxValue to ensure client sync
@@ -73,13 +57,37 @@ export default class MultyxValue {
         if(this.bannedValues.has(value)) return false;
 
         this.value = value;
-        this.relayChanges();
+        this[Send]();
         return true;
     }
 
+    /**
+     * Send an EditUpdate
+     * @param agent Agent to send EditUpdate to, if undefined, send to all public agents
+     */
+    [Send](agent?: Agent) {
+        const clients = new Set<Client>();
+        
+        // Get all clients informed of this change
+        if(agent) {
+            for(const c of agent.clients) clients.add(c);
+        } else {
+            for(const a of this.publicAgents) {
+                for(const c of a.clients) clients.add(c);
+            }
+        }
+
+        // Tell server to relay update to all clients
+        this.agent.server[Edit](this, clients);
+    }
+
+    /**
+     * Edit the property path
+     * @param newPath New property path to set value at
+     */
     [Edit](newPath: string[]) {
         this.propertyPath = newPath;
-        this.relayChanges();        
+        this[Send]();        
     }
 
     /**
@@ -156,9 +164,13 @@ export default class MultyxValue {
      * @returns Same MultyxValue
      */
     addPublic(team: MultyxTeam) {
+        if(this.publicAgents.has(team)) return this;
+
         this.publicAgents.add(team);
         team.addPublic(this);
-        this.relayChanges();
+        
+        this[Send](team);
+
         return this;
     }
 
@@ -168,11 +180,22 @@ export default class MultyxValue {
      * @returns Same MultyxValue
      */
     removePublic(team: MultyxTeam) {
+        if(!this.publicAgents.has(team)) return this;
+
         this.publicAgents.delete(team);
         team.removePublic(this);
+
+        // Send an EditUpdate clearing property from clients
+        new MultyxUndefined(team, this.propertyPath);
+
         return this;
     }
 
+    /**
+     * Check if MultyxValue is visible to specific MultyxTeam
+     * @param team MultyxTeam to check for visibility from
+     * @returns Boolean, true if MultyxValue is visible to team, false otherwise
+     */
     isPublic(team: MultyxTeam): boolean {
         return this.publicAgents.has(team);
     }

@@ -11,3 +11,15 @@ export const Value = Symbol("value");
 export const Edit = Symbol("edit");
 export const Send = Symbol("send");
 export const Self = Symbol("self");
+
+export class EditWrapper {
+    value: any;
+
+    /**
+     * Used when client is editing value
+     * @param value Value to set
+     */
+    constructor(value: any) {
+        this.value = value;
+    }
+}

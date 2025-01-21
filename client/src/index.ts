@@ -166,16 +166,19 @@ class Multyx {
         let route: any = update.team ? this.teams : this.clients;
         let proxyObject = update.team && !(update.path[0] in this.teams);
     
+        // Loop through path to get to object being edited
         for(const p of update.path.slice(0, -1)) {
-            if(!(p in route)) route[p] = {};
+            // Create new object at path if non-existent
+            if(!(p in route)) {
+                // Use edit wrapper to avoid sending change to server
+                route[p] = route[isProxy] ? new EditWrapper({}) : {};
+            }
             route = route[p];
         }
         const prop = update.path.slice(-1)[0];
 
-        // Check if editable is proxied
-        route[prop] = route[isProxy]
-            ? new EditWrapper(update.value)
-            : update.value;
+        // Check if editable is proxied to avoid sending change to server
+        route[prop] = route[isProxy] ? new EditWrapper(update.value) : update.value;
 
         // Client joined a new team
         if(proxyObject) {
@@ -201,7 +204,6 @@ class Multyx {
                     constraints[cname] = BuildConstraint(cname, args as Value[]);
                 }
             }
-
         }
 
         recurse(this.self, packedConstraints, this.constraintTable);

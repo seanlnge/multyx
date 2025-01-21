@@ -2,11 +2,12 @@ import { MultyxServer } from "..";
 import Message from "../message";
 import { RawObject } from "../types";
 import { AddUUID } from "../utils/uuid";
-import { Edit, Get, Value } from "../utils/native";
-import { Client } from "./client";
-import { MultyxValue, MultyxObject } from "../items";
+import { Edit, Get, Send, Value } from "../utils/native";
+import { MultyxValue, MultyxObject, MultyxUndefined, MultyxItem } from "../items";
 
-export class MultyxTeam {
+import type Client from "./client";
+
+export default class MultyxTeam {
     private _clients: Set<Client>;
     private public: Set<MultyxValue>;
     self: MultyxObject;
@@ -75,11 +76,18 @@ export class MultyxTeam {
      * @param client Client object to add to team
      */
     addClient(client: Client) {
+        if(this._clients.has(client)) return;
+
         if(!this.server) this.server = client.server;
         this.self.clients.push(client.uuid);
 
         this._clients.add(client);
         client.teams.add(this);
+
+        // Send public data of all clients to new client
+        for(const mv of this.public) {
+            mv[Send](client);
+        }
 
         this.server[Edit](this.self, new Set([client]));
     }
@@ -89,25 +97,41 @@ export class MultyxTeam {
      * @param client Client object to remove from team
      */
     removeClient(client: Client) {
-        const index = this.self.clients.findIndex((c: string) => c == client.uuid);
-        if(index == -1) return;
+        if(!this._clients.has(client)) return;
 
-        this.self.clients.splice(index, 1);
+        const index = this.self.clients.findIndex((c: string) => c == client.uuid);
+        if(index !== -1) this.self.clients.splice(index, 1);
 
         this._clients.delete(client);
         client.teams.delete(this);
     }
 
-    addPublic(value: MultyxValue) {
-        this.public.add(value);
-        value.addPublic(this);
-        return true;
+    /**
+     * Make item visible to team
+     * @param item MultyxItem to make visible to all clients in team
+     * @returns Same MultyxTeam object
+     */
+    addPublic(item: MultyxItem) {
+        if(item instanceof MultyxValue) {
+            if(this.public.has(item)) return this;
+            this.public.add(item);
+        }
+        item.addPublic(this);
+        return this;
     }
 
-    removePublic(value: MultyxValue) {
-        const exists = this.public.delete(value);
-        value.removePublic(this)
-        return exists;
+    /**
+     * Remove item visibility from team
+     * @param item MultyxItem to remove visibility of
+     * @returns Same MultyxTeam object
+     */
+    removePublic(item: MultyxItem) {
+        if(item instanceof MultyxValue) {
+            if(!this.public.has(item)) return this;
+            this.public.delete(item);
+        }
+        item.removePublic(this);
+        return this;
     }
 
     /**
@@ -122,5 +146,3 @@ export class MultyxTeam {
         return parsed;
     }
 }
-
-export const MultyxClients = new MultyxTeam("all");

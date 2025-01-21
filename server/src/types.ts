@@ -1,5 +1,3 @@
-import { Client } from "./agents/client";
-
 export type Options = {
     tps?: number,
 }

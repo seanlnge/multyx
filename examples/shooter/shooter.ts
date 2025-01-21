@@ -65,7 +65,7 @@ multyx.on("join", (client, name) => {
             speedX, speedY,
         });
     });
-    
+
     return true;
 });
 
@@ -88,6 +88,7 @@ multyx.on(Events.Update, () => {
         if(Math.abs(bullets[i].x) > 1000
         || Math.abs(bullets[i].y) > 1000) {
             bullets.splice(i--, 1);
+            continue;
         }
 
         // Check for collisions between bullet and all clients
@@ -110,6 +111,7 @@ multyx.on(Events.Update, () => {
                     self.deaths++;
                 }
                 bullets.splice(i--, 1);
+                break;
             }
         }
     }
