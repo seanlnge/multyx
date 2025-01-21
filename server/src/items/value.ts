@@ -1,7 +1,7 @@
 import type { Agent, Client, MultyxTeam } from "../agents";
 
-import { Value } from "../types";
-import { Edit, Self, Send } from "../utils/native";
+import { RawObject, Value } from "../types";
+import { Build, Edit, Self, Send } from "../utils/native";
 import MultyxUndefined from "./undefined";
 
 export default class MultyxValue {
@@ -84,8 +84,20 @@ export default class MultyxValue {
     /**
      * Send a ConstraintUpdate
      */
-    [Self](name: string, constraint: { args: any[], func: (value: Value) => Value | null }) {
-        //this.agent.server[Self](this.agent, 'constraint', {})
+    [Self](name: string, args: Value[] ) {
+        for(const client of this.agent.clients) {
+            this.agent.server[Self](client, 'constraint', { path: this.propertyPath, name, args })
+        }
+    }
+
+    /**
+     * Build a constraint table
+     * @returns Constraint table
+     */
+    [Build]() {
+        const obj: RawObject = {};
+        for(const [cname, { args }] of this.constraints.entries()) obj[cname] = args;
+        return obj;
     }
 
     /**
@@ -108,7 +120,7 @@ export default class MultyxValue {
             args: [value],
             func: n => n >= value ? n : value
         });
-
+        this[Self]('min', [value]);
         return this;
     }
 
@@ -123,6 +135,7 @@ export default class MultyxValue {
             args: [value],
             func: n => n <= value ? n : value
         });
+        this[Self]('max', [value]);
         return this;
     }
 
@@ -133,7 +146,15 @@ export default class MultyxValue {
      * @returns Same Multyx object
      */
     ban = (value: Value) => {
-        this.bannedValues.add(value);
+        const bans = this.constraints.get('ban')?.args ?? [];
+        bans.push(value);
+
+        this.constraints.set('ban', {
+            args: bans,
+            func: n => bans.includes(n) ? null : n
+        });
+        this[Self]('ban', bans);
+
         return this;
     }
 

@@ -1,6 +1,6 @@
 import { Message } from "./message";
 import { Unpack, EditWrapper, Interpolate, Lerp, PredictiveLerp } from './utils';
-import { RawObject } from "./types";
+import { RawObject, Update } from "./types";
 import { Controller } from "./controller";
 import MultyxClientObject from "./items/object";
 class Multyx {
@@ -101,11 +101,7 @@ class Multyx {
 
                 // Other data change
                 case 'self': {
-                    if(update.prop == 'controller') {
-                        this.controller.listening = new Set(update.data);
-                    } else if(update.prop == 'uuid') {
-                        this.uuid = update.data;
-                    }
+                    this.parseSelf(update);
                     break;
                 }
 
@@ -149,8 +145,11 @@ class Multyx {
         this.all = this.teams['all'];
 
         this.self = new MultyxClientObject(update.client.self, [this.uuid], this.ws);
-        console.log(update.constraintTable);
-        this.self[Unpack](update.constraintTable);
+
+        for(const [uuid, table] of Object.entries(update.constraintTable)) {
+            const obj = this.uuid == uuid ? this.self : this.teams[uuid];
+            obj[Unpack](table);
+        }
 
         this.clients = update.clients;
         this.clients[this.uuid] = this.self;
@@ -189,6 +188,20 @@ class Multyx {
         }
         
         this.events.get(this.Edit)?.forEach(c => c(update));
+    }
+
+    private parseSelf(update: RawObject) {
+        if(update.prop == 'controller') {
+            this.controller.listening = new Set(update.data);
+        } else if(update.prop == 'uuid') {
+            this.uuid = update.data;
+        } else if(update.prop == 'constraint') {
+            let route = this.uuid == update.data.path[0] ? this.self : this.teams[update.data.path[0]];
+            for(const prop of update.data.path.slice(1)) route = route?.[prop];
+            if(route === undefined) return;
+
+            route[Unpack]({ [update.data.name]: update.data.args });
+        }
     }
 }
 

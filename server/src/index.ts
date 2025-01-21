@@ -3,7 +3,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 
 import NanoTimer from 'nanotimer';
 
-import { Options, RawObject } from './types';
+import { DefaultOptions, Options, RawObject } from './types';
 import { MapToObject, MergeRawObjects } from './utils/objects';
 
 import Message from './message';
@@ -35,7 +35,7 @@ import {
 } from './update';
 
 import { Event, EventName, Events } from './event';
-import { Edit, Get, Parse, Self, EditWrapper } from './utils/native';
+import { Edit, Get, Parse, Self, EditWrapper, Build } from './utils/native';
 
 
 export {
@@ -65,14 +65,16 @@ class MultyxServer {
     deltaTime: number;
 
     constructor(server: Server, options: Options = {}) {
+        options = { ...DefaultOptions, ...options };
+
         this.events = new Map();
-        this.tps = options.tps ?? 20;
+        this.tps = options.tps!;
         this.all = MultyxClients;
         this.updates = new Map();
         this.lastFrame = Date.now();
         this.deltaTime = 0;
 
-        const WSServer = new WebSocketServer({ server });
+        const WSServer = new WebSocketServer({ server, ...options.websocketOptions! });
 
         WSServer.on('connection', (ws: WebSocket) => {
             const client = this.connectionSetup(ws);
@@ -127,8 +129,6 @@ class MultyxServer {
 
         MultyxClients.addClient(client);
 
-        this.updates.set(client, []);
-
         // Find all public data shared to client and compile into raw data
         const publicToClient: Map<Client, RawObject> = new Map();
         publicToClient.set(client, client.self.value);
@@ -156,29 +156,19 @@ class MultyxServer {
         }
 
         // Build table of constraints for client-side prediction
-        const buildConstraintTable = (item: MultyxItem) => {
-            if(item instanceof MultyxValue) {
-                const obj: RawObject = {};
-                for(const [cname, { args }] of item.constraints.entries()) {
-                    obj[cname] = args;
-                }
-                return obj;
-            }
+        const constraintTable = { [client.uuid]: client.self[Build]() };
+        for(const team of client.teams) constraintTable[team.uuid] = team.self[Build]();
 
-            const table: RawObject = {};
-            for(const prop in item.data) {
-                table[prop] = buildConstraintTable(item.data[prop]);
-            }
-            return table;
-        }
-
-        // Only time InitializeUpdate is called to setup client
+        // Only time InitializeUpdate is called, to setup client
         ws.send(Message.Native([new InitializeUpdate(
             client[Parse](),
-            buildConstraintTable(client.self),
+            constraintTable,
             rawClients,
             teams
         )]));
+
+        // Clear any updates, all data was already sent in InitializeUpdate
+        this.updates.set(client, []);
 
         // Find all public data client shares and compile into raw data
         const clientToPublic: Map<Client, RawObject> = new Map();

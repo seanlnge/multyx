@@ -27,7 +27,7 @@ export class EditUpdate {
 }
 
 export class SelfUpdate {
-    static Properties = ['controller', 'uuid'] as const;
+    static Properties = ['controller', 'uuid', 'constraint'] as const;
 
     property: typeof SelfUpdate.Properties[number];
     data: any;

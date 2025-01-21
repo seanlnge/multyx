@@ -132,5 +132,6 @@ export function Interpolate(
 export function BuildConstraint(name: string, args: Value[]): Constraint | void {
     if(name == 'min') return n => n >= args[0] ? n : args[0];
     if(name == 'max') return n => n <= args[0] ? n : args[0];
+    if(name == 'ban') return n => args.includes(n) ? null : n;
     return I => I;
 }

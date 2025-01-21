@@ -5,14 +5,14 @@ import { BuildConstraint, EditWrapper, Unpack } from "../utils";
 export default class MultyxClientValue {
     value: Value;
     propertyPath: string[];
-    constraints: Constraint[];
+    constraints: { [key: string]: Constraint };
     ws: WebSocket;
 
     constructor(value: Value, propertyPath: string[], ws: WebSocket) {
         this.value = value;
         this.propertyPath = propertyPath;
         this.ws = ws;
-        this.constraints = [];
+        this.constraints = {};
     }
 
     set(value: Value | EditWrapper<Value>) {
@@ -22,8 +22,10 @@ export default class MultyxClientValue {
         }
 
         let nv = value;
-        for(const fn of this.constraints) nv = fn(nv);
-        if(nv === undefined) return false;
+        for(const fn of Object.values(this.constraints)) {
+            nv = fn(nv);
+            if(nv === null) return false;
+        }
 
         if(this.value === nv) return true;
         this.value = nv;
@@ -44,7 +46,7 @@ export default class MultyxClientValue {
         for(const [cname, args] of Object.entries(constraints)) {
             const constraint = BuildConstraint(cname, args as Value[]);
             if(!constraint) continue;
-            this.constraints.push(constraint);
+            this.constraints[cname] = constraint;
         }
     }
 

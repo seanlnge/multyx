@@ -3,7 +3,7 @@ import MultyxItemRouter from './router';
 import { MultyxItem, MultyxUndefined } from ".";
 
 import { RawObject } from "../types";
-import { Edit, Get, Value, EditWrapper } from '../utils/native';
+import { Edit, Get, Value, EditWrapper, Build } from '../utils/native';
 
 import type { Agent, MultyxTeam } from "../agents";
 
@@ -256,6 +256,20 @@ export default class MultyxObject {
         }
 
         return parsed;
+    }
+
+    /**
+     * Build a constraint table
+     * @returns Constraint table
+     */
+    [Build]() {
+        const obj: RawObject = {};
+        for(const prop in this.data) {
+            const table = this.data[prop][Build]();
+            if(Object.keys(table).length == 0) continue;
+            obj[prop] = table;
+        }
+        return obj;
     }
 
     /**

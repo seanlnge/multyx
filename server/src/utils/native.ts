@@ -11,6 +11,7 @@ export const Value = Symbol("value");
 export const Edit = Symbol("edit");
 export const Send = Symbol("send");
 export const Self = Symbol("self");
+export const Build = Symbol("build");
 
 export class EditWrapper {
     value: any;
