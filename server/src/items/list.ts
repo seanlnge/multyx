@@ -14,7 +14,7 @@ export default class MultyxList extends MultyxObject {
     allowItemAddition: boolean;
     allowItemDeletion: boolean;
 
-    raw: any[];
+    raw: MultyxItem[];
 
     /**
      * Create a MultyxItem representation of an array

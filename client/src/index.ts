@@ -69,7 +69,7 @@ class Multyx {
     }
 
     loop(timesPerSecond: number, callback: () => void) {
-        setInterval(callback, Math.round(1000/timesPerSecond));
+        this.on(this.Start, () => setInterval(callback, Math.round(1000/timesPerSecond)));
     }
 
     forAll(callback: (client: RawObject) => void) {
@@ -78,7 +78,6 @@ class Multyx {
         
         // Wait for server to connect and Multyx to initialize
         else new Promise(res => this.on(this.Start, res)).then(() => {
-            console.log(this.ws.readyState, this.clients);
             Object.values(this.clients).forEach(c => callback(c));
         });
 
@@ -166,7 +165,6 @@ class Multyx {
     private parseEdit(update: RawObject) {
         let route: any = update.team ? this.teams : this.clients;
         let proxyObject = update.team && !(update.path[0] in this.teams);
-        console.log(update.path[0], proxyObject)
     
         for(const p of update.path.slice(0, -1)) {
             if(!(p in route)) route[p] = {};

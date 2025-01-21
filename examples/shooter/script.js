@@ -10,15 +10,15 @@ async function joinGame() {
     document.querySelector(".messages").style.display = "none";
     document.querySelector("#gameCanvas").style.display = "block";
 
+    Multyx.controller.mapCanvasPosition(canvas, { top: 1000, anchor: 'center' });
+    Multyx.controller.mapMouseToCanvas(canvas);
+
     ctx.fillStyle = "white";
     ctx.fillRect(-1000, -1000, 2000, 2000);
 }
 
 const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
-
-Multyx.controller.mapCanvasPosition(canvas, { top: 1000, right: 1000, anchor: 'center' });
-Multyx.controller.mapMouseToCanvas(canvas);
 
 Multyx.loop(60, () => {
     if(!Multyx.teams.players) return;
@@ -27,10 +27,15 @@ Multyx.loop(60, () => {
     ctx.fillStyle = "white";
     ctx.fillRect(-1000, -1000, 2000, 2000);
 
+    ctx.fillStyle = "black";
     for(const uuid of Multyx.teams.players.clients) {
         const client = Multyx.clients[uuid];
-
-        ctx.fillStyle = "black";
-        //ctx.fillRect(client.x-20, client.y-20, 40, 40);
+        ctx.fillRect(client.x-20, client.y-20, 40, 40);
+    }
+    for(const bullet of Multyx.teams.players.bullets) {
+        ctx.beginPath();
+        ctx.ellipse(bullet.x, bullet.y, 5, 5, 0, 0, Math.PI*2);
+        ctx.closePath();
+        ctx.fill();
     }
 });

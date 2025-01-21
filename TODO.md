@@ -2,8 +2,6 @@
 
 ## Priority 1
 
-Let changes in which teams client is in be relayed to client
-
 Remove redundant MultyxItem edits
 
 ## Priority 2

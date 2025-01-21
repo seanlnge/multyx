@@ -103,6 +103,10 @@ export class Controller {
         const wToH = bounding.width / bounding.height;
         const hToW = bounding.height / bounding.width;
 
+        if(Number.isNaN(wToH) || Number.isNaN(hToW)) {
+            console.error("Canvas element bounding box is flat, canvas must be present on the screen");
+        }
+
         // mb bruh jus trust it works
         if(!a) {
             if(!t && !b) return error(false, 'top', 'bottom');
@@ -230,6 +234,8 @@ export class Controller {
         canvas.height = Math.floor(Math.abs(position.bottom-position.top));
         if(position.right < position.left) ctx.scale(-1, 1);
         if(position.top > position.bottom) ctx.scale(1, -1);
+
+        console.log(position);
 
         ctx.translate(-position.left, -position.top);
     }
