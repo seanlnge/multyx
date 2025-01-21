@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const src_1 = require("../../server/dist/src");
 const server = (0, express_1.default)().listen(8080, () => console.log('server started'));
-const multyx = new src_1.MultyxServer(server);
+const multyx = new src_1.MultyxServer(server, { tps: 4 });
 const activePlayers = new src_1.MultyxTeam("players");
 activePlayers.self.bullets = [];
 // Disallow changing of client values by the client

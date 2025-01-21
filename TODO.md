@@ -2,7 +2,7 @@
 
 ## Priority 1
 
-Fix client side array length on MultyxList element delete
+Make constraintlist better
 
 Remove redundant MultyxItem edits
 

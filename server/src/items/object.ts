@@ -175,8 +175,6 @@ export default class MultyxObject {
      * ```
      */
     set(property: string, value: any): MultyxObject | false {
-        if(value instanceof EditWrapper) return false;
-        
         // If just a normal value change, no need to update shape, can return
         if(typeof value !== "object" && this.data[property] instanceof MultyxValue) {
             return (this.data[property] as MultyxValue).set(value) ? this : false;

@@ -7,7 +7,7 @@ import {
 } from '../../server/dist/src';
 
 const server = express().listen(8080, () => console.log('server started'));
-const multyx = new MultyxServer(server);
+const multyx = new MultyxServer(server, { tps: 4 });
 
 const activePlayers = new MultyxTeam("players");
 activePlayers.self.bullets = [];

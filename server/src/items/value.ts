@@ -1,7 +1,7 @@
 import type { Agent, Client, MultyxTeam } from "../agents";
 
 import { Value } from "../types";
-import { Edit, Send } from "../utils/native";
+import { Edit, Self, Send } from "../utils/native";
 import MultyxUndefined from "./undefined";
 
 export default class MultyxValue {
@@ -82,6 +82,13 @@ export default class MultyxValue {
     }
 
     /**
+     * Send a ConstraintUpdate
+     */
+    [Self](name: string, constraint: { args: any[], func: (value: Value) => Value | null }) {
+        //this.agent.server[Self](this.agent, 'constraint', {})
+    }
+
+    /**
      * Edit the property path
      * @param newPath New property path to set value at
      */
@@ -101,6 +108,7 @@ export default class MultyxValue {
             args: [value],
             func: n => n >= value ? n : value
         });
+
         return this;
     }
 

@@ -1,12 +1,12 @@
 import { Constraint, RawObject, Value } from "./types";
 
-export const isProxy = Symbol('isProxy');
+export const Unpack = Symbol("unpack"); 
 
-export class EditWrapper {
-    data: any;
+export class EditWrapper<T> {
+    value: T;
 
-    constructor(data: any) {
-        this.data = data;
+    constructor(value: T) {
+        this.value = value;
     }
 }
 

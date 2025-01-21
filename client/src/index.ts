@@ -1,7 +1,8 @@
 import { Message } from "./message";
-import { BuildConstraint, EditWrapper, Interpolate, isProxy, Lerp, PredictiveLerp } from './utils';
-import { Constraint, RawObject, Value } from "./types";
+import { Unpack, EditWrapper, Interpolate, Lerp, PredictiveLerp } from './utils';
+import { RawObject } from "./types";
 import { Controller } from "./controller";
+import MultyxClientObject from "./items/object";
 class Multyx {
     ws: WebSocket;
     uuid: string;
@@ -12,7 +13,6 @@ class Multyx {
     all: RawObject;
     clients: RawObject;
     teams: RawObject;
-    constraintTable: RawObject<RawObject | Constraint>;
     controller: Controller;
 
     Start = Symbol('start');
@@ -28,15 +28,13 @@ class Multyx {
     Interpolate = Interpolate;
     PredictiveLerp = PredictiveLerp;
 
-    private ProxySet: Set<RawObject> = new Set();
-
     constructor() {
         this.ws = new WebSocket('ws://localhost:8080/');
         this.ping = 0;
         this.events = new Map();
         this.self = {};
         this.all = {};
-        this.constraintTable = {};
+        this.teams = {};
         this.controller = new Controller(this.ws);
 
         this.ws.onmessage = event => {
@@ -101,7 +99,7 @@ class Multyx {
                     break;
                 }
 
-                // Self meta-data change
+                // Other data change
                 case 'self': {
                     if(update.prop == 'controller') {
                         this.controller.listening = new Set(update.data);
@@ -142,148 +140,55 @@ class Multyx {
     private initialize(update: RawObject) {
         this.uuid = update.client.uuid;
         this.joinTime = update.client.joinTime;
-        this.self = update.client.self;
-
-        this.unpackConstraints(update.constraintTable);
         this.controller.listening = new Set(update.client.controller);
 
-        this.clients = update.clients;
-        this.teams = update.teams;
-        this.all = update.teams.all;
-
-        this.self = this.applyProxy(this.self, [this.uuid]);
-        for(const team of Object.keys(this.teams)) {
-            this.teams[team] = this.applyProxy(this.teams[team], [team]);
+        for(const team of Object.keys(update.teams)) {
+            this.teams[team] = new MultyxClientObject(update.teams[team], [team], this.ws);
         }
         
         this.all = this.teams['all'];
+
+        this.self = new MultyxClientObject(update.client.self, [this.uuid], this.ws);
+        console.log(update.constraintTable);
+        this.self[Unpack](update.constraintTable);
+
+        this.clients = update.clients;
         this.clients[this.uuid] = this.self;
 
         this.events.get(this.Start)?.forEach(c => c(update));
     }
 
     private parseEdit(update: RawObject) {
+        const newTeam = update.team && !(update.path[0] in this.teams);
         let route: any = update.team ? this.teams : this.clients;
-        let proxyObject = update.team && !(update.path[0] in this.teams);
     
         // Loop through path to get to object being edited
         for(const p of update.path.slice(0, -1)) {
             // Create new object at path if non-existent
-            if(!(p in route)) {
-                // Use edit wrapper to avoid sending change to server
-                route[p] = route[isProxy] ? new EditWrapper({}) : {};
+            if(route[p] === undefined) {
+                route[p] = route instanceof MultyxClientObject
+                    ? new EditWrapper({})
+                    : {};
             }
             route = route[p];
         }
         const prop = update.path.slice(-1)[0];
 
         // Check if editable is proxied to avoid sending change to server
-        route[prop] = route[isProxy] ? new EditWrapper(update.value) : update.value;
+        route[prop] = route instanceof MultyxClientObject
+            ? new EditWrapper(update.value)
+            : update.value;
 
         // Client joined a new team
-        if(proxyObject) {
-            this.teams[update.path[0]] = this.applyProxy(
+        if(newTeam) {
+            this.teams[update.path[0]] = new MultyxClientObject(
                 this.teams[update.path[0]],
-                [update.path[0]]
+                [update.path[0]],
+                this.ws
             );
         }
         
         this.events.get(this.Edit)?.forEach(c => c(update));
-    }
-
-    private unpackConstraints(packedConstraints) {
-        function recurse(pair: RawObject, packed: RawObject, unpackTo: RawObject) {
-            for(const [prop, node] of Object.entries(packed)) {
-                if(typeof pair[prop] == 'object') {
-                    recurse(pair[prop], node, unpackTo[prop] = {});
-                    continue;
-                }
-                
-                const constraints = unpackTo[prop] = {};
-                for(const [cname, args] of Object.entries(node)) {
-                    constraints[cname] = BuildConstraint(cname, args as Value[]);
-                }
-            }
-        }
-
-        recurse(this.self, packedConstraints, this.constraintTable);
-    }
-
-    private applyProxy(object: RawObject, path: string[]) {
-        let constraintList = this.constraintTable;
-        for(const prop of path) {
-            if(!(prop in constraintList)) break;
-            constraintList = constraintList[prop] as RawObject;
-        }
-
-        const proxyGetter = (_, prop) => {
-            // Proxy checker
-            if(prop === isProxy) return true;
-
-            // Nest proxy if getting object for first time
-            if(typeof object[prop] == 'object' && !this.ProxySet.has(object[prop])) {
-                object[prop] = this.applyProxy(object[prop], [...path, prop]);
-                this.ProxySet.add(object[prop]);
-            }
-
-            // Now getting a value or an already proxied object
-            return object[prop];
-        };
-
-        const proxySetter = (_, prop, value) => {
-            if(value === object[prop]) return true;
-
-            // So that native operations can edit without sending redundant requests
-            if(value instanceof EditWrapper) {
-                if(value.data === undefined) return delete object[prop];
-                object[prop] = value.data;
-                return true;
-            }
-
-            // Operations not editing values of list can stay
-            if(Array.isArray(object) && Number.isNaN(parseInt(prop))) {
-                object[prop] = value;
-                return true;
-            }
-
-            // Constrain value according to constraint list
-            let nv = value;
-            if(value === undefined) {
-                delete object[prop];
-            } else {
-                if(prop in constraintList) {
-                    for(const func of Object.values(constraintList[prop])) nv = func(nv);
-                }
-                
-                // Set value and send multyx request
-                if(object[prop] === nv) return true;
-                object[prop] = nv;
-                if(nv === undefined) delete object[prop];
-            }
-
-            this.ws.send(Message.Native({
-                instruction: 'edit',
-                path: [...path, prop],
-                value: nv
-            }));
-            return true;
-        }
-
-        const proxyDeleter = (_, prop: string) => {
-            delete object[prop];
-            this.ws.send(Message.Native({
-                instruction: 'edit',
-                path: [...path, prop],
-                value: undefined
-            }));
-            return true;
-        }
-
-        return new Proxy(object, {
-            get: proxyGetter,
-            set: proxySetter,
-            deleteProperty: proxyDeleter,
-        });
     }
 }
 

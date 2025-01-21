@@ -1,4 +1,4 @@
-export type RawObject<T=any> = { [key: string]: T };
+export type RawObject<V=any> = { [key: string | number | symbol]: V };
 export type Value = string | number | boolean;
 export type Constraint = (n: Value) => Value | null;
 
