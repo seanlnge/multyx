@@ -1,12 +1,7 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
 const src_1 = require("../../server/dist/src");
-const server = (0, express_1.default)().listen(8080, () => console.log('server started'));
-const multyx = new src_1.MultyxServer(server, { tps: 4 });
+const multyx = new src_1.MultyxServer({ tps: 20, onStart: () => console.log("Multyx Server Started") });
 const activePlayers = new src_1.MultyxTeam("players");
 activePlayers.self.bullets = [];
 // Disallow changing of client values by the client
@@ -33,7 +28,7 @@ multyx.on("join", (client, name) => {
     client.self.bulletDamage = 20;
     client.self.bulletSpeed = 300;
     // Make client send event if pressing these keys
-    client.controller.listenTo(["w", "a", "s", "d"]);
+    client.controller.listenTo(["w", "a", "s", "d", src_1.Input.MouseMove]);
     // Constrain client inside box
     client.self.x.min(-1000).max(1000);
     client.self.y.min(-1000).max(1000);

@@ -1,5 +1,5 @@
-import { Client } from "./agents";
-import Message from "./message";
+import { Client } from "../agents";
+import { Send } from "../utils/native";
 
 export const Events = {
     Connect: Symbol('connect'),
@@ -32,7 +32,7 @@ export class Event {
         this.history.push({ time: Date.now(), client, data, result });
 
         if(result !== undefined && client && typeof this.eventName == 'string') {
-            client?.ws.send(Message.Response(this.eventName, result));
+            client.server[Send](client, this.eventName, result);
         }
     }
 

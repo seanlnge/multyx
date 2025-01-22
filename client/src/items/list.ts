@@ -1,3 +1,4 @@
+import Multyx from '../';
 import { MultyxClientItem } from '.';
 import { EditWrapper } from '../utils';
 import MultyxClientObject from "./object";
@@ -7,15 +8,15 @@ export default class MultyxClientList extends MultyxClientObject {
 
     get value() {
         const parsed: any[] = [];
-        for(let i=0; i<this.length; i++) parsed[i] = this.object[i].value;
+        for(let i=0; i<this.length; i++) parsed[i] = this.get(i).value;
         return parsed;
     }
 
-    constructor(list: any[], propertyPath: string[], ws: WebSocket){
-        super({}, propertyPath, ws);
+    constructor(multyx: typeof Multyx, list: any[] | EditWrapper<any[]>, propertyPath: string[] = [], editable: boolean){
+        super(multyx, {}, propertyPath, editable);
 
         this.length = 0;
-        this.push(...list);
+        this.push(...(list instanceof EditWrapper ? list.value.map(x => new EditWrapper(x)) : list));
 
         return new Proxy(this, {
             get: (o, p) => {
@@ -38,23 +39,38 @@ export default class MultyxClientList extends MultyxClientObject {
     set(index: string | number, value: any) {
         if(typeof index == 'string') index = parseInt(index);
         if(value === undefined) return this.delete(index, false);
-        if(value instanceof EditWrapper && value.value === undefined) {
-            return this.delete(index, true);
-        }
+        if(value instanceof EditWrapper && value.value === undefined) return this.delete(index, true);
 
         const result = super.set(index, value);
         if(result && index >= this.length) this.length = index+1;
+        
         return result;
     }
 
     delete(index: string | number, native: boolean = false) {
         if(typeof index == 'string') index = parseInt(index);
 
+        // Attempting to edit property not editable by client
+        if(!this.editable && !native) return false;
+
         const res = super.delete(index, native);
         this.length = this.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
         return res;
     }
 
+    /**
+     * Create a callback function that gets called for any current or future element in list
+     * @param callbackfn Function to call for every element
+     */
+    forAll(callbackfn: (value: any, index: number) => any) {
+        for(let i=0; i<this.length; i++) {
+            callbackfn(this.get(i), i);
+        }
+        super.forAll((key, value) => callbackfn(value, key));
+    }
+
+
+    /* All general array methods */
     push(...items: any) {
         for(const item of items) this.set(this.length, item);
         return this.length;

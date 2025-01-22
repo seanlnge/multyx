@@ -1,4 +1,3 @@
-import express from 'express';
 import {
     MultyxServer,
     MultyxTeam,
@@ -6,8 +5,7 @@ import {
     Input
 } from '../../server/dist/src';
 
-const server = express().listen(8080, () => console.log('server started'));
-const multyx = new MultyxServer(server, { tps: 4 });
+const multyx = new MultyxServer({ tps: 20, onStart: () => console.log("Multyx Server Started") });
 
 const activePlayers = new MultyxTeam("players");
 activePlayers.self.bullets = [];
@@ -38,7 +36,7 @@ multyx.on("join", (client, name) => {
     client.self.bulletSpeed = 300;
     
     // Make client send event if pressing these keys
-    client.controller.listenTo(["w", "a", "s", "d"]);
+    client.controller.listenTo(["w", "a", "s", "d", Input.MouseMove]);
 
     // Constrain client inside box
     client.self.x.min(-1000).max(1000);

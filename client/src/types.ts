@@ -5,13 +5,13 @@ export type Constraint = (n: Value) => Value | null;
 export type EditUpdate = {
     instruction: 'edit',
     path: string[],
-    value: Value
+    value: any
 };
 
 export type InputUpdate = {
     instruction: 'input',
     input: string,
     data?: RawObject<Value>
-}
+};
 
 export type Update = EditUpdate | InputUpdate;

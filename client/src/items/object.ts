@@ -1,16 +1,21 @@
 import { Message } from "../message";
 import { RawObject } from '../types';
-import { EditWrapper, Unpack } from "../utils";
+import { Add, Done, EditWrapper, Unpack } from "../utils";
 
+import type Multyx from '../index';
 import type { MultyxClientItem } from ".";
 import MultyxClientItemRouter from "./router";
 import MultyxClientValue from "./value";
 
 export default class MultyxClientObject {
-    object: RawObject<MultyxClientItem>;
+    private object: RawObject<MultyxClientItem>;
+    private multyx: typeof Multyx;
     propertyPath: string[];
-    ws: WebSocket;
     constraints: string[];
+    editable: boolean;
+
+
+    private setterListeners: ((key: any, value: any) => void)[]
 
     get value() {
         const parsed = {};
@@ -18,25 +23,20 @@ export default class MultyxClientObject {
         return parsed;
     }
 
-    constructor(object: Object | EditWrapper<Object>, propertyPath: string[], ws: WebSocket) {
+    constructor(multyx: typeof Multyx, object: RawObject | EditWrapper<RawObject>, propertyPath: string[] = [], editable: boolean) {
         this.object = {};
         this.propertyPath = propertyPath;
-        this.ws = ws;
+        this.multyx = multyx;
+        this.editable = editable;
 
-        if(object instanceof EditWrapper || object instanceof MultyxClientObject) {
-            object = object.value;
-        }
+        this.setterListeners = [];
 
-        for(const prop in object) {
-            let child = object[prop];
-            if(child instanceof MultyxClientObject || child instanceof MultyxClientValue) {
-                child = child.value;
-            }
+        if(object instanceof MultyxClientObject) object = object.value;
 
-            this.object[prop] = new (MultyxClientItemRouter(child))(
-                child,
-                [...propertyPath, prop],
-                ws
+        for(const prop in (object instanceof EditWrapper ? object.value : object)) {
+            this.set(prop, object instanceof EditWrapper
+                ? new EditWrapper(object.value[prop])
+                : object[prop]
             );
         }
 
@@ -68,30 +68,42 @@ export default class MultyxClientObject {
         if(value === undefined) return this.delete(property);
 
         // Only create new MultyxClientItem when needed
-        if(this.object[property] instanceof MultyxClientValue) {
-            return this.object[property].set(value);
-        }
+        if(this.object[property] instanceof MultyxClientValue) return this.object[property].set(value);
 
-        // If value was set by the server
-        if(value instanceof EditWrapper) {
-            if(value.value === undefined) return this.delete(property, true);
-            value = value.value;
-        }
+        // If value was deleted by the server
+        if(value instanceof EditWrapper && value.value === undefined) return this.delete(property, true);
+        
+        // Attempting to edit property not editable to client
+        if(!(value instanceof EditWrapper) && !this.editable) return false;
         
         // Creating a new value
-        this.object[property] = new (MultyxClientItemRouter(value))(
-            value,
-            [...this.propertyPath, property],
-            this.ws
-        );
+        this.object[property] = new (MultyxClientItemRouter(
+            value instanceof EditWrapper ? value.value : value
+        ))(this.multyx, value, [...this.propertyPath, property]);
+
+        // We have to push into queue, since object may not be fully created
+        // and there may still be more updates to parse
+        for(const listener of this.setterListeners) {
+            this.multyx[Add](() => listener(property, this.get(property)));
+        }
+
+        // Relay change to server if not edit wrapped
+        if(!(value instanceof EditWrapper)) this.multyx.ws.send(Message.Native({
+            instruction: 'edit',
+            path: this.propertyPath,
+            value: this.object[property].value
+        }));
         return true;
     }
 
     delete(property: any, native: boolean = false) {
+        // Attempting to edit property not editable by client
+        if(!this.editable && !native) return false;
+
         delete this.object[property];
 
         if(!native) {
-            this.ws.send(Message.Native({
+            this.multyx.ws.send(Message.Native({
                 instruction: 'edit',
                 path: [...this.propertyPath, property],
                 value: undefined
@@ -99,6 +111,17 @@ export default class MultyxClientObject {
         }
 
         return true;
+    }
+
+    /**
+     * Create a callback function that gets called for any current or future element in list
+     * @param callbackfn Function to call for every element
+     */
+    forAll(callbackfn: (key: any, value: any) => any) {
+        for(let prop in this.object) {
+            callbackfn(prop, this.get(prop));
+        }
+        this.setterListeners.push(callbackfn);
     }
 
     /**

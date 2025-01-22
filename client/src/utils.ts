@@ -1,6 +1,8 @@
 import { Constraint, RawObject, Value } from "./types";
 
-export const Unpack = Symbol("unpack"); 
+export const Unpack = Symbol("unpack");
+export const Done = Symbol("done");
+export const Add = Symbol("add");
 
 export class EditWrapper<T> {
     value: T;
@@ -8,69 +10,6 @@ export class EditWrapper<T> {
     constructor(value: T) {
         this.value = value;
     }
-}
-
-export function PredictiveLerp(object: RawObject, property?: string) {
-    if(!property) {
-        for(const prop in object) Lerp(object, prop);
-        return;
-    }
-
-    let start = { value: object[property], time: Date.now() };
-    let end = { value: object[property], time: Date.now() };
-
-    Object.defineProperty(object, property, {
-        get: () => {
-            let ratio = 0 + Math.min(1, (Date.now() - end.time) / (end.time - start.time));
-            if(Number.isNaN(ratio)) ratio = 0;
-            
-            return end.value * (1 + ratio) - start.value * ratio;
-        },
-        set: (value) => {
-            // Don't lerp between edit requests sent in same frame
-            if(Date.now() - end.time < 10) {
-                end.value = value;
-                return true;
-            }
-            start = { ...end };
-            end = { value, time: Date.now() }
-            return true;
-        }
-    });
-}
-
-/**
- * Linear interpolate values between client's frames
- * Will not interpolate values on the server-side
- * @returns Same multyx object 
- */
-export function Lerp(object: RawObject, property?: string) {
-    if(!property) {
-        for(const prop in object) Lerp(object, prop);
-        return;
-    }
-
-    let start = { value: object[property], time: Date.now() };
-    let end = { value: object[property], time: Date.now() };
-    
-    Object.defineProperty(object, property, {
-        get: () => {
-            let ratio = Math.min(1, (Date.now() - end.time) / (end.time - start.time));
-            if(Number.isNaN(ratio)) ratio = 0;
-            
-            return end.value * ratio + start.value * (1 - ratio);
-        },
-        set: (value) => {
-            // Don't lerp between edit requests sent in same frame
-            if(Date.now() - end.time < 10) {
-                end.value = value;
-                return true;
-            }
-            start = { ...end };
-            end = { value, time: Date.now() }
-            return true;
-        }
-    });
 }
 
 /**
@@ -133,5 +72,6 @@ export function BuildConstraint(name: string, args: Value[]): Constraint | void 
     if(name == 'min') return n => n >= args[0] ? n : args[0];
     if(name == 'max') return n => n <= args[0] ? n : args[0];
     if(name == 'ban') return n => args.includes(n) ? null : n;
+    if(name == 'disabled') return _ => null;
     return I => I;
 }

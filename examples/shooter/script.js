@@ -1,3 +1,4 @@
+// Function called when join game button pressed
 async function joinGame() {
     const valid = await Multyx.send("join", document.querySelector(".messageEntry").value, true);
 
@@ -7,6 +8,7 @@ async function joinGame() {
         return;
     }
 
+    // Show the canvas and hide the name entry box
     document.querySelector(".messages").style.display = "none";
     document.querySelector("#gameCanvas").style.display = "block";
 
@@ -15,6 +17,16 @@ async function joinGame() {
 
     ctx.fillStyle = "white";
     ctx.fillRect(-1000, -1000, 2000, 2000);
+
+    // Lerp all clients to ever join the players team
+    Multyx.teams.players.clients.forAll(clientUUID => {
+        Multyx.clients[clientUUID].x.Lerp();
+        Multyx.clients[clientUUID].y.Lerp();
+    });
+    Multyx.teams.players.bullets.forAll(bullet => {
+        bullet.x.PredictiveLerp();
+        bullet.y.PredictiveLerp();
+    });
 }
 
 const canvas = document.querySelector("#gameCanvas");

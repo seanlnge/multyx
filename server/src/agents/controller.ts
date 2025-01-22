@@ -1,4 +1,4 @@
-import Message from "../message";
+import Message from "../messages/message";
 import { Parse, Self } from "../utils/native";
 import type Client from "./client";
 

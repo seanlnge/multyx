@@ -1,4 +1,5 @@
-import { RawObject, Value } from "./types";
+import { RawObject } from "../types";
+
 export class EditUpdate {
     team: boolean;
     path: string[];
@@ -48,6 +49,24 @@ export class SelfUpdate {
             instruction: 'self',
             prop: this.property,
             data: this.data
+        }
+    }
+}
+
+export class ResponseUpdate {
+    name: string;
+    response: any;
+
+    constructor(eventName: string, response: any) {
+        this.name = eventName;
+        this.response = response;
+    }
+
+    raw(): RawObject {
+        return {
+            instruction: 'resp',
+            name: this.name,
+            response: this.response
         }
     }
 }
@@ -125,4 +144,4 @@ export class InitializeUpdate {
     }
 }
 
-export type Update = EditUpdate | SelfUpdate | InitializeUpdate | ConnectionUpdate | DisconnectUpdate;
+export type Update = EditUpdate | SelfUpdate | ResponseUpdate | InitializeUpdate | ConnectionUpdate | DisconnectUpdate;

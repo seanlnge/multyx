@@ -41,12 +41,6 @@ export default class Message {
         return JSON.stringify(new Message(name, data));
     }
 
-    // Create response message for user
-    static Response(name: string, response: any) {
-        const body = { instruction: 'resp', name, response };
-        return JSON.stringify(new Message('_', [body], true));
-    }
-
     // Parse message from user
     static Parse(str: string) {
         const parsed = JSON.parse(str);

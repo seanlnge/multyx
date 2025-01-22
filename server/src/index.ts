@@ -3,19 +3,18 @@ import { WebSocket, WebSocketServer } from 'ws';
 
 import NanoTimer from 'nanotimer';
 
-import { DefaultOptions, Options, RawObject } from './types';
+import { RawObject } from './types';
 import { MapToObject, MergeRawObjects } from './utils/objects';
 
-import Message from './message';
+import Message from './messages/message';
 
 import {
     Client,
     Input,
     Controller,
     ControllerState,
-    MultyxClients,
     MultyxTeam
-} from './agents/index';
+} from './agents';
 
 import {
     MultyxItem,
@@ -30,12 +29,14 @@ import {
     DisconnectUpdate,
     EditUpdate,
     InitializeUpdate,
+    ResponseUpdate,
     SelfUpdate,
     Update
-} from './update';
+} from './messages/update';
 
-import { Event, EventName, Events } from './event';
-import { Edit, Get, Parse, Self, EditWrapper, Build } from './utils/native';
+import { Event, EventName, Events } from './messages/event';
+import { Edit, Get, Parse, Self, EditWrapper, Build, Send } from './utils/native';
+import { DefaultOptions, Options } from './options';
 
 
 export {
@@ -63,18 +64,23 @@ class MultyxServer {
 
     lastFrame: number;
     deltaTime: number;
+    options: Options;
 
-    constructor(server: Server, options: Options = {}) {
-        options = { ...DefaultOptions, ...options };
+    constructor(options: Options = {}) {
+        this.options = { ...DefaultOptions, ...options };
+        if(!this.options.websocketOptions) this.options.websocketOptions = {};
+        if(this.options.server && this.options.port) delete this.options.port;
+        if(this.options.port) this.options.websocketOptions.port = this.options.port;
+        if(this.options.server) this.options.websocketOptions.server = this.options.server;
 
         this.events = new Map();
         this.tps = options.tps!;
-        this.all = MultyxClients;
+        this.all = new MultyxTeam('all');
         this.updates = new Map();
         this.lastFrame = Date.now();
         this.deltaTime = 0;
 
-        const WSServer = new WebSocketServer({ server, ...options.websocketOptions! });
+        const WSServer = new WebSocketServer({ ...this.options.websocketOptions! }, this.options.onStart);
 
         WSServer.on('connection', (ws: WebSocket) => {
             const client = this.connectionSetup(ws);
@@ -96,12 +102,14 @@ class MultyxServer {
             ws.on('close', () => {
                 this.events.get(Events.Disconnect)?.forEach(event => event.call(client));
     
-                for(const t of client.teams) t.removeClient(client);
-    
-                for(const c of this.all.clients) {
-                    if(c === client) continue;
-                    
-                    this.addOperation(c, new DisconnectUpdate(client.uuid));
+                if(this.options.removeDisconnectedClients) for(const t of client.teams) t.removeClient(client);
+                
+                if(this.options.sendConnectionUpdates) {
+                    for(const c of this.all.clients) {
+                        if(c === client) continue;
+                        
+                        this.addOperation(c, new DisconnectUpdate(client.uuid));
+                    }
                 }
             });
         });
@@ -127,7 +135,7 @@ class MultyxServer {
         
         this.events.get(Events.Connect)?.forEach(event => event.call(client));
 
-        MultyxClients.addClient(client);
+        this.all.addClient(client);
 
         // Find all public data shared to client and compile into raw data
         const publicToClient: Map<Client, RawObject> = new Map();
@@ -186,6 +194,8 @@ class MultyxServer {
                 ));
             }
         }
+
+        if(!this.options.sendConnectionUpdates) return client;
 
         // Send connection update and public data to all other clients
         for(const c of this.all.clients) {
@@ -281,13 +291,13 @@ class MultyxServer {
         this.deltaTime = (Date.now() - this.lastFrame) / 1000;
         this.lastFrame = Date.now();
 
-        for(const client of MultyxClients.clients) {
+        for(const client of this.all.clients) {
             client.onUpdate?.(this.deltaTime, client.controller.state);
         }
 
         this.events.get(Events.Update)?.forEach(event => event.call());
 
-        for(const client of MultyxClients.clients) {
+        for(const client of this.all.clients) {
             const updates = this.updates.get(client);
             if(!updates?.length) continue;
             this.updates.set(client, []);
@@ -319,7 +329,7 @@ class MultyxServer {
 
     /**
      * Create a SelfUpdate event to send to client
-     * @param property 
+     * @param property Self property being updated
      */
     [Self](client: Client, property: typeof SelfUpdate.Properties[number], data: any) {
         const update = new SelfUpdate(
@@ -330,6 +340,23 @@ class MultyxServer {
         this.addOperation(client, update);
     }
 
+    /**
+     * Create a ResponseUpdate to respond to client
+     * @param client Client to send response to
+     * @param eventName Name of event responding to
+     * @param response Response
+     */    
+    [Send](client: Client, eventName: string, response: any) {
+        const update = new ResponseUpdate(eventName, response);
+
+        // Wait until next frame to send response?
+        if(this.options.respondOnFrame) {
+            this.addOperation(client, update);
+        } else {
+            client.ws.send(Message.Native([update]));
+        }
+    }
+
     
     /* All public methods for user use */
 
@@ -337,7 +364,7 @@ class MultyxServer {
      * Create an event listener for any MultyxEvents
      * @param event 
      * @param callback 
-     * @returns 
+     * @returns Event listener object
      */
     on(event: EventName, callback: (client: Client, data: any) => any): Event {
         if(!this.events.has(event)) this.events.set(event, []);

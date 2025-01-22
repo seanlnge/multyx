@@ -1,5 +1,5 @@
 import { MultyxServer } from "..";
-import Message from "../message";
+import Message from "../messages/message";
 import { RawObject } from "../types";
 import { AddUUID } from "../utils/uuid";
 import { Edit, Get, Send, Value } from "../utils/native";

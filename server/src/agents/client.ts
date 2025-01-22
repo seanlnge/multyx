@@ -2,7 +2,7 @@ import type { WebSocket } from "ws";
 import type { RawObject } from "../types";
 import type { MultyxServer } from "../index";
 
-import Message from "../message";
+import Message from "../messages/message";
 import { GenerateUUID } from "../utils/uuid";
 
 import { MultyxObject } from "../items";

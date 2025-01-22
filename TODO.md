@@ -6,6 +6,8 @@ Make constraintlist better
 
 Remove redundant MultyxItem edits
 
+Add server protection against faulty client requests
+
 ## Priority 2
 
 Write proper documentation (can be done once at 99% working)

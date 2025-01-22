@@ -97,6 +97,7 @@ export default class MultyxValue {
     [Build]() {
         const obj: RawObject = {};
         for(const [cname, { args }] of this.constraints.entries()) obj[cname] = args;
+        if(this.disabled) obj['disabled'] = [];
         return obj;
     }
 
