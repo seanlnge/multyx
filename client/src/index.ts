@@ -71,8 +71,21 @@ class Multyx {
         return new Promise(res => this.events.set(Symbol.for("_" + name), [res]));
     }
 
-    loop(timesPerSecond: number, callback: () => void) {
-        this.on(this.Start, () => setInterval(callback, Math.round(1000/timesPerSecond)));
+    /**
+     * Loop over a function
+     * @param callback Function to call on a loop
+     * @param timesPerSecond Recommended to leave blank. Number of times to loop in each second, if undefined, use requestAnimationFrame
+     */
+    loop(callback: () => void, timesPerSecond?: number) {
+        if(timesPerSecond) {
+            this.on(this.Start, () => setInterval(callback, Math.round(1000/timesPerSecond)));
+        } else {
+            const caller = () => {
+                callback();
+                requestAnimationFrame(caller);
+            }
+            this.on(this.Start, () => requestAnimationFrame(caller));
+        }
     }
 
     private parseNativeEvent(msg: Message) {

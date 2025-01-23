@@ -1,217 +1,243 @@
-### Multyx
-Welcome to the first pre-release release of Multyx, a framework that prioritizes developer experience by making building multiplayer browser games easy on both the client and server-side.
+# Multyx
+
 ***
-As we are only in the first release, there's undoubtedly more to come, but there is already a significant number of features. Along with a seamless websocket connection functionality to allow you to jump straight into coding, Multyx includes:
-### Shared Read/Write State between Client and Server
+
+## What is Multyx?
+
+Multyx is a framework designed to simplify the creation of multiplayer browser games by addressing the complexities of managing server-client communication, shared state, and input handling. It provides developers with tools to efficiently synchronize data between the server and clients, enforce security and validation, and streamline the handling of user inputs and interactions. By abstracting many of the tedious aspects of multiplayer game development, Multyx enables developers of all skill levels to build robust, functional, and secure multiplayer experiences with minimal friction.
+
+## Why Multyx?
+
+Focused on ease of use and a good developer experience, Multyx turns the difficulty and complexity of making a multiplayer browser game into a simpler process that anyone can jump into.
+
+### Shared Data between Client and Server
+
 Being able to communicate changes in data is necessary for a functional multiplayer game, but due to needing server-side verification, consistency across websocket endpoints, and a lack of type validation, it can be difficult to bridge the gap between the client and server data transfer. Multyx streamlines this process by including a shared state between the server and client, along with
-* Control over which data is public to whom
-* Ability to constrain and verify data sent by client
-* Ability to disable/enable client editing
-* Client-side constraint prediction
-### Input Controller and Event Listeners
+
+* Control over which data is public to the client
+* The ability to constrain, disable, and verify data changed by the client
+* Client knowledge of constraints to reduce redundancies
+* The ability to allow or disallow the client to alter data
+* Consistency in data between the client and the server
+* The ability to share a public state between groups of clients
+
+With the use of MultyxObjects, Multyx can integrate seamlessly into projects, letting changes in data be relayed across both endpoints without the need for any extra code to be written.
+
+### Input Controller
+
 Client interactivity is a necessity in any game, but with it being hard to standardize mouse position across varying screen sizes, and manage the state of inputs, it can be tricky to implement an input system. Multyx allows you to
 
-* Pick which inputs to listen to
-* Ability to standardize mouse location
+* Pick which client inputs to listen to from the server
+* Map the client's mouse location to canvas coordinates
 * View the state of inputs from both the server and client
-* Allow for multiple callbacks on an input type
+* Add event listeners on the server for client inputs
 
 ### Helpful Functionalities
 
-Making a functional, efficient, and secure multiplayer game is notoriously hard to do, as each project has its own needs. Multyx offers a variety of helpful functionalities such as
+Building a functional, efficient, and secure multiplayer game is notoriously a tedious process, with each project having its own needs. Multyx simplifies this process by offering a variety of helpful functionalities such as
 
-* Interpolation methods for client-side prediction
-* Client knowledge of constraints to reduce redundancy
+* Predictive and non-predictive interpolation between values
 * Teams to manage public state across groups of clients
+* Options for changing websocket connection and runtime settings
 
 ***
-Focused on ease of use and a good developer experience, Multyx turns the difficulty and complexity while making a multiplayer browser game into a simpler process that anyone can jump into. 
-***
-### Setup:
-Server:
+
+## Overview
+
+Its generally easier to understand through examples and actually looking at the code, so this section gives a slightly more in-depth understanding of what Multyx does.
+
+### Shared State
+
+Having a shared read/write state is easily the most important aspect of Multyx, so a lot is put into making seamless and worthwhile. Shared state in Multyx is made through the [`MultyxItem`](#multyxitem) type, which includes the classes [`MultyxObject`](#multyxobject), [`MultyxList`](#multyxlist), and [`MultyxValue`](#multyxvalue). These are Multyx's shared-state versions of objects, arrays, and primitives, respectively. Each of these acts like their fundamental counterpart, for instance:
+
 ```js
+client.self.object = {
+    x: 3, y: 2, z: 1
+};
+console.log(client.self.object.z); // outputs 1
+
+client.self.array = ["fizz", "buzz", "bog"]; // MultyxList
+client.self.array[3] = "asdf"; // ["fizz", "buzz", "bog", "asdf"]
+client.self.array.splice(2, 1); // ["fizz", "buzz", "asdf"]
+
+client.self.y = client.self.x + 3; // no errors
+```
+
+However, they also have their own properties and methods.
+
+```js
+// server.js
+client.self.x = 3;
+client.self.x.min(-10).max(10);
+
+client.self.array.allowItemAddition = false;
+
+client.self.addPublic(Multyx.all);
+```
+
+The purpose of having these MultyxItems is that when the value is changed, Multyx relays that change to any clients that should see it.
+
+Along with special objects on the server side, any shared data on the client side sits in a [`MultyxClientItem`](#multyxclientitem).
+
+These are similar to the server-side [`MultyxItem`](#multyxitem) in the sense that any changes get relayed to the server to process, but they do not have the same properties or methods. Rather, they have methods that would be helpful to client prediction.
+
+```js
+// client.js
+Multyx.self.x = 9;
+
+Multyx.clients.forAll(client => {
+    client.x.Lerp();
+    client.y.Lerp();
+    client.timeAlive.PredictiveLerp();
+});
+```
+
+***
+
+### Teams and Clients
+
+When a [`MultyxItem`](#multyxitem) get changed, the Multyx server needs to know which clients to send the information to, along with which clients have which permissions. This is all handled through the [`MultyxTeam`](#multyxteam) class.
+
+A [`MultyxTeam`](#multyxteam) is at its core a list of [`Client`](#client) classes representing all clients that are part of that team, along with a [`MultyxObject`](#multyxobject) describing the shared data of that team. This [`MultyxObject`](#multyxobject) is public to all clients that are within the team, and by default has the ability to be edited by any [`Client`](#client) in the team, though this can be disabled.
+
+```js
+// server.js
+const players = new MultyxTeam('players');
+players.self.messages = ["hello world"];
+
+multyx.on('join game', (client, name) => {
+    client.self.name = name;
+    players.addClient(client);
+    players.self.messages.push(name + ' just joined');
+
+    return 'success!';
+});
+```
+
+```js
+// client.js
+console.log(Multyx.teams.players.messages); // Error: "messages" doesn't exist on undefined
+
+const joinStatus = await Multyx.send('join game', 'player1');
+
+console.log(joinStatus); // success!
+console.log(Multyx.teams.players.messages); // ["hello world", "player1 just joined"]
+```
+
+In Multyx, clients do not interact with each other. The [`MultyxTeam`](#multyxteam) class is the only way to share state between clients, as Client1 cannot edit the state of Client2. There is a difference, however, between being able to edit state, and being able to view it. This is achieved by making a [`MultyxItem`](#multyxitem) public.
+
+Although clients are only able to edit themselves and any teams they are in, they are able to view any client data made public to a team that they are in.
+
+```js
+// server.js
 import Multyx from 'multyx';
-import * as express from 'express';
 
-const server = express().listen(8080, () => console.log('server started'));
-const multyx = new Multyx.MultyxServer(server);
+const multyx = new Multyx.MultyxServer();
+
+multyx.on(Multyx.Events.Connect, client => {
+    client.self.role = 'imposter';
+    client.self.x = 100;
+    client.self.y = 300;
+    client.self.x.addPublic(multyx.all);
+    client.self.y.addPublic(multyx.all);
+});
 ```
-Client:
+
+```js
+// client.js
+Multyx.on(Multyx.Start, () => {
+    for(const uuid in Multyx.all) {
+        console.log(Multyx.clients[uuid]); // { x: 100, y: 300 }
+        console.log(Multyx.clients[uuid].role); // undefined 
+    }
+});
+```
+
+Using the `multyx.all` team that gets provided natively by the MultyxServer class, clients can share data to anyone connected to the server.
+
+***
+
+## Documentation
+
+***
+
+### Server-Side
+
+#### MultyxServer
+
+#### MultyxItem
+
+#### MultyxValue
+
+#### MultyxObject
+
+#### MultyxList
+
+#### Agent
+
+#### Client
+
+#### MultyxTeam
+
+***
+
+### Client-Side
+
+#### Multyx (client)
+
+#### MultyxClientItem
+
+#### MultyxClientValue
+
+#### MultyxClientObject
+
+#### MultyxClientList
+
+***
+
+## Starter Project Walkthrough
+
+Let's start out by making a simple game, where clients move around in a box. The full code for this example is in `/examples/squares/`
+
+We need to start by setting up our file structure and basic HTML code.
+
+Let's make 3 files, `index.html` to host our HTML, `script.js` for our client code, and `index.js` for our server code.
+***
+
 ```html
-<canvas width="400" height="400" id="canvas"></canvas>
-<script src="https://cdn.jsdelivr.net/npm/multyx@0.0.3/client.js"></script>
-<script>
-const multyx = new Multyx();
-</script>
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>My First Multyx Game</title>
+    </head>
+    <body>
+        <canvas id="canvas" width="600px" height="600px"></canvas>
+        <script src="https://cdn.jsdelivr.net/npm/multyx@0.1.0/client.js"></script>
+        <script src="script.js"></script>
+    </body>
+</html>
 ```
 
-### Creating a Shared Object:
-Server:
-```js
-multyx.on('connect', client => {
-    // Initialize client with random color and position
-    client.shared.set("player", {
-        color: '#' + Math.floor(Math.random() * 3840 + 256).toString(16),
-        position: {
-            x: Math.round(Math.random() * 400),
-            y: Math.round(Math.random() * 400)
-        }
-    });
-});
-```
-Client:
-```js
-const multyx = new Multyx();
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+Here is the setup for our `index.html` file. This code will create a square canvas in our website with a width of 600px. We also include 2 scripts, the first one hosting all of Multyx, and the second one hosting our client code to interact with Multyx.
+***
 
-multyx.on(Multyx.Start, () => {
-    window.player = multyx.client.player;
-    console.log(player.color, player.position); // #e8d, { x: 134, y: 193 }
-    requestAnimationFrame(update);
-});
-
-function update() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for(const { player } of Object.values(multyx.clients)) {
-        ctx.fillStyle = player.color;
-        ctx.fillRect(player.position.x-10, player.position.y-10, 20, 20);
-    }
-    requestAnimationFrame(update);
-}
-```
-
-### Adding Constraints on Shared Object
-Server:
-```js
-multyx.on('connect', client => {
-    // Initialize client with random color and position
-    client.shared.set("player", {
-        color: '#' + Math.floor(Math.random() * 3840 + 256).toString(16),
-        position: {
-            x: Math.round(Math.random() * 400),
-            y: Math.round(Math.random() * 400)
-        }
-    });
-
-    const player = client.shared.get("player");
-    player.public(); // Make client's player object public to all clients
-    player.disable(); // Make client's player object read-only to client
-    player.get('position').get('x').min(0).max(400); // Constrain `player.position.x` to be 0-400
-    player.get('position').get('y').constrain(y => Math.min(400, Math.max(0, y))); // Constrain `player.position.y` to be 0-400
-});
-```
-
-### Listen for Inputs
-The `client.controller.listenTo` function takes in 1 required argument and 1 optional argument.
-
-```ts
-client.controller.listenTo(
-    input: Input | string | (Input | string)[],
-    callback?: (state: ControllerState) => void
-)
-```
-The `input` parameter describes what input Multyx should listen to from the client. If passed an array, Multyx listens to all of the inputs and calls the callback - if provided - if any inputs are triggered.
-
-The `callback` parameter gets called if any of the events get triggered, the parameter `state` is an object containing the keys currently pressed as well as the mouse location and status, granted that those events are being listened to.
-
-If an input is not being listened to by Multyx, any changes will not show up in the controller state.
-
-Server:
-```js
-multyx.on('connect', client => {
-    // ... i aint writing allat
-
-    client.controller.listenTo([
-        Multyx.Input.UpArrow,
-        Multyx.Input.DownArrow,
-        Multyx.Input.LeftArrow,
-        Multyx.Input.RightArrow
-    ]);
-
-    client.onUpdate = (deltaTime, controllerState) => {
-        const x = player.get('position').get('x');
-        const y = player.get('position').get('y');
-
-        const speed = deltaTime * 200;
-
-        if(controllerState.keys[Multyx.Input.UpArrow]) y.set(y.value - speed);
-        if(controllerState.keys[Multyx.Input.DownArrow]) y.set(y.value + speed);
-        if(controllerState.keys[Multyx.Input.LeftArrow]) x.set(x.value - speed);
-        if(controllerState.keys[Multyx.Input.RightArrow]) x.set(x.value + speed);
-    }
-});
-```
-Client:
-```js
-// imagine you are holding right arrow
-console.log(player.position.x); // 193.53
-// imagine a frame just passed
-console.log(player.position.x); // 204.81
-// omg it worked
-```
-
-### Add Linear Interpolation
-The `Multyx.Lerp` function takes in 2 required arguments and linearly interpolates between the current value and previous value based on the time since the current value was updated. Lerp is the go-to interpolation method and creates extremely smooth animations between one frame to the next, however is delayed by half a frame (25ms) on average.
-
-`Multyx.Lerp(object: { [key: string]: any }, property: string)`
-
-Client:
-```js
-// Add interpolation onto all current clients
-multyx.on(Multyx.Start, () => {
-    for(const client of Object.values(multyx.clients)) {
-        Multyx.Lerp(client.player.position, "x");
-        Multyx.Lerp(client.player.position, "y");
-    }
-});
-
-// Add interpolation onto all future clients
-multyx.on(Multyx.Connection, client => {
-    Multyx.Lerp(client.player.position, "x");
-    Multyx.Lerp(client.player.position, "y");
-});
-```
-
-### Standardize Mouse Position
-Standardizing the mouse position utilizes the `controller.mapMousePosition` function, which takes in 1 required argument and 4 optional arguments.
-
-`controller.mapMousePosition(anchor: HTMLElement, centerX?: number, centerY?: number, scaleX?: number, scaleY?: number)`
-
-The `anchor` parameter tells Multyx which element the mouse should be measured relative to. For almost all purposes this is the canvas element, and by default the x and y-value of the mouse is the distance from the top-left corner (0, 0) of the element, measured in the element's relative coordinates. If the canvas size is altered in the client-side code, the mouse will be measured based not by pixels but by the canvas's relative size.
-
-The `centerX` and `centerY` default to 0, and describe the point on the `anchor` element that corresponds to the mouse's origin - where x = 0 and y = 0.
-
-The `scaleX` and `scaleY` default to 1, and describe the ratio between the number of units moved relative to the `anchor` element's coordiantes and the units moved relative to the mouse's coordinates. If only `scaleX` is defined, `scaleY` will default to `scaleX`.
-
-Server:
-```js
-multyx.on('connect', client => {
-    // ... i aint writing allat
-
-    client.controller.listenTo(Multyx.Input.MouseMove, (controllerState) => {
-        console.log(controllerState.mouse);
-    });
-});
-```
-Client:
 ```js
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-canvas.width = 2000;
-canvas.height = window.innerHeight / window.innerWidth * canvas.width;
-ctx.translate(200, 200);
-ctx.scale(1, -1);
+Multyx.controller.mapCanvasPosition(canvas, { top: 1000, anchor: 'bottomleft' });
+Multyx.controller.mapMouseToCanvas(canvas);
+```
 
-const multyx = new Multyx();
+Here is the setup for our `script.js` file, or our client-side code. This code first gets the canvas element and stores it to the `canvas` variable, along with getting the 2d context `ctx` allowing us to draw on this canvas. It then uses two Multyx functions called `mapCanvasPosition` and `mapMouseToCanvas`. What these do is normalize the values of our mouse and our canvas, making it a lot easier to do math with these values and draw objects on the canvas.
 
-multyx.controller.mapMousePosition(canvas, 200, 200, 1, -1);
+What `Multyx.controller.mapCanvasPosition` does is tell the canvas to have its origin in the bottom-left, meaning the point `(0, 0)` on our canvas will be at the bottom-left of the element on the screen. Multyx then tells the canvas to make the top have a y-value of 1000, meaning the point `(0, 1000)` on our canvas will be the top-left of the element on the screen. Multyx then tries to make the canvas coordinates a square, meaning that 1 unit vertically is the same number of pixels as 1 unit horizontally. Since we know our canvas is a square, and Multyx just made the canvas 1000 units tall, we know that the canvas is 1000 units across as well.
+***
+
+```js
+import Multyx from '../../server/dist/index';
+
+const multyx = new Multyx.MultyxServer();
 ```
-Server Output:
-```
-> { x: 108, y: 294, down: false }
-// imagine that the mouse is mapped now
-> { x: -92, y: -94, down: false }
-```
+
+Here is the setup for our `index.js` file, or our server-side code.
