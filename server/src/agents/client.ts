@@ -12,7 +12,6 @@ import { Controller, ControllerState } from "./controller";
 import type MultyxTeam from "./team";
 
 export default class Client {
-    data: RawObject;
     self: MultyxObject;
     controller: Controller;
     teams: Set<MultyxTeam>;
@@ -24,7 +23,6 @@ export default class Client {
     onUpdate: (deltaTime: number, controllerState: ControllerState) => void;
 
     constructor(ws: WebSocket, server: MultyxServer) {
-        this.data = {};
         this.teams = new Set();
         this.ws = ws;
         this.server = server;

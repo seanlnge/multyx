@@ -3,7 +3,7 @@ import MultyxItemRouter from './router';
 import { MultyxItem, MultyxUndefined } from ".";
 
 import { RawObject } from "../types";
-import { Edit, Get, Value, EditWrapper, Build } from '../utils/native';
+import { Edit, Get, EditWrapper, Build } from '../utils/native';
 
 import type { Agent, MultyxTeam } from "../agents";
 
@@ -57,6 +57,10 @@ export default class MultyxObject {
         if(this.constructor !== MultyxObject) return this;
 
         return new Proxy(this, {
+            has: (o, p: string) => {
+                return o.has(p);
+            },
+
             // Allow users to access properties in MultyxObject without using get
             get: (o, p: string) => {
                 if(p in o) return o[p];
@@ -101,22 +105,26 @@ export default class MultyxObject {
         if(recursive) {
             for(const prop in this.data) {
                 if(this.data[prop] instanceof MultyxObject) {
-                    this.data[prop].shapeDisabled = true;
+                    this.data[prop].disableShape(true);
                 }
             }
         }
         this.shapeDisabled = true;
+        
+        return this;
     }
 
     enableShape(recursive = false) {
         if(recursive) {
             for(const prop in this.data) {
                 if(this.data[prop] instanceof MultyxObject) {
-                    this.data[prop].shapeDisabled = false;
+                    this.data[prop].enableShape(true);
                 }
             }
         }
         this.shapeDisabled = false;
+
+        return this;
     }
 
     /**
@@ -155,14 +163,14 @@ export default class MultyxObject {
     }
 
     /**
-     * Get the ClientValue object of a property
+     * Get the value of a property
      */
     get(property: string) {
         return this.data[property];
     }
 
     /**
-     * Set the explicit value of the ClientValue object of a property
+     * Set the explicit value of the property
      * @example
      * ```js
      * // Server
@@ -216,7 +224,6 @@ export default class MultyxObject {
      * @returns False if deletion failed, same MultyxObject otherwise
      */
     delete(property: string) {
-        if(this.shapeDisabled) return false;
         delete this.data[property];
 
         new MultyxUndefined(

@@ -68,7 +68,8 @@ class MultyxServer {
 
     constructor(options: Options = {}) {
         this.options = { ...DefaultOptions, ...options };
-        if(!this.options.websocketOptions) this.options.websocketOptions = {};
+        this.options.websocketOptions = { ...DefaultOptions.websocketOptions, ...options.websocketOptions };
+        
         if(this.options.server && this.options.port) delete this.options.port;
         if(this.options.port) this.options.websocketOptions.port = this.options.port;
         if(this.options.server) this.options.websocketOptions.server = this.options.server;

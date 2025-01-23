@@ -107,23 +107,20 @@ export default class MultyxList extends MultyxObject {
         return result ? this : false;
     }
 
-    delete(index: number | string): this | false {
-        const res = super.delete(index.toString());
+    delete(index: number | string): this {
+        super.delete(index.toString());
         this.length = this.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
-        return res;
+        return this;
     }
 
-    push(...items: any) {
+    push(...items: any[]) {
         for(const item of items) {
             this.set(this.length, item);
         }
         return this.length;
     }
 
-    pop(): MultyxItem | null {
-        if(this.disabled) return null;
-        if(this.shapeDisabled) return null;
-
+    pop(): MultyxItem | undefined {
         const result = this.get(this.length);
         this.delete(this.length);
         return result;

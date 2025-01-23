@@ -32,7 +32,7 @@ async function joinGame() {
 const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
 
-Multyx.loop(60, () => {
+Multyx.loop(() => {
     if(!Multyx.teams.players) return;
 
     ctx.clearRect(-1000, -1000, 2000, 2000);
@@ -50,4 +50,4 @@ Multyx.loop(60, () => {
         ctx.closePath();
         ctx.fill();
     }
-});
+}, 60);

@@ -116,7 +116,9 @@ export default class MultyxValue {
      * @param value Minimum value to allow
      * @returns Same multyx object
      */
-    min = (value: Value) => {
+    min = (value: Value | MultyxValue) => {
+        if(value instanceof MultyxValue) value = value.value;
+        
         this.constraints.set('min', {
             args: [value],
             func: n => n >= value ? n : value
@@ -131,7 +133,9 @@ export default class MultyxValue {
      * @param value Maximum value to allow
      * @returns Same multyx object
      */
-    max = (value: Value) => {
+    max = (value: Value | MultyxValue) => {
+        if(value instanceof MultyxValue) value = value.value;
+
         this.constraints.set('max', {
             args: [value],
             func: n => n <= value ? n : value
@@ -146,7 +150,9 @@ export default class MultyxValue {
      * @param value Value to ban
      * @returns Same Multyx object
      */
-    ban = (value: Value) => {
+    ban = (value: Value | MultyxValue) => {
+        if(value instanceof MultyxValue) value = value.value;
+
         const bans = this.constraints.get('ban')?.args ?? [];
         bans.push(value);
 
@@ -162,11 +168,11 @@ export default class MultyxValue {
     /**
      * Create custom constraint for value
      * Only constrained server-side 
-     * @param func Function accepting requested value and returning either null or accepted value. If this function returns null, the value will not be accepted and the change reverted.
+     * @param fn Function accepting requested value and returning either null or accepted value. If this function returns null, the value will not be accepted and the change reverted.
      * @returns Same MultyxValue
      */
-    constrain = (func: ((value: Value) => Value | null)) => {
-        this.manualConstraints.push(func);
+    constrain = (fn: ((value: any) => Value | null)) => {
+        this.manualConstraints.push(fn);
         return this;
     }
 
