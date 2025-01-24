@@ -68,7 +68,7 @@ export class Controller {
      * });
      * ```
      */
-    listenTo(input: Input | string | (Input | string)[], callback?: (state: ControllerState) => void) {
+    listenTo(input: string | string[], callback?: (state: ControllerState) => void) {
         if(!Array.isArray(input)) input = [input];
 
         input.forEach(inp => {

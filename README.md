@@ -641,11 +641,11 @@ Returns an array of the keys (indices) for each element in the MultyxList.
 
 ### Agent
 
-In server-side Multyx, and agent is either a [Client](#client) or a [MultyxTeam](#multyxteam). These host the interactions between the client-side and server-side. An Agent contains its own [MultyxObject](#multyxobject) along with a UUID, and reference to the server.
+In server-side Multyx, and agent is either a [`Client`](#client) or a [`MultyxTeam`](#multyxteam). These host the interactions between the client-side and server-side. An Agent contains its own [`MultyxObject`](#multyxobject) along with a UUID, and reference to the server.
 
 #### `Agent.self`
 
-This is the shared state [MultyxObject](#multyxobject) on the server side. Any clients that are a part of this agent have the ability to edit and view the entire object.
+This is the shared state [`MultyxObject`](#multyxobject) on the server side. Any clients that are a part of this agent have the ability to edit and view the entire object.
 
 #### `Agent.uuid`
 
@@ -671,19 +671,173 @@ Array of all clients that the agent represents. If `Agent` is a `Client`, the ar
 
 #### `Client.controller`
 
+The `controller` property is an instance of the [`Controller`](#controller) class, which manages client input and state synchronization. It enables clients to listen to specific input events (e.g., keyboard, mouse) and execute callbacks when those events occur.
+
 #### `Client.joinTime`
+
+The timestamp in milliseconds when the client was created.
 
 #### `Client.ws`
 
+The Websocket connection associated with the client. Facilitates the communication between server and client.
+
 #### `Client.teams`
+
+A Set object containing all [`MultyxTeam`](#multyxteam) objects that the client is a part of.
+
+This is meant to be read-only, adding a client to a team can be done with the `MultyxTeam.addClient()` method.
 
 ***
 
 ### Controller
 
+The Controller class manages input events and state for clients. It tracks keyboard and mouse inputs, enabling real-time interactivity and customization of input handling.
+
+#### listenTo(input: string | string[], callback?: (state: ControllerState) => void)
+
+Listen to a specified input and trigger a callback when that input gets triggered.
+
+The `input` parameter corresponds to the keyboard `event.key` and `event.code`, along with a variety of inputs that are part of the `Multyx.Input` enum for mouse inputs and special keys.
+
+The callback parameter takes in a function and when triggered passes the current [`ControllerState`](#controllerstate) to the callback.
+
+```js
+// server.js
+client.controller.listenTo(['w', 's']);
+
+client.controller.listenTo(Input.MouseDown, state => {
+    console.log('Going forward? ' + state.keys['w']);
+    console.log('Going backward? ' + state.keys['s']);
+});
+```
+
+***
+
+### ControllerState
+
+The controller state does not by default track any of the client's inputs. Only the inputs that are being listened to by the `Controller` object appear in the state.
+
+```ts
+// multyx.ts
+export type ControllerState = {
+    keys: { [key: string]: boolean },
+    mouse: { x: number, y: number, down: boolean }
+}
+```
+
+### Input
+
+```ts
+// multyx.ts
+export enum Input {
+    MouseMove = "mousemove",
+    MouseDown = "mousedown",
+    MouseUp = "mouseup",
+
+    KeyDown = "keydown",
+    KeyHold = "keyhold",
+    KeyUp = "keyup",
+    KeyPress = "keypress",
+
+    Shift = "Shift",
+    Alt = "Alt",
+    Tab = "Tab",
+    Control = "Control",
+    Enter = "Enter",
+    Escape = "Escape",
+    Delete = "Delete",
+    Space = "Space",
+    CapsLock = "CapsLock",
+
+    LeftShift = "ShiftLeft",
+    RightShift = "ShiftRight",
+    LeftControl = "ControlLeft",
+    RightControl= "ControlRight",
+    LeftAlt = "AltLeft",
+    RightAlt = "AltRight",
+    
+    UpArrow = "ArrowUp",
+    DownArrow = "ArrowDown",
+    LeftArrow = "ArrowLeft",
+    RightArrow = "ArrowRight",
+}
+```
+
 ***
 
 ### MultyxTeam
+
+A [`MultyxTeam`](#multyxteam) is at its core a list of [`Client`](#client) classes representing all clients that are part of that team, along with a [`MultyxObject`](#multyxobject) describing the shared data of that team. This [`MultyxObject`](#multyxobject) is public to all clients that are within the team, and by default has the ability to be edited by any [`Client`](#client) in the team, though this can be disabled.
+
+In Multyx, clients do not interact with each other. The [`MultyxTeam`](#multyxteam) class is the only way to share state between clients, as Client1 cannot edit the state of Client2. There is a difference, however, between being able to edit state, and being able to view it. This is achieved by making a [`MultyxItem`](#multyxitem) public to a specified MultyxTeam.
+
+Using the `multyx.all` team that gets provided natively by the [`MultyxServer`](#multyxserver) class, clients can share data to anyone connected to the server.
+
+#### `getClient(uuid: string)`
+
+Retrieves the [`Client`](#client) object corresponding the given `uuid`.
+
+#### `addClient(client: Client)`
+
+Add a client to the MultyxTeam. Relays this change to all clients who are part of the team. This also relays all of the data in `MultyxTeam.self` to the client joining.
+
+#### `removeClient(client: Client)`
+
+Remove a client from the MultyxTeam. Relays this change to all clients who are part of the team. This also clears all data of the `MultyxTeam.self` from the client.
+
+#### `addPublic(item: MultyxItem)`
+
+Make a [`MultyxItem`](#multyxitem) visible to all clients in the team.
+
+```js
+// server.js
+client1.self.secret = 'amongus imposter';
+team.addPublic(client1.self);
+team.send('new player');
+```
+
+```js
+// client2.js
+const client1 = Multyx.clients[uuidClient1];
+console.log(client1); // undefined
+
+Multyx.on('new player', () => {
+    console.log(client1); // { secret: 'amongus imposter' }
+});
+```
+
+#### `removePublic(item: MultyxItem)`
+
+Revoke item visibility of a [`MultyxItem`](#multyxitem) from a team. This does not necessarily revoke visibility from all clients in the team, since other clients may have visibility through another team.
+
+```js
+// server.js
+team.addClient(client1);
+team.addClient(client2);
+team.addPublic(client1.self);
+team.addPublic(client2.self);
+
+multyx.all.removePublic(client1.self);
+multyx.all.send('removed');
+```
+
+```js
+// client2.js
+console.log(client1.imposter); // true
+
+multyx.on('removed', () => {
+    console.log(client1.imposter); // true
+});
+```
+
+```js
+// client3.js
+console.log(client1.imposter); // true
+
+multyx.on('removed', () => {
+    console.log(client1.imposter); // undefined
+});
+```
 
 ***
 
