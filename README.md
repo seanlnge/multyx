@@ -48,7 +48,7 @@ Its generally easier to understand through examples and actually looking at the 
 
 ### Shared State
 
-Having a shared read/write state is easily the most important aspect of Multyx, so a lot is put into making it seamless and worthwhile. Shared state in Multyx is made through the [`MultyxItem`](#multyxitem) type, which includes the classes [`MultyxObject`](#multyxobject), [`MultyxList`](#multyxlist), and [`MultyxValue`](#multyxvalue). These are Multyx's shared-state versions of objects, arrays, and primitives, respectively. Each of these acts like their fundamental counterpart, for instance:
+Having a shared read/write state is easily the most important aspect of Multyx, so a lot is put into making it seamless and worthwhile. Shared state in Multyx is made through the [`MultyxItem`](#multyxitem) type, which includes the classes [`MultyxObject`](#multyxobject), [`MultyxList`](#multyxlist), and [`MultyxValue`](#multyxvalue). These are Multyx's shared-state versions of objects, arrays, and primitives, respectively. Each of these acts like their original counterpart, for instance:
 
 ```js
 client.self.object = {
@@ -116,12 +116,12 @@ multyx.on('join game', (client, name) => {
 
 ```js
 // client.js
-console.log(Multyx.teams.players.messages); // Error: "messages" doesn't exist on undefined
+console.log(multyx.teams.players.messages); // Error: "messages" doesn't exist on undefined
 
-const joinStatus = await Multyx.send('join game', 'player1');
+const joinStatus = await multyx.send('join game', 'player1');
 
 console.log(joinStatus); // success!
-console.log(Multyx.teams.players.messages); // ["hello world", "player1 just joined"]
+console.log(multyx.teams.players.messages); // ["hello world", "player1 just joined"]
 ```
 
 In Multyx, clients do not interact with each other. The [`MultyxTeam`](#multyxteam) class is the only way to share state between clients, as Client1 cannot edit the state of Client2. There is a difference, however, between being able to edit state, and being able to view it. This is achieved by making a [`MultyxItem`](#multyxitem) public.
@@ -145,10 +145,12 @@ multyx.on(Multyx.Events.Connect, client => {
 
 ```js
 // client.js
-Multyx.on(Multyx.Start, () => {
-    for(const uuid in Multyx.all) {
-        console.log(Multyx.clients[uuid]); // { x: 100, y: 300 }
-        console.log(Multyx.clients[uuid].role); // undefined 
+const multyx = new Multyx();
+
+multyx.on(multyx.Start, () => {
+    for(const uuid in multyx.all) {
+        console.log(multyx.clients[uuid]); // { x: 100, y: 300 }
+        console.log(multyx.clients[uuid].role); // undefined 
     }
 });
 ```
@@ -193,12 +195,12 @@ export {
 A MultyxServer is initialized as follows.
 
 ```js
-const multyx = new Multyx.MultyxServer(options?: Multyx.Options);
+const multyx = new Multyx.MultyxServer(options?: Multyx.Options, callback?: () => void);
 ```
 
 Initializing a MultyxServer creates a WebsocketServer using the node 'ws' module.
 
-```js
+```ts
 export type Options = {
     tps?: number,
     port?: number,
@@ -207,7 +209,6 @@ export type Options = {
     respondOnFrame?: boolean,
     sendConnectionUpdates?: boolean,
     websocketOptions?: ServerOptions,
-    onStart?: () => void,
 };
 
 export const DefaultOptions: Options = {
@@ -217,7 +218,7 @@ export const DefaultOptions: Options = {
     respondOnFrame: true,
     sendConnectionUpdates: true,
     websocketOptions: {
-        perMessageDeflate: true,
+        perMessageDeflate: false, // issues with memory leakage
     },
 };
 ```
@@ -250,8 +251,8 @@ multyx.on('setBlue', client => client.self.color = 'blue');
 
 ```js
 // client.js
-await Multyx.send('setBlue');
-console.log(Multyx.self.color); // undefined
+await multyx.send('setBlue');
+console.log(multyx.self.color); // undefined
 ```
 
 #### `Options.sendConnectionUpdates`
@@ -328,15 +329,15 @@ Simulate a call of the event using a client and some data. I don't know why you 
 
 ### MultyxItem
 
-A `MultyxItem` is the base of shared state in Multyx. A `MultyxItem` is merely a union type between the following, [`MultyxValue`](#multyxvalue), [`MultyxObject`](#multyxobject), and [`MultyxList`](#multyxlist). When a property is changed, deleted, or set inside a `MultyxItem`, that change gets relayed to all clients that have been provided visibility. These are all of the properties and methods shared between all classes in `MultyxItem`.
+A `MultyxItem` is the base of shared state in Multyx. A `MultyxItem` is merely a union type between the following, [`MultyxValue`](#multyxvalue), [`MultyxObject`](#multyxobject), and [`MultyxList`](#multyxlist). When a property is changed, deleted, or set inside a `MultyxItem`, that change gets relayed to all clients that have been provided visibility.
 
-Any assignments to a `MultyxItem` or the creation of a child to a `MultyxItem`, such as setting `client.self.position = { x: 3, y: 2 };` will turn the value of the assignment into a `MultyxItem` itself.
+Any assignments to a `MultyxItem` or the creation of a child on a `MultyxItem`, such as setting `client.self.position = { x: 3, y: 2 };` will turn the value of the assignment into a `MultyxItem` itself.
 
 MultyxItem objects cannot be directly created through the server-side code, as they require an owner and references to the MultyxServer. They do, however, exist on the `Client.self` or `MultyxTeam.self` properties.
 
 #### `MultyxItem.value`
 
-The fundamental representation of the MultyxItem, or the MultyxItem's respective primitive, object, or array.
+The original representation of the MultyxItem, or the MultyxItem's respective primitive, object, or array.
 
 ```js
 // server.js
@@ -400,7 +401,7 @@ console.log(apple.propertyPath); // ['ac942ed2', 'inventory', '0', 'name']
 
 ### MultyxValue
 
-A `MultyxValue` is the [`MultyxItem`](#multyxitem) representation of primitive values, which includes strings, numbers, and booleans. These are the fundamental blocks of MultyxItems, which [`MultyxObject`](#multyxobject) and [`MultyxList`](#multyxclientlist) classes are made up of.
+A `MultyxValue` is the [`MultyxItem`](#multyxitem) representation of primitive values, which includes strings, numbers, and booleans. These are the fundamental blocks of MultyxItems, which [`MultyxObject`](#multyxobject) and [`MultyxList`](#multyxlist) classes are made up of.
 
 #### `MultyxValue.set(value: Value | MultyxValue)`
 
@@ -450,7 +451,7 @@ A Map object containing the list of constraints placed onto the MultyxValue, exc
 // server.js
 client.self.x.min(-100);
 
-console.log(client.self.constraints);
+console.log(client.self.x.constraints);
 /* 
     Map {
         'min': {
@@ -473,7 +474,7 @@ A Set object containing the list of all banned values of this MultyxValue
 
 ### MultyxObject
 
-A `MultyxObject` is the [`MultyxItem`](#multyxitem) representation of JavaScript objects, or key-value pairs. These consist of strings representing properties of the fundamental object, pairing to MultyxItems representing the values of the fundamental object. The fundamental object is the JavaScript object that MultyxObject is mirroring. These can be nested arbitrarily deep, and child elements can host any type of [`MultyxItem`](#multyxitem).
+A `MultyxObject` is the [`MultyxItem`](#multyxitem) representation of JavaScript objects, or key-value pairs. These consist of strings representing properties of the original object, corresponding to MultyxItem objects representing the values of the original object. The original object is the JavaScript object that MultyxObject is mirroring. These can be nested arbitrarily deep, and child elements can host any type of [`MultyxItem`](#multyxitem).
 
 Generally, within a `MultyxObject`, any changes to the visibility of editability of the object, such as `.disable()` or `.addPublic()` will propogate throughout all children, overwriting any settings that they had prior.
 
@@ -530,7 +531,7 @@ Boolean that is true if the MultyxObject allows clients to assign or delete prop
 
 #### `MultyxObject.data`
 
-This is the MultyxObject representation of the fundamental object. It is a key-value pair between strings representing properties of the object, and MultyxItem objects representing the values of the object.
+This is the MultyxObject representation of the original object. It is a key-value pair between strings representing properties of the object, and MultyxItem objects representing the values of the object.
 
 ***
 
@@ -557,10 +558,10 @@ client.self.array[5] = 'g';
 client.self.array.pop();
 console.log(client.self.array.length); // 1
 
-const a = ['a'];
-a[5] = 'g';
-a.pop();
-console.log(a.length); // 5
+const array = ['a'];
+array[5] = 'g';
+array.pop();
+console.log(array.length); // 5
 ```
 
 #### `MultyxList.push(...items: any[]): number`
@@ -798,10 +799,10 @@ team.send('new player');
 
 ```js
 // client2.js
-const client1 = Multyx.clients[uuidClient1];
+const client1 = multyx.clients[uuidClient1];
 console.log(client1); // undefined
 
-Multyx.on('new player', () => {
+multyx.on('new player', () => {
     console.log(client1); // { secret: 'amongus imposter' }
 });
 ```
@@ -845,13 +846,443 @@ multyx.on('removed', () => {
 
 ### Multyx (client)
 
+A client-side Multyx object is initialized as follows.
+
+```js
+const multyx = new Multyx(options?: MultyxOptions | Callback, callback?: Callback);
+```
+
+Initializing a Multyx class creates a websocket using the built-in WebSocket API.
+
+```ts
+export type Options = {
+    port?: number,
+    secure?: boolean,
+    uri?: string,
+};
+
+export const DefaultOptions: Options = {
+    port: 443,
+    secure: false,
+    uri: 'localhost'
+};
+```
+
+#### `Options.port` (Client)
+
+Port to connect to WebsocketServer from, defaults to 443.
+
+#### `Options.secure`
+
+Boolean representing whether or not to attempt a secure websocket connection (wss://)
+
+This will not work if `Options.uri` is set to localhost, such as in a development environment.
+
+#### `Options.uri`
+
+What URI to attempt to connect websocket at.
+
+#### `Multyx.uuid`
+
+The UUID assigned to the client at server start.
+
+#### `Multyx.joinTime`
+
+The UNIX timestamp of server accepting new client connection.
+
+#### `Multyx.ping`
+
+The time it takes a Websocket packet to make a round trip from the client to the server and back.
+
+Calculated by multiplying the update frame send time minus update frame receive time times 2.
+
+#### `Multyx.clients`
+
+An object representing the public data of all clients connected to the server. Keys of this object are client UUIDs and values of this object are [MultyxClientObject](#multyxclientobject) objects
+
+#### `Multyx.self`
+
+A [MultyxClientObject](#multyxclientobject) representing the client's shared state with the server. This is the same as `Multyx.clients[Multyx.uuid]`
+
+#### `Multyx.teams`
+
+A [MultyxClientObject](#multyxclientobject) representing the shared state of all teams the client is a part of.
+
+#### `Multyx.all`
+
+A [MultyxClientObject](#multyxclientobject) representing the shared state of the team including all connected clients. This is the same object and same instance as `Multyx.teams['all']`.
+
+#### `Multyx.controller`
+
+The client [`Controller`](#controller-client) that processes client input and relays data to the server.
+
+#### `Multyx Events`
+
+```ts
+export default class Multyx {
+    static Start = Symbol('start');           // Client first establishes connection
+    static Connection = Symbol('connection'); // New client connects to server
+    static Disconnect = Symbol('disconnect'); // Other client disconnects from server
+    static Edit = Symbol('edit');             // Server edits a MultyxClientItem
+    static Native = Symbol('native');         // Any native Multyx event
+    static Custom = Symbol('custom');         // Any custom Multyx event
+    static Any = Symbol('any');               // Any Multyx event
+}
+```
+
+#### `Multyx.on(name: string | Symbol, callback: Callback)`
+
+Listen to event sent by server. Will call `callback` with data from server.
+
+#### `Multyx.send(name: string, data: any, expectResponse: boolean = false)`
+
+Send an event to the server with the event name `name` and any extra data.
+
+Returns either a promise if `expectResponse` is true, undefined otherwise.
+
+#### `Multyx.loop(callback: Callback, timesPerSecond?: number)`
+
+Create a loop that calls the `callback` function every `1/timesPerSecond` seconds. If `timesPerSecond` is left undefined, Multyx will use `requestAnimationFrame` to repeatedly call the `callback`.
+
+It is recommended for animation purposes, such as rendering the screen, to leave `timesPerSecond` undefined, as `requestAnimationFrame` is built to handle rendering loops.
+
+#### `Multyx.forAll(callback: (client: MultyxClient) => void)`
+
+Create a callback function that gets called for any current or future client
+
+***
+
+### Controller (Client)
+
+The client controller is the class that watches for and relays changes in the client input.
+
+#### `Controller.keys`
+
+The state of key inputs stored in a key-value pair between keyboard event `event.key` or `event.code` to a boolean describing if the key is currently being pressed.
+
+```js
+// client.js
+console.log(multyx.controller.keys['a']); // true
+console.log(multyx.controller.keys['ShiftLeft']); // false
+```
+
+#### `Controller.mouse`
+
+The state of mouse inputs.
+
+```ts
+// multyx.ts
+this.mouse = {
+    x: NaN,       // x-value of mouse in mouse coordinates
+    y: NaN,       // y-value of mouse in mouse coordinates
+    down: false,  // true if mouse is pressed, false otherwise
+    centerX: 0,   // translation factor of mouse x
+    centerY: 0,   // translation factor of mouse y
+    scaleX: 1,    // scaling factor of mouse x
+    scaleY: 1     // scaling factor of mouse y
+};
+```
+
+#### `Controller.listening`
+
+A Set object containing all input events to listen to and relay to client. This gets populated by the server so it is recommended to let this be read-only.
+
+#### `Controller.mapCanvasPosition(canvas: HTMLCanvasElement, position: { top?: number, bottom?: number, left?: number, right?: number, anchor?: 'center' | 'left' | 'right' | 'top' | 'bottom' | 'topleft' | 'topright' | 'bottomleft' | 'bottomright' })`
+
+Maps the canvas coordinates to a specified position, using the `anchor` parameter to find where the origin is, along with the `position` parameter to scale the canvas properly.
+
+Only the necessary position data is required. If partial data is entered, Multyx will attempt to calculate the values by assuming square coordinates (1 unit horizontal = 1 unit vertical).
+
+```js
+// client.js
+
+// will make canvas coordinate (0, 0) correspond to bottom-left
+// and make top of canvas be 1000 units while keeping canvas scale square
+multyx.controller.mapCanvasPosition(canvas, { top: 1000 }, 'bottomleft');
+
+// will map canvas coordinates to correspond to these positions
+multyx.controller.mapCanvasPosition(canvas, { top: 10, left: -10, bottom: -10, right: 10 });
+
+// Error: Cannot include value for right if anchoring at right
+multyx.controller.mapCanvasPosition(canvas, { right: 500 }, 'right');
+```
+
+#### `Controller.mapMousePosition(centerX: number, centerY: number, anchor: HTMLElement = document.body, scaleX: number = 1, scaleY: number = scaleX)`
+
+Maps the mouse coordinates to a the top-left corner of a specific `anchor` element.
+
+#### `Controller.mapMouseToCanvas(canvas: HTMLCanvasElement)`
+
+Maps the mouse coordinates exactly to the canvas coordinates. Very useful for most applications and makes calculations and animations simpler.
+
+***
+
 ### MultyxClientItem
+
+A `MultyxClientItem` is the base of shared state on the client side. A `MultyxClientItem` is merely a union type between the following, [`MultyxClientValue`](#multyxclientvalue), [`MultyxClientObject`](#multyxclientobject), and [`MultyxClientList`](#multyxclientlist). When a property is changed, deleted, or set inside a `MultyxClientItem`, that change gets relayed to the server.
+
+Any assignments to a `MultyxClientItem` or the creation of a child on a `MultyxClientItem` property, such as setting `multyx.self.position = { x: 3, y: 2 };` will turn the value of the assignment into a `MultyxClientItem` itself.
+
+`MultyxClientItem` objects cannot be directly created through the client-side code, as they require references to the MultyxServer. They do, however, exist on the `multyx.self`, `multyx.all` or `multyx.teams` properties.
+
+#### `MultyxClientItem.value`
+
+The original representation of the MultyxClientItem, or the MultyxClientItem's respective primitive, object, or array.
+
+```js
+// client.js
+multyx.self.position = { x: 30, y: 100 };
+
+console.log(multyx.self.position); // MultyxObject { x: 30, y: 100 }
+console.log(multyx.self.position.value); // { x: 30, y: 100 }
+```
+
+#### `MultyxClientItem.editable`
+
+A boolean representing whether or not the server is allowing the MultyxClientItem to be changed, altered or deleted. If true, any edits can be sent to the server where they will go through more verification and should be accepted. If false, any edits will be immediately canceled.
+
+***
 
 ### MultyxClientValue
 
+A `MultyxClientValue` is the [`MultyxClientItem`](#multyxclientitem) representation of primitive values, which includes strings, numbers, and booleans. These are the fundamental blocks of MultyxItems, which [`MultyxClientObject`](#multyxclientobject) and [`MultyxClientList`](#multyxclientlist) classes are made up of.
+
+#### `MultyxClientValue.set(value: Value | MultyxClientValue)`
+
+Set the value of the MultyxClientValue. This will run the requested value through all of the constraints and, if accepted, will relay the change to the server to request the change.
+
+This generally doesn't need to be used, since the value of MultyxClientValue can be set explicitly with native operators.
+
+Returns boolean representing success of operation.
+
+```js
+// client.js
+multyx.self.x = 3;    // does the same thing as below
+multyx.self.x.set(3); // does the same thing as above
+```
+
+#### `MultyxClientValue.constraints`
+
+An object containing the constraints placed onto the MultyxClientValue from the server, excluding any custom ones. The key of this object is the name of the constraint, and the value of this object is the constraint function.
+
+```js
+// server.js
+client.self.x.min(-100);
+```
+
+```js
+// client.js
+console.log(multyx.self.x.constraints); // { 'min':  n => n >= -100 ? n : -100 }
+```
+
+#### `MultyxClientValue.Lerp()`
+
+Linearly interpolate the value of MultyxClientValue across updates. This will run 1 frame behind on average, since it uses the last two updates to interpolate between.
+
+This interpolation method pretends that time is 1 frame behind, and will take the ratio between the time since last frame to the time between last 2 frames as the progress between values in each frame. This means that if the time between frames is not constant, this interpolation method will not work as smoothly as it could.
+
+Since updates may happen sparsely instead of during each frame, this interpolator method assumes a maximum time between frames as 250 milliseconds, and will interpolate using that time frame.
+
+```js
+// client.js
+multyx.self.x = 0;
+multyx.self.x.Lerp();
+
+await sleep(50);
+multyx.self.x = 10;
+
+console.log(multyx.self.x); // 0
+await sleep(17);
+console.log(multyx.self.x); // 3.4
+await sleep(16);
+console.log(multyx.self.x); // 6.6
+await sleep(17);
+console.log(multyx.self.x); // 10
+```
+
+#### `MultyxClientValue.PredictiveLerp()`
+
+Linearly interpolate between the past update and the expected value of the next update. This method is similar to the `MultyxClientValue.Lerp()` method, except instead of interpolating between the past two updates, Multyx predicts where the value will be on the next update.
+
+Multyx does this by taking the change in the value between the previous updates and extrapolates that into the future.
+
+This works very well on values that have a set change each frame, such as a projectile or object with a constant speed.
+
+```js
+multyx.self.x = 0;
+multyx.self.x.PredictiveLerp();
+
+await sleep(50);
+multyx.self.x = 10;
+
+console.log(multyx.self.x); // 10
+await sleep(17);
+console.log(multyx.self.x); // 13.4
+await sleep(16);
+console.log(multyx.self.x); // 16.6
+await sleep(17);
+console.log(multyx.self.x); // 20
+```
+
 ### MultyxClientObject
 
+A `MultyxClientObject` is the [`MultyxClientItem`](#multyxclientitem) representation of JavaScript objects, or key-value pairs. These consist of strings representing properties of the original object, corresponding to MultyxItem objects representing the values of the original object. The original object is the JavaScript object that MultyxObject is mirroring. These can be nested arbitrarily deep, and child elements can host any type of [`MultyxClientItem`](#multyxclientitem).
+
+#### `MultyxClientObject.has(property: string): boolean`
+
+Returns a boolean that is true if `property` is in the MultyxClientObject representation, false otherwise. Synonymous with the `in` keyword on a JavaScript object.
+
+#### `MultyxClientObject.get(property: string): MultyxClientItem`
+
+Returns the MultyxClientItem value of a property. This generally does not need to be used, since properties can be accessed directly from the object. This does have to be used, however, if the property has a name that is already a native MultyxClientObject property or method. It is best practice not to set properties of a MultyxClientObject that conflicts with the native MultyxClientObject implementation.
+
+```js
+// server.js
+console.log(client.self.x);        // does same as below
+console.log(client.self.get('x')); // does same as above
+
+console.log(client.self.data);        // logs native Multyx stuff
+console.log(client.self.get('data')); // logs MultyxItem data 
+```
+
+#### `MultyxClientObject.set(property: string, value: any): boolean`
+
+Set the value of a property, and if accepted by all the constraints, relay the change the server for verification. This will parse `value` and create a MultyxClientItem representation that mirrors `value`. If setting a value whose property already exists, for instance `client.self.x = 3; client.self.x = 5;`, the MultyxClientObject will not create a new MultyxClientValue instance, but merely change the value inside the MultyxClientValue by calling `.set()`.
+
+This generally does not need to be used, since properties can be assigned directly from the object. This does have to be used, however, if the property has a name that is already a native MultyxClientObject property or method. It is best practice not to set properties of a MultyxClientObject that conflicts with the native MultyxClientObject implementation.
+
+Returns true if change accepted on client-side, false otherwise.
+
+#### `MultyxClientObject.delete(property: string): boolean`
+
+Delete the property from the object and relay the change to server for verification.
+
+Returns true if change accepted on client-side, false otherwise.
+
+#### `MultyxClientObject.forAll(callbackfn: (key: any, value: any) => void)`
+
+Creates a callback function that gets called for any current or future property in MultyxClientObject.
+
+This does not immediately call the callback function on future property creation, as creation may be made in the middle of an update frame before the property was fully populated with the update. Therefore, the callback function will be called at the end of an update frame.
+
+#### `MultyxClientObject.keys()`
+
+Returns an array of the keys of the object representation. Functions the same as `Object.keys(MultyxClientObject.value)`.
+
+#### `MultyxClientObject.values()`
+
+Returns an array of the values of the object representation. Functions the same as `Object.values(MultyxClientObject.value)`.
+
+#### `MultyxClientObject.entries()`
+
+Returns an array of the entries of the object representation. Functions the same as `Object.entries(MultyxClientObject.value)`.
+
 ### MultyxClientList
+
+A `MultyxClientList` is the [`MultyxClientItem`](#multyxclientitem) representation of JavaScript arrays. They are inherited from the `MultyxClientObject` class, so any method or property inside `MultyxClientObject` is equally valid inside `MultyxClientList`. They can be indexed directly for assignment and retrieval, and are made up of `MultyxClientItem` objects that can be nested arbitrarily deep.
+
+Along with having the methods and properties inherited from `MultyxClientObject`, `MultyxClientList` objects have similar properties and methods to Array objects. Unlike Array objects, however, in methods such as `.map()` or `.flat()`, MultyxClientList will not create a new list, but edit in-place the already existing MultyxClientList.
+
+#### `MultyxClientList.length`
+
+Just like Array.length, the `.length` property represents the number of elements in the `MultyxClientList`.
+
+The slight difference between `Array.length` is the exclusion of `<empty item>`. `MultyxClientList` does not have a method or property for including `<empty item>` like in `Array` objects, so missing elements are denoted with `undefined` values. The length of a `MultyxClientList` is calculated by taking the index of the last defined element plus one, so any `<empty item>` elements that would count towards the length in the `Array` object do not in the `MultyxClientList` object.
+
+This can possibly lead to discrepancies between the client and server, so keep this in mind.
+
+```js
+// client.js
+multyx.self.array = ['a'];
+multyx.self.array[5] = 'g';
+multyx.self.array.pop();
+console.log(multyx.self.array.length); // 1
+
+const array = ['a'];
+array[5] = 'g';
+array.pop();
+console.log(array.length); // 5
+```
+
+#### `MultyxClientList.forAll(callbackfn: (value: any, index: number) => void)`
+
+Equivalent to `MultyxClientObject.forAll` Creates a callback function that gets called for any current or future element in MultyxClientList.
+
+This does not immediately call the callback function on future element creation, as creation may be made in the middle of an update frame before the element was fully populated with the update. Therefore, the callback function will be called at the end of an update frame.
+
+#### `MultyxClientList.push(...items: any[]): number`
+
+Appends all items to the end of the `MultyxClientList`
+
+Returns length of `MultyxClientList`
+
+#### `MultyxClientList.pop(): MultyxItem | undefined`
+
+Removes and returns the last item in the MultyxClientList. If the list is empty, it returns undefined.
+
+#### `MultyxClientList.unshift(...items: any[]): number`
+
+Adds one or more items to the beginning of the MultyxClientList and returns the new length of the list.
+
+#### `MultyxClientList.shift(): MultyxItem | undefined`
+
+Removes and returns the first item in the MultyxClientList. If the list is empty, it returns undefined.
+
+#### `MultyxClientList.splice(start: number, deleteCount?: number, ...items: any[])`
+
+Changes the contents of the MultyxClientList by removing or replacing existing elements and/or adding new elements at the specified start index. The deleteCount parameter specifies the number of elements to remove. It shifts elements as needed to accommodate additions.
+
+#### `MultyxClientList.filter(predicate: (value: any, index: number, array: MultyxClientList) => boolean)`
+
+Creates a new MultyxClientList containing only the elements that pass the test implemented by the provided predicate function. The original list is modified to reflect the filtering operation.
+
+#### `MultyxClientList.map(callbackfn: (value: any, index: number, array: MultyxClientList) => any)`
+
+Transforms each element of the MultyxClientList using the provided callback function. The transformed values replace the original values in the list.
+
+#### `MultyxClientList.flat()`
+
+Flattens nested MultyxClientList structures by one level, appending the elements of any nested lists to the main list.
+
+#### `MultyxClientList.reduce(callbackfn: (accumulator: any, currentValue: any, index: number, array: MultyxClientList) => any, startingAccumulator: any)`
+
+Applies the provided callback function to reduce the MultyxClientList to a single value, starting with the given initial accumulator.
+
+#### `MultyxClientList.reduceRight(callbackfn: (accumulator: any, currentValue: any, index: number, array: MultyxClientList) => any, startingAccumulator: any)`
+
+Similar to reduce, but processes the elements of the MultyxClientList from right to left.
+
+#### `MultyxClientList.reverse()`
+
+Reverses the order of the elements in the MultyxClientList in place and returns same MultyxClientList.
+
+#### `MultyxClientList.forEach()`
+
+Executes a provided function once for each MultyxClientList element.
+
+#### `MultyxClientList.some()`
+
+Tests whether at least one element in the MultyxClientList passes the test implemented by the provided predicate function. Returns true if so, otherwise false.
+
+#### `MultyxClientList.every()`
+
+Tests whether all elements in the MultyxClientList pass the test implemented by the provided predicate function. Returns true if all pass, otherwise false.
+
+#### `MultyxClientList.find()`
+
+Returns the first element in the MultyxClientList that satisfies the provided predicate function. If no element satisfies the predicate, it returns undefined.
+
+#### `MultyxClientList.findIndex()`
+
+Returns the index of the first element in the MultyxClientList that satisfies the provided predicate function. If no element satisfies the predicate, it returns -1.
+
+#### `MultyxClientList.entries()`
+
+Returns an array of [value, index] pairs for each element in the MultyxClientList.
+
+#### `MultyxClientList.keys()`
+
+Returns an array of the keys (indices) for each element in the MultyxClientList.
 
 ***
 

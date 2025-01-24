@@ -12,7 +12,7 @@ export default class MultyxClientList extends MultyxClientObject {
         return parsed;
     }
 
-    constructor(multyx: typeof Multyx, list: any[] | EditWrapper<any[]>, propertyPath: string[] = [], editable: boolean){
+    constructor(multyx: Multyx, list: any[] | EditWrapper<any[]>, propertyPath: string[] = [], editable: boolean){
         super(multyx, {}, propertyPath, editable);
 
         this.length = 0;
@@ -62,7 +62,7 @@ export default class MultyxClientList extends MultyxClientObject {
      * Create a callback function that gets called for any current or future element in list
      * @param callbackfn Function to call for every element
      */
-    forAll(callbackfn: (value: any, index: number) => any) {
+    forAll(callbackfn: (value: any, index: number) => void) {
         for(let i=0; i<this.length; i++) {
             callbackfn(this.get(i), i);
         }

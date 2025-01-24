@@ -5,7 +5,7 @@ import { BuildConstraint, EditWrapper, Unpack } from '../utils';
 
 export default class MultyxClientValue {
     private _value: Value;
-    private multyx: typeof Multyx;
+    private multyx: Multyx;
     propertyPath: string[];
     editable: boolean;
     constraints: { [key: string]: Constraint };
@@ -26,7 +26,7 @@ export default class MultyxClientValue {
         if(this.interpolator) this.interpolator.set();
     }
 
-    constructor(multyx: typeof Multyx, value: Value | EditWrapper<Value>, propertyPath: string[] = [], editable: boolean) {
+    constructor(multyx: Multyx, value: Value | EditWrapper<Value>, propertyPath: string[] = [], editable: boolean) {
         this.propertyPath = propertyPath;
         this.editable = editable;
         this.multyx = multyx;
@@ -78,7 +78,7 @@ export default class MultyxClientValue {
 
     /**
      * Linearly interpolate value across frames
-     * Will run 1/2 frame behind on average
+     * Will run 1 frame behind on average
      */
     Lerp() {
         this.interpolator = {
@@ -89,7 +89,7 @@ export default class MultyxClientValue {
             get: () => {
                 const [e, s] = this.interpolator.history;
                 const ratio = Math.min(1, (Date.now() - e.time) / Math.min(250, e.time - s.time));
-                if(Number.isNaN(ratio) || typeof e.value != 'number' || typeof s.value != 'number') return s.value;
+                if(Number.isNaN(ratio) || typeof e.value != 'number' || typeof s.value != 'number') return e.value;
                 return e.value * ratio + s.value * (1 - ratio);
             },
             set: () => {
@@ -110,7 +110,7 @@ export default class MultyxClientValue {
             ],
             get: () => {
                 const [e, s] = this.interpolator.history;
-                const ratio = 0 + Math.min(1, (Date.now() - e.time) / Math.min(250, e.time - s.time));
+                const ratio = 0 + Math.min(1, (Date.now() - e.time) / (e.time - s.time));
                 if(Number.isNaN(ratio) || typeof e.value != 'number' || typeof s.value != 'number') return e.value;
                 return e.value * (1 + ratio) - s.value * ratio;
             },

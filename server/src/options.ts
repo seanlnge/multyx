@@ -9,7 +9,6 @@ export type Options = {
     respondOnFrame?: boolean,
     sendConnectionUpdates?: boolean,
     websocketOptions?: ServerOptions,
-    onStart?: () => void,
 };
 
 export const DefaultOptions: Options = {
@@ -19,6 +18,6 @@ export const DefaultOptions: Options = {
     respondOnFrame: true,
     sendConnectionUpdates: true,
     websocketOptions: {
-        perMessageDeflate: true,
+        perMessageDeflate: false, // prevents memory leakage
     },
 };

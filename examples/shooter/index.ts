@@ -5,7 +5,7 @@ import {
     Input
 } from '../../server/dist/src';
 
-const multyx = new MultyxServer({ tps: 20, onStart: () => console.log("Multyx Server Started") });
+const multyx = new MultyxServer({ tps: 20 }, () => console.log("Multyx Server Started"));
 
 const activePlayers = new MultyxTeam("players");
 activePlayers.self.bullets = [];
@@ -43,7 +43,7 @@ multyx.on("join", (client, name) => {
     client.self.y.min(-1000).max(1000);
 
     // Event to listen for shooting
-    client.controller.listenTo(Input.MouseDown, (state) => {
+    client.controller.listenTo(Input.MouseDown, state => {
         const direction = Math.atan2(
             state.mouse.y - client.self.y,
             state.mouse.x - client.self.x

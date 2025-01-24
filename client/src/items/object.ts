@@ -1,6 +1,6 @@
 import { Message } from "../message";
 import { RawObject } from '../types';
-import { Add, Done, EditWrapper, Unpack } from "../utils";
+import { Add, EditWrapper, Unpack } from "../utils";
 
 import type Multyx from '../index';
 import type { MultyxClientItem } from ".";
@@ -9,11 +9,9 @@ import MultyxClientValue from "./value";
 
 export default class MultyxClientObject {
     private object: RawObject<MultyxClientItem>;
-    private multyx: typeof Multyx;
+    private multyx: Multyx;
     propertyPath: string[];
-    constraints: string[];
     editable: boolean;
-
 
     private setterListeners: ((key: any, value: any) => void)[]
 
@@ -23,7 +21,7 @@ export default class MultyxClientObject {
         return parsed;
     }
 
-    constructor(multyx: typeof Multyx, object: RawObject | EditWrapper<RawObject>, propertyPath: string[] = [], editable: boolean) {
+    constructor(multyx: Multyx, object: RawObject | EditWrapper<RawObject>, propertyPath: string[] = [], editable: boolean) {
         this.object = {};
         this.propertyPath = propertyPath;
         this.multyx = multyx;
@@ -43,6 +41,9 @@ export default class MultyxClientObject {
         if(this.constructor !== MultyxClientObject) return;
         
         return new Proxy(this, {
+            has: (o, p) => {
+                return o.has(p);
+            },
             get: (o, p) => {
                 if(p in o) return o[p];
                 return o.get(p);
@@ -58,6 +59,10 @@ export default class MultyxClientObject {
                 return o.delete(p, false);
             }
         });
+    }
+
+    has(property: any): boolean {
+        return property in this.object;
     }
 
     get(property: any): MultyxClientItem {
@@ -114,14 +119,30 @@ export default class MultyxClientObject {
     }
 
     /**
-     * Create a callback function that gets called for any current or future element in list
-     * @param callbackfn Function to call for every element
+     * Create a callback function that gets called for any current or future property in object
+     * @param callbackfn Function to call for every property
      */
-    forAll(callbackfn: (key: any, value: any) => any) {
+    forAll(callbackfn: (key: any, value: any) => void) {
         for(let prop in this.object) {
             callbackfn(prop, this.get(prop));
         }
         this.setterListeners.push(callbackfn);
+    }
+
+    keys(): any[] {
+        return Object.keys(this.object);
+    }
+
+    values(): any[] {
+        return Object.values(this.object);
+    }
+
+    entries(): [any, any][] {
+        const entryList: [any, any][] = [];
+        for(let prop in this.object) {
+            entryList.push([prop, this.get(prop)]);
+        }
+        return entryList;
     }
 
     /**

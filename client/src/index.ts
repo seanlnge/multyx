@@ -5,7 +5,7 @@ import { Controller } from "./controller";
 import { MultyxClientObject } from "./items";
 import { DefaultOptions, Options } from "./options";
 
-class Multyx {
+export default class Multyx {
     ws: WebSocket;
     uuid: string;
     joinTime: number;
@@ -20,16 +20,15 @@ class Multyx {
     // Queue of functions to be called after each frame
     private listenerQueue: ((...args: any[]) => void)[];
 
-    Start = Symbol('start');
-    Connection = Symbol('connection');
-    Disconnect = Symbol('disconnect');
-    Edit = Symbol('edit');
-    Public = Symbol('public');
-    Native = Symbol('native');
-    Custom = Symbol('custom');
-    Any = Symbol('any');
+    static Start = Symbol('start');
+    static Connection = Symbol('connection');
+    static Disconnect = Symbol('disconnect');
+    static Edit = Symbol('edit');
+    static Native = Symbol('native');
+    static Custom = Symbol('custom');
+    static Any = Symbol('any');
 
-    constructor(options: Options = {}) {
+    constructor(options: Options = {}, callback?: () => void) {
         options = { ...DefaultOptions, ...options };
 
         this.ws = new WebSocket(`ws${options.secure ? 's' : ''}://${options.uri}:${options.port}/`);
@@ -42,18 +41,20 @@ class Multyx {
         this.controller = new Controller(this.ws);
         this.listenerQueue = [];
 
+        callback?.();
+
         this.ws.onmessage = event => {
             const msg = Message.Parse(event.data);
             this.ping = 2 * (Date.now() - msg.time);
 
             if(msg.native) {
                 this.parseNativeEvent(msg);
-                this.events.get(this.Native)?.forEach(cb => cb());
+                this.events.get(Multyx.Native)?.forEach(cb => cb());
             } else if(msg.name in this.events) {
                 this.events[msg.name](msg.data);
-                this.events.get(this.Custom)?.forEach(cb => cb());
+                this.events.get(Multyx.Custom)?.forEach(cb => cb());
             }
-            this.events.get(this.Any)?.forEach(cb => cb());
+            this.events.get(Multyx.Any)?.forEach(cb => cb());
         }
     }
 
@@ -78,14 +79,29 @@ class Multyx {
      */
     loop(callback: () => void, timesPerSecond?: number) {
         if(timesPerSecond) {
-            this.on(this.Start, () => setInterval(callback, Math.round(1000/timesPerSecond)));
+            this.on(Multyx.Start, () => setInterval(callback, Math.round(1000/timesPerSecond)));
         } else {
             const caller = () => {
                 callback();
                 requestAnimationFrame(caller);
             }
-            this.on(this.Start, () => requestAnimationFrame(caller));
+            this.on(Multyx.Start, () => requestAnimationFrame(caller));
         }
+    }
+
+    
+    /**
+     * Create a callback function that gets called for any current or future client
+     * @param callbackfn Function to call for every client
+     */
+    forAll(callback: (client: MultyxClientObject) => void) {
+        this.on(Multyx.Start, () => {
+            for(const client of Object.values(this.clients)) {
+                callback(client);
+            }
+        });
+
+        this.on(Multyx.Connection, callback);
     }
 
     private parseNativeEvent(msg: Message) {
@@ -112,14 +128,14 @@ class Multyx {
                 // Connection
                 case 'conn': {
                     this.clients[update.uuid] = update.data;
-                    this.events.get(this.Connection)?.forEach(c => c(update));
+                    this.events.get(Multyx.Connection)?.forEach(c => c(update));
                     break;
                 }
 
                 // Disconnection
                 case 'dcon': {
                     delete this.clients[update.uuid];
-                    this.events.get(this.Disconnect)?.forEach(c => c(update));
+                    this.events.get(Multyx.Disconnect)?.forEach(c => c(update));
                     break;
                 }
 
@@ -153,11 +169,18 @@ class Multyx {
         this.all = this.teams['all'];
 
         // Create MultyxClientObject for all clients
-        this.clients = new MultyxClientObject(this, {}, [], false);
+        this.clients = {};
         for(const [uuid, client] of Object.entries(update.clients)) {
-            this.clients[uuid] = new EditWrapper(client);
+            if(uuid == this.uuid) continue;
+            this.clients[uuid] = new MultyxClientObject(this, client, [uuid], false);
         };
-        this.self = new MultyxClientObject(this, new EditWrapper(update.client.self), [this.uuid], true);
+
+        this.self = this.clients[this.uuid] = new MultyxClientObject(
+            this, 
+            new EditWrapper(update.client.self), 
+            [this.uuid], 
+            true
+        );
 
         // Apply all constraints on self and teams
         for(const [uuid, table] of Object.entries(update.constraintTable)) {
@@ -165,7 +188,7 @@ class Multyx {
             obj[Unpack](table);
         }
 
-        this.events.get(this.Start)?.forEach(c => c(update));
+        this.events.get(Multyx.Start)?.forEach(c => c(update));
     }
 
     private parseEdit(update: RawObject) {
@@ -180,12 +203,12 @@ class Multyx {
             // Create new object at path if non-existent
             if(route[p] === undefined) route[p] = new EditWrapper({});
             route = route[p];
-
         }
+
         const prop = update.path.slice(-1)[0];
         route[prop] = new EditWrapper(update.value);
-        
-        this.events.get(this.Edit)?.forEach(c => c(update));
+
+        this.events.get(Multyx.Edit)?.forEach(c => c(update));
     }
 
     private parseSelf(update: RawObject) {
@@ -210,5 +233,3 @@ class Multyx {
         this.listenerQueue.push(fn);
     }
 }
-
-export default new Multyx();

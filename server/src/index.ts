@@ -3,7 +3,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 
 import NanoTimer from 'nanotimer';
 
-import { RawObject } from './types';
+import { Callback, RawObject } from './types';
 import { MapToObject, MergeRawObjects } from './utils/objects';
 
 import Message from './messages/message';
@@ -66,7 +66,12 @@ class MultyxServer {
     deltaTime: number;
     options: Options;
 
-    constructor(options: Options = {}) {
+    constructor(options: Options | Callback, callback?: Callback) {
+        if(typeof options == 'function') {
+            callback = options;
+            options = {};
+        }
+
         this.options = { ...DefaultOptions, ...options };
         this.options.websocketOptions = { ...DefaultOptions.websocketOptions, ...options.websocketOptions };
         
@@ -81,12 +86,14 @@ class MultyxServer {
         this.lastFrame = Date.now();
         this.deltaTime = 0;
 
-        const WSServer = new WebSocketServer({ ...this.options.websocketOptions! }, this.options.onStart);
-
+        const WSServer = new WebSocketServer({ ...this.options.websocketOptions! }, callback);
+        
         WSServer.on('connection', (ws: WebSocket) => {
             const client = this.connectionSetup(ws);
 
             ws.on('message', (str: string) => {
+                if(!client) return;
+
                 const msg = Message.Parse(str);
                 
                 if(msg.native) {
@@ -101,6 +108,8 @@ class MultyxServer {
             });
     
             ws.on('close', () => {
+                if(!client) return;
+
                 this.events.get(Events.Disconnect)?.forEach(event => event.call(client));
     
                 if(this.options.removeDisconnectedClients) for(const t of client.teams) t.removeClient(client);
@@ -301,7 +310,7 @@ class MultyxServer {
         for(const client of this.all.clients) {
             const updates = this.updates.get(client);
             if(!updates?.length) continue;
-            this.updates.set(client, []);
+            this.updates.delete(client);
             
             const msg = Message.Native(updates);
 
@@ -370,7 +379,7 @@ class MultyxServer {
     on(event: EventName, callback: (client: Client, data: any) => any): Event {
         if(!this.events.has(event)) this.events.set(event, []);
 
-        const eventObj = new Event(event, callback as ((client: Client | undefined) => any));
+        const eventObj = new Event(event, callback);
 
         this.events.get(event)!.push(eventObj);
         return eventObj;
@@ -380,11 +389,11 @@ class MultyxServer {
      * Apply a function to all connected clients, and all clients that will ever be connected
      * @param callback 
      */
-    forAll(callback: (client: Client) => void) {
+    forAll(callback: Callback) {
         for(const client of this.all.clients) {
             callback(client);
         }
 
-        this.on(Events.Connect, callback as ((client: Client | undefined) => void));
+        this.on(Events.Connect, callback);
     }
 }
