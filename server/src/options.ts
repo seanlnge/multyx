@@ -12,12 +12,12 @@ export type Options = {
 };
 
 export const DefaultOptions: Options = {
-    tps: 20,
+    tps: 10,
     port: 443,
     removeDisconnectedClients: true,
     respondOnFrame: true,
     sendConnectionUpdates: true,
     websocketOptions: {
-        perMessageDeflate: false, // prevents memory leakage
+        perMessageDeflate: false // Often causes backpressure on client
     },
 };

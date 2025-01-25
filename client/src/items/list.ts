@@ -50,11 +50,8 @@ export default class MultyxClientList extends MultyxClientObject {
     delete(index: string | number, native: boolean = false) {
         if(typeof index == 'string') index = parseInt(index);
 
-        // Attempting to edit property not editable by client
-        if(!this.editable && !native) return false;
-
         const res = super.delete(index, native);
-        this.length = this.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
+        if(res) this.length = this.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
         return res;
     }
 

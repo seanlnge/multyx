@@ -16,6 +16,8 @@ export default class Multyx {
     clients: RawObject;
     teams: RawObject;
     controller: Controller;
+
+    options: Options;
     
     // Queue of functions to be called after each frame
     private listenerQueue: ((...args: any[]) => void)[];
@@ -29,9 +31,10 @@ export default class Multyx {
     static Any = Symbol('any');
 
     constructor(options: Options = {}, callback?: () => void) {
-        options = { ...DefaultOptions, ...options };
+        this.options = { ...DefaultOptions, ...options };
 
-        this.ws = new WebSocket(`ws${options.secure ? 's' : ''}://${options.uri}:${options.port}/`);
+        const url = `ws${this.options.secure ? 's' : ''}://${this.options.uri}:${this.options.port}/`;
+        this.ws = new WebSocket(url);
         this.ping = 0;
         this.events = new Map();
         this.self = {};
@@ -49,12 +52,12 @@ export default class Multyx {
 
             if(msg.native) {
                 this.parseNativeEvent(msg);
-                this.events.get(Multyx.Native)?.forEach(cb => cb());
+                this.events.get(Multyx.Native)?.forEach(cb => cb(msg));
             } else if(msg.name in this.events) {
                 this.events[msg.name](msg.data);
-                this.events.get(Multyx.Custom)?.forEach(cb => cb());
+                this.events.get(Multyx.Custom)?.forEach(cb => cb(msg));
             }
-            this.events.get(Multyx.Any)?.forEach(cb => cb());
+            this.events.get(Multyx.Any)?.forEach(cb => cb(msg));
         }
     }
 
@@ -105,17 +108,30 @@ export default class Multyx {
     }
 
     private parseNativeEvent(msg: Message) {
+        if(this.options.logUpdateFrame) console.log(msg);
+
         for(const update of msg.data) {
             switch(update.instruction) {
                 // Initialization
                 case 'init': {
                     this.initialize(update);
+
+                    for(const listener of this.events.get(Multyx.Start) ?? []) {
+                        this.listenerQueue.push(() => listener(update));
+                    }
+                    
+                    // Clear start event as it will never be called again
+                    this.events.get(Multyx.Start).length = 0;
                     break;
                 }
 
                 // Client or team data edit
                 case 'edit': {
                     this.parseEdit(update);
+
+                    for(const listener of this.events.get(Multyx.Edit) ?? []) {
+                        this.listenerQueue.push(() => listener(update));
+                    }
                     break;
                 }
 
@@ -127,15 +143,26 @@ export default class Multyx {
 
                 // Connection
                 case 'conn': {
-                    this.clients[update.uuid] = update.data;
-                    this.events.get(Multyx.Connection)?.forEach(c => c(update));
+                    this.clients[update.uuid] = new MultyxClientObject(
+                        this,
+                        update.data,
+                        [update.uuid],
+                        false
+                    );
+
+                    for(const listener of this.events.get(Multyx.Connection) ?? []) {
+                        this.listenerQueue.push(() => listener(this.clients[update.uuid]));
+                    }
                     break;
                 }
 
                 // Disconnection
                 case 'dcon': {
-                    delete this.clients[update.uuid];
-                    this.events.get(Multyx.Disconnect)?.forEach(c => c(update));
+                    for(const listener of this.events.get(Multyx.Disconnect) ?? []) {
+                        const clientValue = this.clients[update.client].value;
+                        this.listenerQueue.push(() => listener(clientValue));
+                    }
+                    delete this.clients[update.client];
                     break;
                 }
 
@@ -147,13 +174,15 @@ export default class Multyx {
                 }
 
                 default: {
-                    console.error("Unknown native Multyx instruction");
+                    if(this.options.verbose) {
+                        console.error("Server error: Unknown native Multyx instruction");
+                    }
                 }
             }
         }
 
         this.listenerQueue.forEach(x => x());
-        this.listenerQueue = [];
+        this.listenerQueue.length = 0;
     }
 
     private initialize(update: RawObject) {
@@ -172,34 +201,43 @@ export default class Multyx {
         this.clients = {};
         for(const [uuid, client] of Object.entries(update.clients)) {
             if(uuid == this.uuid) continue;
-            this.clients[uuid] = new MultyxClientObject(this, client, [uuid], false);
+            this.clients[uuid] = new MultyxClientObject(
+                this,
+                new EditWrapper(client),
+                [uuid],
+                false
+            );
         };
 
-        this.self = this.clients[this.uuid] = new MultyxClientObject(
+        const client = new MultyxClientObject(
             this, 
             new EditWrapper(update.client.self), 
             [this.uuid], 
             true
         );
+        this.self = client;
+        this.clients[this.uuid] = client;
 
         // Apply all constraints on self and teams
         for(const [uuid, table] of Object.entries(update.constraintTable)) {
             const obj = this.uuid == uuid ? this.self : this.teams[uuid];
             obj[Unpack](table);
         }
-
-        this.events.get(Multyx.Start)?.forEach(c => c(update));
     }
 
     private parseEdit(update: RawObject) {
         const newTeam = update.team && (this.teams[update.path[0]] === undefined);
-        let route: any = update.team ? this.teams : this.clients;
-
+    
         // Client joined a new team
         if(newTeam) this.teams[update.path[0]] = new EditWrapper({});
-    
+
+        let route: any = update.team
+            ? this.teams[update.path[0]]
+            : this.clients[update.path[0]];
+        if(!route) return;
+
         // Loop through path to get to object being edited
-        for(const p of update.path.slice(0, -1)) {
+        for(const p of update.path.slice(1, -1)) {
             // Create new object at path if non-existent
             if(route[p] === undefined) route[p] = new EditWrapper({});
             route = route[p];
@@ -207,8 +245,6 @@ export default class Multyx {
 
         const prop = update.path.slice(-1)[0];
         route[prop] = new EditWrapper(update.value);
-
-        this.events.get(Multyx.Edit)?.forEach(c => c(update));
     }
 
     private parseSelf(update: RawObject) {

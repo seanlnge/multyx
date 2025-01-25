@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "chatlog": "tsc && node chatlog/index",
-    "squares": "tsc && node squares/index",
+    "squares": "node squares/index",
     "shooter": "tsc && node shooter/index"
   },
   "author": "",

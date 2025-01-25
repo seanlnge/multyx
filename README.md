@@ -204,7 +204,7 @@ Initializing a MultyxServer creates a WebsocketServer using the node 'ws' module
 export type Options = {
     tps?: number,
     port?: number,
-    server?: Server, 
+    server?: Server,
     removeDisconnectedClients?: boolean,
     respondOnFrame?: boolean,
     sendConnectionUpdates?: boolean,
@@ -212,13 +212,13 @@ export type Options = {
 };
 
 export const DefaultOptions: Options = {
-    tps: 20,
+    tps: 10,
     port: 443,
     removeDisconnectedClients: true,
     respondOnFrame: true,
     sendConnectionUpdates: true,
     websocketOptions: {
-        perMessageDeflate: false, // issues with memory leakage
+        perMessageDeflate: false // Often causes backpressure on client
     },
 };
 ```
@@ -237,7 +237,7 @@ Server to start WebsocketServer on. Will override the Options.port argument if i
 
 #### `Options.removeDisconnectedClients`
 
-If true, disconnected clients will be removed from any MultyxTeam they are part of. If false, disconnected clients will remain in any MultyxTeam. All clients will still receive a DisconnectionUpdate.
+If true, disconnected clients will be removed from any MultyxTeam they are part of. If false, disconnected clients will remain in any MultyxTeam. All clients will still receive a DisconnectionUpdate. It is recommended to keep this set to true, as retaining the disconnected clients can lead to memory leaks if the server is running for long enough.
 
 #### `Options.respondOnFrame`
 
@@ -678,10 +678,6 @@ The `controller` property is an instance of the [`Controller`](#controller) clas
 
 The timestamp in milliseconds when the client was created.
 
-#### `Client.ws`
-
-The Websocket connection associated with the client. Facilitates the communication between server and client.
-
 #### `Client.teams`
 
 A Set object containing all [`MultyxTeam`](#multyxteam) objects that the client is a part of.
@@ -859,12 +855,16 @@ export type Options = {
     port?: number,
     secure?: boolean,
     uri?: string,
+    verbose?: boolean,
+    logUpdateFrame?: boolean,
 };
 
 export const DefaultOptions: Options = {
     port: 443,
     secure: false,
-    uri: 'localhost'
+    uri: 'localhost',
+    verbose: false,
+    logUpdateFrame: false,
 };
 ```
 
@@ -881,6 +881,14 @@ This will not work if `Options.uri` is set to localhost, such as in a developmen
 #### `Options.uri`
 
 What URI to attempt to connect websocket at.
+
+#### `Options.verbose`
+
+Log errors if receiving faulty data from MultyxServer, along with logging any denied change requests to a MultyxClientItem. This can be useful if debugging code, to show where the client may be attempting to edit disabled data.
+
+#### `Options.logUpdateFrame`
+
+Logs the raw data sent from MultyxServer from each update frame.
 
 #### `Multyx.uuid`
 
@@ -932,7 +940,19 @@ export default class Multyx {
 
 #### `Multyx.on(name: string | Symbol, callback: Callback)`
 
-Listen to event sent by server. Will call `callback` with data from server.
+Listen to event sent by server. Will call `callback` with specific data from server.
+
+If `name` is a Multyx Event, the argument sent to callback will be determined by which event is being listened to:
+
+```ts
+Multyx.Start // Raw update from MultyxServer
+Multyx.Connection // MultyxClientItem representing newly connected client
+Multyx.Disconnect // Raw object representing disconnected client
+Multyx.Edit // Raw update from MultyxServer 
+Multyx.Native // Raw message from MultyxServer
+Multyx.Custom  // Raw message from MultyxServer
+Multyx.Start // Raw message from MultyxServer
+```
 
 #### `Multyx.send(name: string, data: any, expectResponse: boolean = false)`
 
@@ -1313,22 +1333,145 @@ Here is the setup for our `index.html` file. This code will create a square canv
 ***
 
 ```js
+// script.js
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-Multyx.controller.mapCanvasPosition(canvas, { top: 1000, anchor: 'bottomleft' });
-Multyx.controller.mapMouseToCanvas(canvas);
+const multyx = new Multyx();
+
+multyx.controller.mapCanvasPosition(canvas, { top: 1000, anchor: 'bottomleft' });
+multyx.controller.mapMouseToCanvas(canvas);
 ```
 
-Here is the setup for our `script.js` file, or our client-side code. This code first gets the canvas element and stores it to the `canvas` variable, along with getting the 2d context `ctx` allowing us to draw on this canvas. It then uses two Multyx functions called `mapCanvasPosition` and `mapMouseToCanvas`. What these do is normalize the values of our mouse and our canvas, making it a lot easier to do math with these values and draw objects on the canvas.
+Here is the setup for our `script.js` file, or our client-side code. This code first gets the canvas element and stores it to the `canvas` variable, along with getting the 2d context `ctx` allowing us to draw on this canvas. We then initialize our Multyx client, connecting the websocket server and initializing all client and team information. It then uses two Multyx functions called `mapCanvasPosition` and `mapMouseToCanvas`. What these do is normalize the values of our mouse and our canvas, making it a lot easier to do math with these values and draw objects on the canvas.
 
-What `Multyx.controller.mapCanvasPosition` does is tell the canvas to have its origin in the bottom-left, meaning the point `(0, 0)` on our canvas will be at the bottom-left of the element on the screen. Multyx then tells the canvas to make the top have a y-value of 1000, meaning the point `(0, 1000)` on our canvas will be the top-left of the element on the screen. Multyx then tries to make the canvas coordinates a square, meaning that 1 unit vertically is the same number of pixels as 1 unit horizontally. Since we know our canvas is a square, and Multyx just made the canvas 1000 units tall, we know that the canvas is 1000 units across as well.
+What `multyx.controller.mapCanvasPosition` does is tell the canvas to have its origin in the bottom-left, meaning the point `(0, 0)` on our canvas will be at the bottom-left of the element on the screen. Multyx then tells the canvas to make the top have a y-value of 1000, meaning the point `(0, 1000)` on our canvas will be the top-left of the element on the screen. Multyx then tries to make the canvas coordinates a square, meaning that 1 unit vertically is the same number of pixels as 1 unit horizontally. Since we know our canvas is a square, and Multyx just made the canvas 1000 units tall, we know that the canvas is 1000 units across as well.
+
+The `multyx.controller.mapMouseToCanvas` function tells our Multyx client to relay our mouse coordinates based on where our mouse is on the canvas. This basically links the mouse to the canvas, telling the Multyx server where on the canvas, in canvas coordinates, our mouse is hovering over. This will make calculations easier later.
+
+We can now setup our `index.js` file.
+
 ***
 
 ```js
-import Multyx from '../../server/dist/index';
+// index.js
+const Multyx = require('../../server/dist/index').default;
 
 const multyx = new Multyx.MultyxServer();
+
+multyx.on(Multyx.Events.Connect, ({ self, controller }) => {
+    self.color = '#'
+        + Math.floor(Math.random() * 8)
+        + Math.floor(Math.random() * 8)
+        + Math.floor(Math.random() * 8);
+        
+    self.direction = 0;
+    self.x = Math.round(Math.random() * 600);
+    self.y = Math.round(Math.random() * 600);
+
+    self.addPublic(multyx.all).disable();
+    self.x.min(0).max(600);
+    self.y.min(0).max(600);
+
+    controller.listenTo(Multyx.Input.MouseMove);
+});
 ```
 
-Here is the setup for our `index.js` file, or our server-side code.
+Here is the setup for our `index.js` file, or our server-side code. What this does first is import the Multyx module, and then initializes our `MultyxServer`, creating the websocket server and allowing websocket connections to come in.
+
+We then listen for a connection event by using `multyx.on` and listening for `Multyx.Events.Connect`, and create our callback to deal with our incoming client.
+
+This callback function takes in the `Client` object representing our client who just connected, specifically taking the `Client.self`, and `Client.controller` properties.
+
+Inside our callback function, we set a bunch of properties to share to the client, such as `color`, which we set to a random hex color between `#000` and `#888`, and `x` and `y`, which we set to a random number between 0 and 600.
+
+We then make the `Client.self` object public to all clients through the `multyx.all` team, and disable it, meaning that the client cannot edit it. After this, we tell the controller to listen to the `Multyx.Input.MouseMove` event, which tells the client to send an update any time the mouse is moved.
+
+This is all we need for the initialization in the server. Now that all of our client data is public, we can go back to our client and start rendering the players.
+
+```js
+// script.js
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+const multyx = new Multyx();
+
+multyx.controller.mapCanvasPosition(canvas, { top: 600, anchor: 'bottomleft' });
+multyx.controller.mapMouseToCanvas(canvas);
+
+multyx.loop(() => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for(const player of Object.values(multyx.clients)) {
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x - 10, player.y - 10, 20, 20);
+    }
+});
+
+multyx.forAll(client => {
+    client.x.Lerp();
+    client.y.Lerp();
+});
+```
+
+In our updated client-side code, we added a `multyx.loop` function, which has a callback that renders everything. The `loop` method in Multyx will run the callback function on a cycle a specific number of times a second. This can be defined as the second argument passed to `multyx.loop`, but if it left empty, Multyx will default to using `requestAnimationFrame` to loop. This is the browsers built-in animation rendering caller.
+
+We first clear the entire screen in order to draw the new frame onto the screen. We then loop through our clients, set the color to the current player's color, and make a rectangle on the screen at the player's coordinates.
+
+The next part of the code calls the `multyx.forAll` function. This function will run on every client, as well as any clients that connect in the future. This is a useful function, allowing the client to apply an interpolation function or process other client's data as soon as they connect.
+
+In this code, we apply an interpolation function called `Lerp`. This will ensure smooth animation and make the rendering look clean instead of choppy. We apply this to the `client.x` and `client.y` values, meaning that the position of our client on each render will move smoothly across.
+
+All we have to do now is to calculate the client's position on the server, and everything is setup.
+
+```js
+// index.js
+const Multyx = require('../../server/dist/index').default;
+
+const multyx = new Multyx.MultyxServer();
+
+multyx.on(Multyx.Events.Connect, ({ self, controller }) => {
+    self.color = '#'
+        + Math.floor(Math.random() * 8)
+        + Math.floor(Math.random() * 8)
+        + Math.floor(Math.random() * 8);
+
+    self.direction = 0;
+    self.x = Math.round(Math.random() * 600);
+    self.y = Math.round(Math.random() * 600);
+
+    self.addPublic(multyx.all).disable();
+    self.x.min(0).max(600);
+    self.y.min(0).max(600);
+
+    controller.listenTo(Multyx.Input.MouseMove);
+});
+
+multyx.on(Multyx.Events.Update, () => {
+    for(const { self, controller } of multyx.all.clients) {
+        // Set player direction to mouse direction
+        self.direction = Math.atan2(
+            controller.state.mouse.y - self.y,
+            controller.state.mouse.x - self.x
+        );
+
+        // Make the speed proportional to distance
+        const distance = Math.hypot(
+            controller.state.mouse.x - self.x,
+            controller.state.mouse.y - self.y
+        );
+
+        // Have a maximum speed of 200
+        const speed = Math.min(200, distance);
+
+        // Move player in direction of mouse
+        self.x += speed * Math.cos(self.direction) * multyx.deltaTime;
+        self.y += speed * Math.sin(self.direction) * multyx.deltaTime;
+    }
+});
+```
+
+What we have added is an update event listener. When the `Multyx.Events.Update` event gets called, which is right before each frame is sent, we loop through all clients, calculate their direction and speed, and calculate how much we need to move the client.
+
+We use the `Math.atan2()` method to calculate the angle between the mouse and the player, and the `Math.hypot()` method to calculate the distance between the mouse and the player. We then make the speed equivalent to the distance, and cap it at 200.
+
+We then update the client position to move in the direction of the mouse at the given speed. We use the `Math.cos()` and `Math.sin()` methods on our direction to get the x and y-values of our movement respectively, and multiply by our `deltaTime` to make sure the amount we move in that time is proportional to the time between frames.

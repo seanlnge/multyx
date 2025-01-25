@@ -41,12 +41,24 @@ export default class MultyxClientValue {
         }
 
         // Attempting to edit property not editable to client
-        if(!this.editable) return false;
+        if(!this.editable) {
+            if(this.multyx.options.verbose) {
+                console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.')}' to ${value}`);
+            }
+            return false;
+        }
 
         let nv = value;
-        for(const fn of Object.values(this.constraints)) {
+        for(const constraint in this.constraints) {
+            const fn = this.constraints[constraint];
             nv = fn(nv);
-            if(nv === null) return false;
+            
+            if(nv === null) {    
+                if(this.multyx.options.verbose) {
+                    console.error(`Attempting to set property that failed on constraint. Setting '${this.propertyPath.join('.')}' to ${value}, stopped by constraint '${constraint}'`);
+                }
+                return false;
+            }
         }
 
         if(this.value === nv) {

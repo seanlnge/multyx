@@ -79,7 +79,12 @@ export default class MultyxClientObject {
         if(value instanceof EditWrapper && value.value === undefined) return this.delete(property, true);
         
         // Attempting to edit property not editable to client
-        if(!(value instanceof EditWrapper) && !this.editable) return false;
+        if(!(value instanceof EditWrapper) && !this.editable) {
+            if(this.multyx.options.verbose) {
+                console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.') + '.' + property}' to ${value}`);
+            }
+            return false;
+        }
         
         // Creating a new value
         this.object[property] = new (MultyxClientItemRouter(
@@ -98,12 +103,18 @@ export default class MultyxClientObject {
             path: this.propertyPath,
             value: this.object[property].value
         }));
+        
         return true;
     }
 
     delete(property: any, native: boolean = false) {
         // Attempting to edit property not editable by client
-        if(!this.editable && !native) return false;
+        if(!this.editable && !native) {
+            if(this.multyx.options.verbose) {
+                console.error(`Attempting to delete property that is not editable. Deleting '${this.propertyPath.join('.') + '.' + property}'`);
+            }
+            return false;
+        }
 
         delete this.object[property];
 

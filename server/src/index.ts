@@ -1,4 +1,3 @@
-import { Server } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 
 import NanoTimer from 'nanotimer';
@@ -38,7 +37,6 @@ import { Event, EventName, Events } from './messages/event';
 import { Edit, Get, Parse, Self, EditWrapper, Build, Send } from './utils/native';
 import { DefaultOptions, Options } from './options';
 
-
 export {
     Client,
     Input,
@@ -66,7 +64,9 @@ class MultyxServer {
     deltaTime: number;
     options: Options;
 
-    constructor(options: Options | Callback, callback?: Callback) {
+    ws: WeakMap<Client, WebSocket>;
+
+    constructor(options: Options | Callback = {}, callback?: Callback) {
         if(typeof options == 'function') {
             callback = options;
             options = {};
@@ -85,11 +85,13 @@ class MultyxServer {
         this.updates = new Map();
         this.lastFrame = Date.now();
         this.deltaTime = 0;
+        this.ws = new WeakMap();
 
         const WSServer = new WebSocketServer({ ...this.options.websocketOptions! }, callback);
         
         WSServer.on('connection', (ws: WebSocket) => {
             const client = this.connectionSetup(ws);
+            this.ws.set(client, ws);
 
             ws.on('message', (str: string) => {
                 if(!client) return;
@@ -109,18 +111,24 @@ class MultyxServer {
     
             ws.on('close', () => {
                 if(!client) return;
-
+                
+                this.ws.delete(client);
+                this.updates.delete(client);
+                
                 this.events.get(Events.Disconnect)?.forEach(event => event.call(client));
     
-                if(this.options.removeDisconnectedClients) for(const t of client.teams) t.removeClient(client);
+                if(this.options.removeDisconnectedClients) {
+                    for(const t of client.teams) t.removeClient(client);
+                }
                 
                 if(this.options.sendConnectionUpdates) {
                     for(const c of this.all.clients) {
                         if(c === client) continue;
-                        
+
                         this.addOperation(c, new DisconnectUpdate(client.uuid));
                     }
                 }
+
             });
         });
 
@@ -141,7 +149,7 @@ class MultyxServer {
      * @returns Client object
      */
     private connectionSetup(ws: WebSocket): Client {
-        const client = new Client(ws, this);
+        const client = new Client(this);
         
         this.events.get(Events.Connect)?.forEach(event => event.call(client));
 
@@ -271,7 +279,6 @@ class MultyxServer {
             const index = clientUpdates.findIndex(update => {
                 if(!(update instanceof EditUpdate)) return false;
 
-                // Check if the update path matches with the 
                 if(update.path.every((v, i) => msg.data.path[i+1] == v)
                 && update.value == msg.data.value) return true;
                 
@@ -297,6 +304,19 @@ class MultyxServer {
         this.updates.set(client, updates);
     }
 
+    /**
+     * Turn update list into smaller update list by combining data
+     * from the same MultyxObject
+     * @param updates List of updates to compress
+     * @returns Compressed updates
+     */
+    private compressUpdates(updates: Update[]) {
+        return updates;
+    }
+
+    /**
+     * Send all updates in past frame to clients
+     */
     private sendUpdates() {
         this.deltaTime = (Date.now() - this.lastFrame) / 1000;
         this.lastFrame = Date.now();
@@ -308,13 +328,22 @@ class MultyxServer {
         this.events.get(Events.Update)?.forEach(event => event.call());
 
         for(const client of this.all.clients) {
-            const updates = this.updates.get(client);
-            if(!updates?.length) continue;
-            this.updates.delete(client);
+            const rawUpdates = this.updates.get(client);
+            if(!rawUpdates?.length) continue;
+
+            const updates = this.compressUpdates(rawUpdates);
+            
+            const ws = this.ws.get(client);
+            if(!ws) continue;
+            
+            // Client is backpressured and cannot currently be sent more data
+            // without ws._sender._queue being stuffed and the heap growing to 1GB+
+            if(ws.bufferedAmount > 4 * 1024 * 1024) continue;
             
             const msg = Message.Native(updates);
+            ws.send(msg);
 
-            client.ws.send(msg);
+            updates.length = 0;
         }
         
         this.events.get(Events.PostUpdate)?.forEach(event => event.call());
@@ -351,6 +380,15 @@ class MultyxServer {
     }
 
     /**
+     * Send message to client
+     * @param client Client to send to
+     * @param message Message to send
+     */
+    [Build](client: Client, message: string) {
+        this.ws.get(client)?.send(message);
+    }
+
+    /**
      * Create a ResponseUpdate to respond to client
      * @param client Client to send response to
      * @param eventName Name of event responding to
@@ -363,7 +401,7 @@ class MultyxServer {
         if(this.options.respondOnFrame) {
             this.addOperation(client, update);
         } else {
-            client.ws.send(Message.Native([update]));
+            this.ws.get(client)?.send(Message.Native([update]));
         }
     }
 

@@ -6,7 +6,7 @@ import Message from "../messages/message";
 import { GenerateUUID } from "../utils/uuid";
 
 import { MultyxObject } from "../items";
-import { Parse } from "../utils/native";
+import { Build, Parse } from "../utils/native";
 import { Controller, ControllerState } from "./controller";
 
 import type MultyxTeam from "./team";
@@ -15,16 +15,14 @@ export default class Client {
     self: MultyxObject;
     controller: Controller;
     teams: Set<MultyxTeam>;
-    ws: WebSocket;
     server: MultyxServer;
     uuid: string;
     joinTime: number;
     clients: Client[];
     onUpdate: (deltaTime: number, controllerState: ControllerState) => void;
 
-    constructor(ws: WebSocket, server: MultyxServer) {
+    constructor(server: MultyxServer) {
         this.teams = new Set();
-        this.ws = ws;
         this.server = server;
         this.uuid = GenerateUUID();
         this.joinTime = Date.now();
@@ -35,7 +33,7 @@ export default class Client {
     }
 
     send(eventName: string, data: any) {
-        this.ws.send(Message.Create(eventName, data));
+        this.server[Build](this, Message.Create(eventName, data));
     }
 
     /**

@@ -2,7 +2,7 @@ import { MultyxServer } from "..";
 import Message from "../messages/message";
 import { RawObject } from "../types";
 import { AddUUID } from "../utils/uuid";
-import { Edit, Get, Send, Value } from "../utils/native";
+import { Build, Edit, Get, Send, Value } from "../utils/native";
 import { MultyxValue, MultyxObject, MultyxUndefined, MultyxItem } from "../items";
 
 import type Client from "./client";
@@ -57,7 +57,7 @@ export default class MultyxTeam {
     send(eventName: string, data: any) {
         const msg = Message.Create(eventName, data);
         for(const client of this.clients) {
-            client.ws.send(msg);
+            this.server[Build](client, msg);
         }
     }
 
