@@ -586,6 +586,8 @@ Removes and returns the first item in the MultyxList. If the list is empty, it r
 
 Changes the contents of the MultyxList by removing or replacing existing elements and/or adding new elements at the specified start index. The deleteCount parameter specifies the number of elements to remove. It shifts elements as needed to accommodate additions.
 
+If utilizing interpolation for values of MultyxList, it is recommended to push new elements and delete old ones instead, as shifted elements will retain unshifted value inside interpolation history, leading to slightly choppy interpolation movement.
+
 #### `MultyxList.filter(predicate: (value: any, index: number, array: MultyxList) => boolean)`
 
 Creates a new MultyxList containing only the elements that pass the test implemented by the provided predicate function. The original list is modified to reflect the filtering operation.

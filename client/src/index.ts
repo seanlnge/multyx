@@ -98,12 +98,7 @@ export default class Multyx {
      * @param callbackfn Function to call for every client
      */
     forAll(callback: (client: MultyxClientObject) => void) {
-        this.on(Multyx.Start, () => {
-            for(const client of Object.values(this.clients)) {
-                callback(client);
-            }
-        });
-
+        this.teams.all.clients.forAll((uuid) => callback(this.clients[uuid]));
         this.on(Multyx.Connection, callback);
     }
 
@@ -226,20 +221,13 @@ export default class Multyx {
     }
 
     private parseEdit(update: RawObject) {
-        const newTeam = update.team && (this.teams[update.path[0]] === undefined);
-    
-        // Client joined a new team
-        if(newTeam) this.teams[update.path[0]] = new EditWrapper({});
-
-        let route: any = update.team
-            ? this.teams[update.path[0]]
-            : this.clients[update.path[0]];
+        let route: any = update.team ? this.teams : this.clients;
         if(!route) return;
 
         // Loop through path to get to object being edited
-        for(const p of update.path.slice(1, -1)) {
+        for(const p of update.path.slice(0, -1)) {
             // Create new object at path if non-existent
-            if(route[p] === undefined) route[p] = new EditWrapper({});
+            if(!(p in route)) route[p] = new EditWrapper({});
             route = route[p];
         }
 

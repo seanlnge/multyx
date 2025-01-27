@@ -118,12 +118,19 @@ export default class MultyxClientValue {
         this.interpolator = {
             history: [
                 { value: this._value, time: Date.now() },
+                { value: this._value, time: Date.now() },
                 { value: this._value, time: Date.now() }
             ],
             get: () => {
-                const [e, s] = this.interpolator.history;
-                const ratio = 0 + Math.min(1, (Date.now() - e.time) / (e.time - s.time));
-                if(Number.isNaN(ratio) || typeof e.value != 'number' || typeof s.value != 'number') return e.value;
+                const [e, s, p] = this.interpolator.history;
+                const ratio = Math.min(1, (Date.now() - e.time) / (e.time - s.time));
+
+                if(Number.isNaN(ratio) || typeof p.value != 'number') return e.value;
+                if(typeof e.value != 'number' || typeof s.value != 'number') return e.value;
+
+                // Speed changed too fast, don't interpolate, return new value
+                if(Math.abs((e.value - s.value) / (s.value - p.value) - 1) > 0.2) return e.value;
+
                 return e.value * (1 + ratio) - s.value * ratio;
             },
             set: () => {

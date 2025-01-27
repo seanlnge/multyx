@@ -1,4 +1,4 @@
-const multyx = new Multyx();
+const multyx = new Multyx({ logUpdateFrame: true });
 
 // Function called when join game button pressed
 async function joinGame() {
@@ -21,9 +21,9 @@ async function joinGame() {
     ctx.fillRect(-1000, -1000, 2000, 2000);
 
     // Lerp all clients to ever join the players team
-    multyx.teams.players.clients.forAll(clientUUID => {
-        multyx.clients[clientUUID].x.Lerp();
-        multyx.clients[clientUUID].y.Lerp();
+    multyx.forAll(client => {
+        client.x.Lerp();
+        client.y.Lerp();
     });
     multyx.teams.players.bullets.forAll(bullet => {
         bullet.x.PredictiveLerp();

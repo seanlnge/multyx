@@ -94,7 +94,9 @@ export default class MultyxClientObject {
         // We have to push into queue, since object may not be fully created
         // and there may still be more updates to parse
         for(const listener of this.setterListeners) {
-            this.multyx[Add](() => listener(property, this.get(property)));
+            this.multyx[Add](() => {
+                if(this.has(property)) listener(property, this.get(property));
+            });
         }
 
         // Relay change to server if not edit wrapped

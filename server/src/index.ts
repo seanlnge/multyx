@@ -313,7 +313,7 @@ class MultyxServer {
     private compressUpdates(updates: Update[]) {
         const compressed: Update[] = [];
 
-        const pathToEdit = new Map<string[], Update>();
+        const pathToEdit = new Map<string, Update>();
         const pathToSelf = new Map<string, Update>();
 
         for(const update of updates) {
@@ -326,7 +326,7 @@ class MultyxServer {
             // Replace old edits on same property
             else if(update.instruction == 'edit') {
                 // Property path references are same across updates
-                pathToEdit.set(update.path, update);
+                pathToEdit.set(update.path.join(' '), update);
             }
 
             // Replace old self edits on same property

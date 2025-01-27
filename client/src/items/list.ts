@@ -19,6 +19,10 @@ export default class MultyxClientList extends MultyxClientObject {
         this.push(...(list instanceof EditWrapper ? list.value.map(x => new EditWrapper(x)) : list));
 
         return new Proxy(this, {
+            has: (o, p) => {
+                if(p in o) return true;
+                return o.has(p);
+            },
             get: (o, p) => {
                 if(p in o) return o[p];
                 return o.get(p);
