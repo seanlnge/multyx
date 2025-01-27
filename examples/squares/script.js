@@ -1,7 +1,7 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-const multyx = new Multyx({ logUpdateFrame: true });
+const multyx = new Multyx();
 
 multyx.controller.mapCanvasPosition(canvas, { top: 600, anchor: 'bottomleft' });
 multyx.controller.mapMouseToCanvas(canvas);
@@ -15,7 +15,6 @@ multyx.loop(() => {
 });
 
 multyx.forAll(client => {
-    console.log(client);
     client.x.Lerp();
     client.y.Lerp();
 });

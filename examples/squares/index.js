@@ -1,14 +1,6 @@
 const Multyx = require('../../server/dist/index').default;
 
-const multyx = new Multyx.MultyxServer({
-    websocketOptions: {
-        perMessageDeflate: {
-            serverMaxWindowBits: 10,
-            clientMaxWindowBits: 10,
-            threshold: 4096,
-        }
-    }
-}, () => console.log('started'));
+const multyx = new Multyx.MultyxServer(() => console.log('started'));
 
 multyx.on(Multyx.Events.Connect, ({ self, controller }) => {
     self.color = '#'
@@ -28,7 +20,7 @@ multyx.on(Multyx.Events.Connect, ({ self, controller }) => {
 });
 
 multyx.on(Multyx.Events.Update, () => {
-    for(const { updateSize, self, controller } of multyx.all.clients) {
+    for(const { self, controller } of multyx.all.clients) {
         // Set player direction to mouse direction
         self.direction = Math.atan2(
             controller.state.mouse.y - self.y,
