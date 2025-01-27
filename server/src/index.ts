@@ -80,7 +80,7 @@ class MultyxServer {
         if(this.options.server) this.options.websocketOptions.server = this.options.server;
 
         this.events = new Map();
-        this.tps = options.tps!;
+        this.tps = this.options.tps!;
         this.all = new MultyxTeam('all');
         this.updates = new Map();
         this.lastFrame = Date.now();
@@ -311,7 +311,41 @@ class MultyxServer {
      * @returns Compressed updates
      */
     private compressUpdates(updates: Update[]) {
-        return updates;
+        const compressed: Update[] = [];
+
+        const pathToEdit = new Map<string[], Update>();
+        const pathToSelf = new Map<string, Update>();
+
+        for(const update of updates) {
+            // If just connected, all updates accounted for inside conn update
+            if(update.instruction == 'init') {
+                compressed.length = 0;
+                compressed.push(update);
+            }
+
+            // Replace old edits on same property
+            else if(update.instruction == 'edit') {
+                // Property path references are same across updates
+                pathToEdit.set(update.path, update);
+            }
+
+            // Replace old self edits on same property
+            else if(update.instruction == 'self') {
+                // Self updates send entire value, not just changes
+                pathToSelf.set(update.property, update);
+            }
+            
+            // All other updates cannot be compressed / not worth it
+            else {
+                compressed.push(update);
+            }
+        }
+
+        // Update order doesn't matter, client callbacks called after update cycle
+        for(const value of pathToEdit.values()) compressed.push(value);
+        for(const value of pathToSelf.values()) compressed.push(value);
+
+        return compressed;
     }
 
     /**
@@ -341,9 +375,11 @@ class MultyxServer {
             if(ws.bufferedAmount > 4 * 1024 * 1024) continue;
             
             const msg = Message.Native(updates);
+            client.updateSize = msg.length;
             ws.send(msg);
 
-            updates.length = 0;
+            // Clear updates
+            rawUpdates.length = 0;
         }
         
         this.events.get(Events.PostUpdate)?.forEach(event => event.call());

@@ -17,6 +17,7 @@ export default class Client {
     teams: Set<MultyxTeam>;
     server: MultyxServer;
     uuid: string;
+    updateSize: number;
     joinTime: number;
     clients: Client[];
     onUpdate: (deltaTime: number, controllerState: ControllerState) => void;

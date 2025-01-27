@@ -1,6 +1,7 @@
 import { RawObject } from "../types";
 
 export class EditUpdate {
+    instruction: 'edit' = 'edit';
     team: boolean;
     path: string[];
     value: any;
@@ -19,7 +20,7 @@ export class EditUpdate {
 
     raw(): RawObject {
         return {
-            instruction: 'edit',
+            instruction: this.instruction,
             team: this.team,
             path: this.path,
             value: this.value
@@ -28,6 +29,7 @@ export class EditUpdate {
 }
 
 export class SelfUpdate {
+    instruction: 'self' = 'self';
     static Properties = ['controller', 'uuid', 'constraint'] as const;
 
     property: typeof SelfUpdate.Properties[number];
@@ -46,7 +48,7 @@ export class SelfUpdate {
 
     raw(): RawObject {
         return {
-            instruction: 'self',
+            instruction: this.instruction,
             prop: this.property,
             data: this.data
         }
@@ -54,6 +56,7 @@ export class SelfUpdate {
 }
 
 export class ResponseUpdate {
+    instruction: 'resp' = 'resp';
     name: string;
     response: any;
 
@@ -64,7 +67,7 @@ export class ResponseUpdate {
 
     raw(): RawObject {
         return {
-            instruction: 'resp',
+            instruction: this.instruction,
             name: this.name,
             response: this.response
         }
@@ -72,6 +75,7 @@ export class ResponseUpdate {
 }
 
 export class ConnectionUpdate {
+    instruction: 'conn' = 'conn';
     uuid: string;
     publicData: RawObject;
 
@@ -87,7 +91,7 @@ export class ConnectionUpdate {
 
     raw(): RawObject {
         return {
-            instruction: 'conn',
+            instruction: this.instruction,
             uuid: this.uuid,
             data: this.publicData
         }
@@ -95,6 +99,7 @@ export class ConnectionUpdate {
 }
 
 export class DisconnectUpdate {
+    instruction: 'dcon' = 'dcon';
     clientUUID: string;
 
     /**
@@ -107,13 +112,14 @@ export class DisconnectUpdate {
 
     raw(): RawObject {
         return {
-            instruction: 'dcon',
+            instruction: this.instruction,
             client: this.clientUUID
         }
     }
 }
 
 export class InitializeUpdate {
+    instruction: 'init' = 'init';
     client: RawObject;
     constraintTable: RawObject;
     clients: RawObject;
@@ -135,7 +141,7 @@ export class InitializeUpdate {
 
     raw(): RawObject {
         return {
-            instruction: 'init',
+            instruction: this.instruction,
             client: this.client,
             constraintTable: this.constraintTable,
             clients: this.clients,

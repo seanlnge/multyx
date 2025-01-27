@@ -670,6 +670,8 @@ Array of all clients that the agent represents. If `Agent` is a `Client`, the ar
 
 ### Client
 
+Because a Client is an Agent, all properties and methods that are a part of Agent are also valid inside Client.
+
 #### `Client.controller`
 
 The `controller` property is an instance of the [`Controller`](#controller) class, which manages client input and state synchronization. It enables clients to listen to specific input events (e.g., keyboard, mouse) and execute callbacks when those events occur.
@@ -683,6 +685,10 @@ The timestamp in milliseconds when the client was created.
 A Set object containing all [`MultyxTeam`](#multyxteam) objects that the client is a part of.
 
 This is meant to be read-only, adding a client to a team can be done with the `MultyxTeam.addClient()` method.
+
+#### `Client.updateSize`
+
+The size, in bytes, that Multyx is sending over the websocket in the previous update frame.
 
 ***
 
@@ -767,6 +773,8 @@ export enum Input {
 A [`MultyxTeam`](#multyxteam) is at its core a list of [`Client`](#client) classes representing all clients that are part of that team, along with a [`MultyxObject`](#multyxobject) describing the shared data of that team. This [`MultyxObject`](#multyxobject) is public to all clients that are within the team, and by default has the ability to be edited by any [`Client`](#client) in the team, though this can be disabled.
 
 In Multyx, clients do not interact with each other. The [`MultyxTeam`](#multyxteam) class is the only way to share state between clients, as Client1 cannot edit the state of Client2. There is a difference, however, between being able to edit state, and being able to view it. This is achieved by making a [`MultyxItem`](#multyxitem) public to a specified MultyxTeam.
+
+Because a MultyxTeam is an Agent, all properties and methods that are a part of Agent are also valid inside MultyxTeam.
 
 Using the `multyx.all` team that gets provided natively by the [`MultyxServer`](#multyxserver) class, clients can share data to anyone connected to the server.
 
