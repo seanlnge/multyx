@@ -12,7 +12,6 @@ export default class MultyxObject {
     propertyPath: string[];
     agent: Agent;
     disabled: boolean;
-    shapeDisabled: boolean;
 
     private publicTeams: Set<MultyxTeam>;
 
@@ -101,32 +100,6 @@ export default class MultyxObject {
         return this;
     }
 
-    disableShape(recursive = false) {
-        if(recursive) {
-            for(const prop in this.data) {
-                if(this.data[prop] instanceof MultyxObject) {
-                    this.data[prop].disableShape(true);
-                }
-            }
-        }
-        this.shapeDisabled = true;
-        
-        return this;
-    }
-
-    enableShape(recursive = false) {
-        if(recursive) {
-            for(const prop in this.data) {
-                if(this.data[prop] instanceof MultyxObject) {
-                    this.data[prop].enableShape(true);
-                }
-            }
-        }
-        this.shapeDisabled = false;
-
-        return this;
-    }
-
     /**
      * Publicize MultyxValue from specific MultyxTeam
      * @param team MultyxTeam to share MultyxValue to
@@ -184,16 +157,21 @@ export default class MultyxObject {
      */
     set(property: string, value: any): MultyxObject | false {
         // If just a normal value change, no need to update shape, can return
-        if(typeof value !== "object" && this.data[property] instanceof MultyxValue) {
-            return (this.data[property] as MultyxValue).set(value) ? this : false;
+        if(typeof value !== "object" && this.data[property] instanceof MultyxValue
+        || value instanceof EditWrapper && typeof value.value !== 'object') {
+            return (this.data[property] as MultyxValue).set(
+                value instanceof EditWrapper ? value.value : value
+            ) ? this : false;
         }
 
         const propertyPath = [...this.propertyPath, property];
 
+        if(value instanceof EditWrapper && !this.has(property) && this.disabled) {
+            return false;
+        }
+
         // If value is a MultyxObject, don't create new object, change path
         if(value instanceof MultyxObject) {
-            if(value instanceof EditWrapper && this.shapeDisabled) return false;
-
             value[Edit](propertyPath);
             this.data[property] = value;
         } else {

@@ -97,7 +97,6 @@ export default class MultyxValue {
     [Build]() {
         const obj: RawObject = {};
         for(const [cname, { args }] of this.constraints.entries()) obj[cname] = args;
-        if(this.disabled) obj['disabled'] = [];
         return obj;
     }
 
@@ -195,6 +194,11 @@ export default class MultyxValue {
      */
     disable() {
         this.disabled = true;
+        this.constraints.set('disabled', {
+            args: [true],
+            func: n => n,
+        });
+        this[Self]('disabled', [true]);
         return this;
     }
 
@@ -204,6 +208,11 @@ export default class MultyxValue {
      */
     enable() {
         this.disabled = false;
+        this.constraints.set('disabled', {
+            args: [false],
+            func: n => n,
+        });
+        this[Self]('disabled', [false]);
         return this;
     }
 

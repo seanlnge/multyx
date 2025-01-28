@@ -353,13 +353,13 @@ Boolean representing whether or not the MultyxItem is disabled, or able to be ed
 
 #### `MultyxItem.disable()`
 
-Disable the MultyxItem from being edited by the client.
+Disable the MultyxItem and any of its children from being edited by the client.
 
 Returns same MultyxItem
 
 #### `MultyxItem.enable()`
 
-Allow the MultyxItem to be edited by the client.
+Allow the MultyxItem and any of its children to be edited by the client.
 
 Returns same MultyxItem
 
@@ -508,26 +508,6 @@ Returns same MultyxObject if change accepted, false otherwise.
 Delete the property from the object and relay the change to any clients with visibility.
 
 Returns same MultyxObject
-
-#### `MultyxObject.disableShape(recursive: boolean = false)`
-
-Disable setting or deleting any properties that do not already exist within the MultyxObject by the client. This does not stop server code from changing the shape of MultyxObject.
-
-The `recursive` parameter takes in a boolean and if true, will propogate this change to all children elements recursively. If false, only the shape of this MultyxObject will be disabled.
-
-Returns same MultyxObject
-
-#### `MultyxObject.enableShape(recursive: boolean = false)`
-
-Enable setting or deleting any properties that do not already exist within the MultyxObject by the client.
-
-The `recursive` parameter takes in a boolean and if true, will propogate this change to all children elements recursively. If false, only the shape of this MultyxObject will be enabled.
-
-Returns same MultyxObject
-
-#### `MultyxObject.shapeDisabled`
-
-Boolean that is true if the MultyxObject allows clients to assign or delete properties, false otherwise.
 
 #### `MultyxObject.data`
 
@@ -1044,6 +1024,10 @@ Maps the mouse coordinates to a the top-left corner of a specific `anchor` eleme
 #### `Controller.mapMouseToCanvas(canvas: HTMLCanvasElement)`
 
 Maps the mouse coordinates exactly to the canvas coordinates. Very useful for most applications and makes calculations and animations simpler.
+
+#### `Controller.setMouseAs(mouseGetter: () => { x: number, y: number })`
+
+Relays the mouse coordinates as whatever the `mouseGetter` argument returns when called. This is useful if utilizing another library that already has mouse mapping. This does not change the client-side `Controller.mouse` coordinates, but it does relay the mouse coordinates retrieved from the `mouseGetter` argument. For accurate client-side mouse coordinates, use the mouse coordinates from the other library.
 
 ***
 

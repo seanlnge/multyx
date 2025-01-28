@@ -62,10 +62,18 @@ multyx.on(Multyx.Events.Connect, (client) => {
     game.self[self.team].players.push(uuid);
     game.self.messages.push(uuid + ' joined ' + self.team + ' team!');
 
-    controller.listenTo([Multyx.Input.Control, 'a', 'd']);
+    controller.listenTo([Multyx.Input.LeftShift, 'a', 'd']);
 
     controller.listenTo(Multyx.Input.Space, () => {
         if(client.self.y == -6) client.self.vy = 20;
+    });
+
+    controller.listenTo(['1', '2', '3', '4', '5'], (state) => {
+        if(state.keys['1']) self.inventorySlot = 0;
+        if(state.keys['2']) self.inventorySlot = 1;
+        if(state.keys['3']) self.inventorySlot = 2;
+        if(state.keys['4']) self.inventorySlot = 3;
+        if(state.keys['5']) self.inventorySlot = 4;
     });
 
     controller.listenTo(Multyx.Input.MouseDown, (state) => {
@@ -89,7 +97,6 @@ multyx.on(Multyx.Events.Connect, (client) => {
 });
 
 function respawn(client) {
-    game.self.messages.push(client.uuid + ' just died!');
     client.self.x = client.self.team === "orange" ? -250 : 250;
     client.self.y = 0;
     client.self.vy = 0;
@@ -103,11 +110,13 @@ multyx.on(Multyx.Events.Update, () => {
     for(const client of game.clients) {
         let speed = 12.5;
         
-        if(client.controller.state.keys[Multyx.Input.Control]) {
+        if(client.controller.state.keys[Multyx.Input.LeftShift]) {
             speed *= 1.5;
             client.self.health -= 5 * multyx.deltaTime;
-            if(client.self.health == 0) respawn(client);
-            continue;
+            if(client.self.health == 0) {
+                respawn(client);
+                continue;
+            }
         }
 
         if(client.controller.state.keys['a']) client.self.x -= speed * multyx.deltaTime;
@@ -129,7 +138,7 @@ multyx.on(Multyx.Events.Update, () => {
         bullet.x += bullet.vx * multyx.deltaTime;
         bullet.y += bullet.vy * multyx.deltaTime;
 
-        if(bullet.x > 250) {
+        if(bullet.x > 269) {
             green.health -= bullet.damage;
             orange.bullets.delete(i);
             continue;
@@ -145,13 +154,13 @@ multyx.on(Multyx.Events.Update, () => {
             const xDist = Math.abs(client.self.x - bullet.x);
             const yDist = Math.abs(client.self.y - bullet.y);
 
-            if(xDist <= 1 && yDist <= 1) {
+            if(xDist <= 2 && yDist <= 2) {
                 client.self.health -= bullet.damage;
 
                 if(client.self.health == 0) {
                     respawn(client);
                     game.getClient(bullet.shooter).coins += 5;
-                    game.messages.push(`${client.uuid} died to ${bullet.shooter}'s bullet`);
+                    game.self.messages.push(`${client.uuid} died to ${bullet.shooter}'s bullet`);
                     orange.bullets.delete(i);
                     break;
                 }
@@ -167,7 +176,7 @@ multyx.on(Multyx.Events.Update, () => {
         bullet.x += bullet.vx * multyx.deltaTime;
         bullet.y += bullet.vy * multyx.deltaTime;
 
-        if(bullet.x < -250) {
+        if(bullet.x < -269) {
             orange.health -= bullet.damage;
             green.bullets.delete(i);
             continue;
@@ -199,5 +208,5 @@ multyx.on(Multyx.Events.Update, () => {
 
     if(orange.health == 0) game.self.messages.push('Game over! Green won!');
     if(green.health == 0) game.self.messages.push('Game over! Orange won!');
-    //game.self.messages = game.self.messages.slice(-4);
+    game.self.messages = [...game.self.messages].slice(0, -4);
 });

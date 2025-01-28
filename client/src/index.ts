@@ -118,7 +118,7 @@ export default class Multyx {
                     }
                     
                     // Clear start event as it will never be called again
-                    this.events.get(Multyx.Start).length = 0;
+                    if(this.events.has(Multyx.Start)) this.events.get(Multyx.Start).length = 0;
                     break;
                 }
 

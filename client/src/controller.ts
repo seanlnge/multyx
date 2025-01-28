@@ -2,8 +2,11 @@ import { Message } from "./message";
 import { RawObject } from "./types";
 
 export class Controller {
+    private mouseGetter: () => { x: number, y: number };
     listening: Set<string>;
     ws: WebSocket;
+    
+    preventDefault: boolean;
 
     keys: RawObject<boolean>;
     mouse: {
@@ -15,6 +18,7 @@ export class Controller {
     constructor(ws: WebSocket) {
         this.listening = new Set();
         this.ws = ws;
+        this.preventDefault = false;
 
         this.keys = {};
         this.mouse = {
@@ -28,37 +32,53 @@ export class Controller {
         };
 
         document.addEventListener('keydown', e => {
+            if(this.preventDefault) e.preventDefault;
+
+            const key = e.key.toLowerCase();
+
             // When holding down key
-            if(this.keys[e.key] && this.listening.has('keyhold')) {
-                this.relayInput('keyhold', { code: e.key });
+            if(this.keys[key] && this.listening.has('keyhold')) {
+                this.relayInput('keyhold', { code: key });
             }
             if(this.keys[e.code] && this.listening.has('keyhold')) {
                 this.relayInput('keyhold', { code: e.code });
             }
 
             // Change in key state
-            if(this.listening.has(e.key) && !this.keys[e.key]) {
+            if(this.listening.has(key) && !this.keys[key]) {
                 this.relayInput('keydown', { code: e.key });
             }
             if(this.listening.has(e.code) && !this.keys[e.code]) {
                 this.relayInput('keydown', { code: e.code });
             }
             
-            this.keys[e.key] = true;
+            this.keys[key] = true;
             this.keys[e.code] = true;
 
         });
         document.addEventListener('keyup', e => {
-            delete this.keys[e.key];
+            if(this.preventDefault) e.preventDefault;
+            
+            const key = e.key.toLowerCase();
+
+            delete this.keys[key];
             delete this.keys[e.code];
-            if(this.listening.has(e.key)) this.relayInput('keyup', { code: e.key });
+            if(this.listening.has(key)) this.relayInput('keyup', { code: key });
             if(this.listening.has(e.code)) this.relayInput('keyup', { code: e.code });
         });
 
         // Mouse input events
         document.addEventListener('mousedown', e => {
-            this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;
-            this.mouse.y = (e.clientY - this.mouse.centerY) / this.mouse.scaleY;
+            if(this.preventDefault) e.preventDefault;
+            
+            if(this.mouseGetter) {
+                const mouse = this.mouseGetter();
+                this.mouse.x = mouse.x;
+                this.mouse.y = mouse.y;
+            } else {
+                this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;
+                this.mouse.y = (e.clientY - this.mouse.centerY) / this.mouse.scaleY;
+            }
             this.mouse.down = true;
             if(this.listening.has('mousedown'))
                 this.relayInput('mousedown', {
@@ -66,8 +86,16 @@ export class Controller {
                 });
         });
         document.addEventListener('mouseup', e => {
-            this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;
-            this.mouse.y = (e.clientY - this.mouse.centerY) / this.mouse.scaleY;
+            if(this.preventDefault) e.preventDefault;
+            
+            if(this.mouseGetter) {
+                const mouse = this.mouseGetter();
+                this.mouse.x = mouse.x;
+                this.mouse.y = mouse.y;
+            } else {
+                this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;
+                this.mouse.y = (e.clientY - this.mouse.centerY) / this.mouse.scaleY;
+            }
             this.mouse.down = false;
             if(this.listening.has('mouseup'))
                 this.relayInput('mouseup', {
@@ -75,8 +103,16 @@ export class Controller {
                 });
         });
         document.addEventListener('mousemove', e => {
-            this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;
-            this.mouse.y = (e.clientY - this.mouse.centerY) / this.mouse.scaleY;
+            if(this.preventDefault) e.preventDefault;
+            
+            if(this.mouseGetter) {
+                const mouse = this.mouseGetter();
+                this.mouse.x = mouse.x;
+                this.mouse.y = mouse.y;
+            } else {
+                this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;
+                this.mouse.y = (e.clientY - this.mouse.centerY) / this.mouse.scaleY;
+            }
             if(this.listening.has('mousemove'))
                 this.relayInput('mousemove', {
                     x: this.mouse.x, y: this.mouse.y
@@ -293,6 +329,14 @@ export class Controller {
         
         this.mouse.scaleX = canvasRatioX * transform.a;
         this.mouse.scaleY = canvasRatioY * transform.d;
+    }
+
+    /**
+     * Utilize mouse coordinates of another object
+     * @param mouseGetter Callback that returns the mouse coordinates at any given time
+     */
+    setMouseAs(mouseGetter: () => { x: number, y: number }) {
+        this.mouseGetter = mouseGetter;
     }
 
     private relayInput(input: string, data?: RawObject) {

@@ -73,6 +73,6 @@ export function BuildConstraint(name: string, args: Value[]): Constraint | void 
     if(name == 'max') return n => n <= args[0] ? n : args[0];
     if(name == 'int') return n => Math.floor(n as number);
     if(name == 'ban') return n => args.includes(n) ? null : n;
-    if(name == 'disabled') return _ => null;
+    if(name == 'disabled') return n => args[0] ? null : n;
     return I => I;
 }

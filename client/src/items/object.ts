@@ -89,7 +89,7 @@ export default class MultyxClientObject {
         // Creating a new value
         this.object[property] = new (MultyxClientItemRouter(
             value instanceof EditWrapper ? value.value : value
-        ))(this.multyx, value, [...this.propertyPath, property]);
+        ))(this.multyx, value, [...this.propertyPath, property], this.editable);
 
         // We have to push into queue, since object may not be fully created
         // and there may still be more updates to parse

@@ -85,8 +85,9 @@ export default class MultyxList extends MultyxObject {
         if(!Number.isInteger(index)) return false;
 
         if(value instanceof EditWrapper) {
-            if(this.disabled) return false;
-            if(this.shapeDisabled) return false;
+            if(!super.has(index.toString())) {
+                if(this.disabled) return false;
+            }
 
             if(value.value === undefined && !this.allowItemDeletion) return false;
             if(!this.allowItemAddition && index >= this.length) return false;

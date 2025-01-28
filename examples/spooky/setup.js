@@ -1,5 +1,7 @@
 rs.newTag("static");
 
+rs.camera.background = "#5e5d5c";
+
 // Orange House
 rs.newObject.rect(-270.2, -3.1, 0.4, 8, 0, "#000000", "static");
 rs.newObject.rect(-279.8, -3.1, 0.4, 8, 0, "#000000", "static");

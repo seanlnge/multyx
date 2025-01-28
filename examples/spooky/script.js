@@ -2,16 +2,7 @@ const multyx = new Multyx();
 const canvas = document.querySelector("#canvas");
 
 rs.setCanvas("#canvas");
-multyx.controller.mapMouseToCanvas(canvas);
-
-// Changing Inv space
-function inv(n){
-    multyx.self.inventorySlot = n;
-    for(let i=0; i<5; i++){
-        document.getElementById("slot" + i).style.left = "2vw";
-    }
-    document.getElementById("slot" + n).style.left = "0vw";
-}
+multyx.controller.setMouseAs(() => rs.mouse.space);
 
 let green;
 let orange;
@@ -35,6 +26,11 @@ multyx.forAll(client => {
 });
 
 multyx.loop(() => {
+    for(let i=0; i<5; i++){
+        document.getElementById("slot" + i).style.left = "2vw";
+    }
+    document.getElementById("slot" + multyx.self.inventorySlot).style.left = "0vw";
+
     rs.newTag("moving");
     rs.camera.x = multyx.self.x || 0;
     rs.camera.y = multyx.self.y + 6 || 0;
