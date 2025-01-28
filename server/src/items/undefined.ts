@@ -16,6 +16,6 @@ export default class MultyxUndefined {
      * Send an EditUpdate to all public agents
      */
     private relayChanges() {
-        this.agent.server[Edit](this, new Set(this.agent.clients));
+        this.agent.server?.[Edit](this, new Set(this.agent.clients));
     }
 }

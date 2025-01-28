@@ -56,15 +56,23 @@ export class Controller {
         });
 
         // Mouse input events
-        document.addEventListener('mousedown', _ => {
+        document.addEventListener('mousedown', e => {
+            this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;
+            this.mouse.y = (e.clientY - this.mouse.centerY) / this.mouse.scaleY;
             this.mouse.down = true;
             if(this.listening.has('mousedown'))
-                this.relayInput('mousedown');
+                this.relayInput('mousedown', {
+                    x: this.mouse.x, y: this.mouse.y
+                });
         });
-        document.addEventListener('mouseup', _ => {
+        document.addEventListener('mouseup', e => {
+            this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;
+            this.mouse.y = (e.clientY - this.mouse.centerY) / this.mouse.scaleY;
             this.mouse.down = false;
             if(this.listening.has('mouseup'))
-                this.relayInput('mouseup');
+                this.relayInput('mouseup', {
+                    x: this.mouse.x, y: this.mouse.y
+                });
         });
         document.addEventListener('mousemove', e => {
             this.mouse.x = (e.clientX - this.mouse.centerX) / this.mouse.scaleX;

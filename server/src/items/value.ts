@@ -78,7 +78,7 @@ export default class MultyxValue {
         }
 
         // Tell server to relay update to all clients
-        this.agent.server[Edit](this, clients);
+        this.agent.server?.[Edit](this, clients);
     }
 
     /**
@@ -86,7 +86,7 @@ export default class MultyxValue {
      */
     [Self](name: string, args: Value[] ) {
         for(const client of this.agent.clients) {
-            this.agent.server[Self](client, 'constraint', { path: this.propertyPath, name, args })
+            this.agent.server?.[Self](client, 'constraint', { path: this.propertyPath, name, args })
         }
     }
 
@@ -141,6 +141,19 @@ export default class MultyxValue {
             func: n => n <= value ? n : value
         });
         this[Self]('max', [value]);
+        return this;
+    }
+
+    /**
+     * Only allow integer values for this property
+     * If float is passed, the accepted value will be the floored value
+     */
+    int = () => {
+        this.constraints.set('int', {
+            args: [],
+            func: n => Math.floor(n as number)
+        });
+        this[Self]('int', []);
         return this;
     }
 

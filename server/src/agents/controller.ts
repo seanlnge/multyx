@@ -92,12 +92,16 @@ export class Controller {
     [Parse](msg: Message) {
         switch(msg.data.input) {
             case Input.MouseDown: {
+                this.state.mouse.x = msg.data.data.x;
+                this.state.mouse.y = msg.data.data.y;
                 this.state.mouse.down = true;
                 this.events.get(Input.MouseDown)?.forEach(c => c(this.state));
                 break;
             }
 
             case Input.MouseUp: {
+                this.state.mouse.x = msg.data.data.x;
+                this.state.mouse.y = msg.data.data.y;
                 this.state.mouse.down = false;
                 this.events.get(Input.MouseUp)?.forEach(c => c(this.state));
                 break;

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width">
+        <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Raleway&display=swap" rel="stylesheet"> 
+        <style>
+            * {
+                padding: 0;
+                margin: 0;
+                overflow: hidden;
+            }
+            canvas {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                z-index: 1;
+            }
+            .text {
+                position: absolute;
+                bottom: 10px;
+                width: 18vw;
+                padding: 10px;
+                border-top-right-radius: 3px;
+                border-bottom-right-radius: 3px;
+                background: rgba(0, 0, 0, 0.525);
+                color: white;
+                font-family: Raleway;
+                z-index: 20;
+            }
+            .inventory {
+                bottom: 10px;
+                right: 0;
+                z-index: 10;
+                width: 10vw;
+                position: absolute;
+                display: flex;
+                flex-direction: column;
+                height: 40vh;
+            }
+            .inventory > * {
+                width: 8vw;
+                height: 8vh;
+                transition-duration: 0.4s;
+                left: 2vw;
+                position: relative;
+                border: 1px solid rgb(0, 0, 0);
+                background: rgba(255, 255, 255, 0.546);
+            }
+            .stats{
+                position: absolute;
+                z-index: 19;
+                top: 20vh;
+                right: 0;
+                font-family: Raleway;
+                padding: 10px;
+            }
+        </style>
+        <title>Spooky</title>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <div class="inventory">
+            <button onclick="inv(0)" id="slot0">1   Pumpkin Seed Gun</button>
+            <button onclick="inv(1)" id="slot1">2   Spider Shooter</button>
+            <button onclick="inv(2)" id="slot2">3   Bone Launcher</button>
+            <button onclick="inv(3)" id="slot3">4   Pie Thrower</button>
+            <button onclick="inv(4)" id="slot4">5   Jack-o-Lantern Shooter</button>
+        </div>
+        <div class="stats">
+            <p id="health">Health: 100</p>
+            <p id="coins">Coins: 10</p>
+        </div>
+        <div class="text">
+            <p id="msg0"></p>
+            <p id="msg1"></p>
+            <p id="msg2"></p>
+            <p id="msg3"></p>
+        </div>
+
+        <script src="../../client/multyx.js"></script>
+
+        <!-- 2d Canvas Framework I Made -->
+        <script src="renderspice.js"></script>
+
+        <!-- Main Scene Setup -->
+        <script src="setup.js"></script>
+
+        <!-- Logic and Main Script -->
+        <script src="script.js"></script>
+    </body>
+</html>

@@ -4,6 +4,7 @@
   "scripts": {
     "chatlog": "tsc && node chatlog/index",
     "squares": "node squares/index",
+    "spooky": "node spooky/index",
     "shooter": "tsc && node shooter/index"
   },
   "author": "",

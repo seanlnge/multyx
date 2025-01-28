@@ -98,7 +98,9 @@ export default class Multyx {
      * @param callbackfn Function to call for every client
      */
     forAll(callback: (client: MultyxClientObject) => void) {
-        this.teams.all.clients.forAll((uuid) => callback(this.clients[uuid]));
+        this.on(Multyx.Start, () => {
+            this.teams.all.clients.forAll((uuid) => callback(this.clients[uuid]));
+        });
         this.on(Multyx.Connection, callback);
     }
 
