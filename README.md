@@ -560,6 +560,31 @@ array.pop();
 console.log(array.length); // 5
 ```
 
+#### `MultyxList.deorder(): MultyxItem[]`
+
+Creates an array containing values of all defined items in MultyxList. This method allows the looping of MultyxList elements without undefined elements. This is a useful method if incorporating client-side interpolation functions. When elements in arrays are shifted over to other indices, the changes in value are sent to the client rather than informing the client of a shift. This means that interpolation skips a frame, as a new [`MultyxClientValue`](#multyxclientvalue) and interpolation function get instantiated. This can be countered by not utilizing Array methods that shift elements' indices, along with utilizing the `MultyxList.deorder()` method.
+
+Instead of using shifting methods such as `MultyxList.splice()` or `MultyxList.shift()` to delete elements of the `MultyxList`, the method `MultyxList.delete()` can be used, and `MultyxList.deorder()` can be iterated over, skipping the deleted element. This allows the `MultyxClientObject` on the client-side to retain index-element pairs, making interpolation functions run smoothly.
+
+```js
+// server.js
+client.self.array = ['a', 'b', 'c', 'd', 'e'];
+client.self.array.delete(2);
+console.log(client.self.array);           // ['a', 'b', undefined, 'd', 'e']
+console.log(client.self.array.deorder()); // ['a', 'b', 'd', 'e'] 
+```
+
+#### `MultyxList.deorderEntries(): [number, MultyxItem][]`
+
+Return an array of entries of all defiend elements inside MultyxList.
+
+```js
+// server.js
+client.self.array = ['a', 'b', 'c', 'd'];
+client.self.array.delete(2);
+console.log(client.self.array.deorderEntries()); // [[0, 'a'], [1, 'b'], [3, 'd']]
+```
+
 #### `MultyxList.push(...items: any[]): number`
 
 Appends all items to the end of the `MultyxList`
@@ -1243,6 +1268,23 @@ console.log(array.length); // 5
 Equivalent to `MultyxClientObject.forAll` Creates a callback function that gets called for any current or future element in MultyxClientList.
 
 This does not immediately call the callback function on future element creation, as creation may be made in the middle of an update frame before the element was fully populated with the update. Therefore, the callback function will be called at the end of an update frame.
+
+#### `MultyxClientList.deorder(): MultyxClientItem[]`
+
+Return an array of all defined elements inside MultyxClientList. View [`MultyxList.deorder()`](#multyxlistdeorder-multyxitem) for more information.
+
+#### `MultyxClientList.deorderEntries(): [number, MultyxClientItem][]`
+
+Return an array of entries of all defiend elements inside MultyxClientList.
+
+```js
+// client.js
+multyx.self.array = ['a', 'b', 'c', 'd'];
+multyx.self.array.delete(2);
+console.log(multyx.self.array); // ['a', 'b', undefined, 'd']
+console.log(multyx.self.array.deorder()); // ['a', 'b', 'd']
+console.log(multyx.self.array.deorderEntries()); // [[0, 'a'], [1, 'b'], [3, 'd']]
+```
 
 #### `MultyxClientList.push(...items: any[]): number`
 

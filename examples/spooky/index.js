@@ -136,10 +136,7 @@ multyx.on(Multyx.Events.Update, () => {
         client.self.health += 5 * multyx.deltaTime;
     }
 
-    for(let i=0; i<orange.bullets.length; i++) {
-        const bullet = orange.bullets[i];
-        if(!bullet) continue;
-
+    for(const [i, bullet] of orange.bullets.deorderEntries()) {
         bullet.vy -= bullet.gravity * multyx.deltaTime;
         bullet.x += bullet.vx * multyx.deltaTime;
         bullet.y += bullet.vy * multyx.deltaTime;
@@ -174,10 +171,7 @@ multyx.on(Multyx.Events.Update, () => {
         }
     }
 
-    for(let i=0; i<green.bullets.length; i++) {
-        const bullet = green.bullets[i];
-        if(!bullet) continue;
-
+    for(const [i, bullet] of green.bullets.deorderEntries()) {
         bullet.vy -= bullet.gravity * multyx.deltaTime;
         bullet.x += bullet.vx * multyx.deltaTime;
         bullet.y += bullet.vy * multyx.deltaTime;

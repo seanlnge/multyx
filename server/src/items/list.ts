@@ -36,6 +36,8 @@ export default class MultyxList extends MultyxObject {
 
         this.push(...list);
 
+        if(this.constructor !== MultyxList) return this;
+
         return new Proxy(this, {
             // Allow users to access properties in MultyxObject without using get
             get: (o, p: any) => {
@@ -281,16 +283,36 @@ export default class MultyxList extends MultyxObject {
         return -1;
     }
 
-    entries(): [any, number][] {
-        const entryList: [any, number][] = [];
+    deorder(): MultyxItem[] {
+        const values = [];
+        for(const index in this.data) {
+            values.push(this.get(index));
+        }
+        return values;
+    }
+
+    deorderEntries(): [number, MultyxItem][] {
+        const values: [number, MultyxItem][] = [];
+        for(const index in this.data) {
+            values.push([parseInt(index), this.get(index)]);
+        }
+        return values;
+    }
+
+    entries(): [any, any][] {
+        const entryList: [number, any][] = [];
         for(let i=0; i<this.length; i++) {
-            entryList.push([this.get(i), i]);
+            entryList.push([i, this.get(i)]);
         }
         return entryList;
     }
 
-    keys(): number[] {
+    keys(): any[] {
         return Array(this.length).fill(0).map((_, i) => i);
+    }
+
+    values(): any[] {
+        return Array(this.length).fill(0).map((_, i) => this.get(i));
     }
     
     /* Native methods to allow MultyxList to be treated as primitive */

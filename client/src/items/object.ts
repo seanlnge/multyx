@@ -8,7 +8,7 @@ import MultyxClientItemRouter from "./router";
 import MultyxClientValue from "./value";
 
 export default class MultyxClientObject {
-    private object: RawObject<MultyxClientItem>;
+    protected object: RawObject<MultyxClientItem>;
     private multyx: Multyx;
     propertyPath: string[];
     editable: boolean;

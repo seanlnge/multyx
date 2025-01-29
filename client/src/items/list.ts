@@ -229,6 +229,22 @@ export default class MultyxClientList extends MultyxClientObject {
         return -1;
     }
 
+    deorder(): MultyxClientItem[] {
+        const values = [];
+        for(const index in this.object) {
+            values.push(this.get(index));
+        }
+        return values;
+    }
+
+    deorderEntries(): [number, MultyxClientItem][] {
+        const values = [];
+        for(const index in this.object) {
+            values.push([parseInt(index), this.get(index)]);
+        }
+        return values;
+    }
+
     entries(): [any, number][] {
         const entryList: [any, number][] = [];
         for(let i=0; i<this.length; i++) {
@@ -240,6 +256,7 @@ export default class MultyxClientList extends MultyxClientObject {
     keys(): number[] {
         return Array(this.length).fill(0).map((_, i) => i);
     }
+
     
     /* Native methods to allow MultyxClientList to be treated as array */
     [Symbol.iterator](): Iterator<MultyxClientItem> {

@@ -286,6 +286,18 @@ export default class MultyxObject {
         }
     }
 
+    entries(): [string, any][] {
+        return Object.entries(this.data);
+    }
+
+    keys(): string[] {
+        return Object.keys(this.data);
+    }
+
+    values(): any[] {
+        return Object.values(this.data);
+    }
+
     /* Native methods to allow MultyxObject to be treated as primitive */
     toString = () => this.value.toString();
     valueOf = () => this.value;

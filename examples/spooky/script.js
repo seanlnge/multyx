@@ -56,7 +56,7 @@ multyx.loop(() => {
         rs.newObject.rect(player.x - (100-player.health)/100, player.y + 1.5, player.health/50, 0.3, 0, "#47ff4e", "moving");
     }
     
-    for(const bullet of [...orange.bullets, ...green.bullets]){
+    for(const bullet of [...orange.bullets.deorder(), ...green.bullets.deorder()]){
         if(!bullet) continue;
 
         if(bullet.x > rs.camera.x + 50
