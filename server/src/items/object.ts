@@ -12,6 +12,7 @@ export default class MultyxObject {
     propertyPath: string[];
     agent: Agent;
     disabled: boolean;
+    relayed: boolean;
 
     private publicTeams: Set<MultyxTeam>;
 
@@ -31,7 +32,7 @@ export default class MultyxObject {
         this.propertyPath = propertyPath;
         this.agent = agent;
         this.disabled = false;
-        this.shapeDisabled = false;
+        this.relayed = true;
         this.publicTeams = new Set();
 
         if(object instanceof MultyxObject) object = object.value;
@@ -98,6 +99,22 @@ export default class MultyxObject {
         this.disabled = false;
 
         return this;
+    }
+
+    relay() {
+        for(const prop in this.data) {
+            this.data[prop].relay();
+        }
+        this.relayed = true;
+        return this;
+    }
+
+    unrelay() {
+        for(const prop in this.data) {
+            this.data[prop].unrelay();
+            this.relayed = false;
+            return this;
+        }
     }
 
     /**

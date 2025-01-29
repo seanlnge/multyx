@@ -168,6 +168,28 @@ export default class MultyxList extends MultyxObject {
         for(let i=start; i<items.length; i++) this.set(i, items[i]);
     }
 
+    slice(start?: number, end?: number) {
+        if(start === undefined) return this;
+        if(start < -this.length) start = 0;
+        if(start < 0) start += this.length;
+
+        if(end === undefined || end >= this.length) end = this.length;
+        if(end < -this.length) end = 0;
+        if(end < 0) end += this.length;
+        
+        if(start !== 0) {
+            for(let i=0; i<end-start; i++) {
+                this.set(i, this.get(i + start));
+            }
+        }
+
+        for(let j=this.length-1; j>=end-start; j--) {
+            this.delete(j);
+        }
+
+        return this;
+    }
+
     filter(predicate: (value: any, index: number, array: MultyxList) => boolean) {
         const keep = [];
         for(let i=0; i<this.length; i++) {

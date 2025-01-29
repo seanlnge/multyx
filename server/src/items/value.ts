@@ -12,6 +12,7 @@ export default class MultyxValue {
     private publicAgents: Set<Agent>;
 
     disabled: boolean;
+    relayed: boolean;
 
     constraints: Map<string, { args: any[], func: (value: Value) => Value | null }>;
     manualConstraints: ((value: Value) => Value | null)[];
@@ -25,6 +26,7 @@ export default class MultyxValue {
      */
     constructor(value: Value | MultyxValue, agent: Agent, propertyPath: string[]) {
         this.disabled = false;
+        this.relayed = true;
         this.constraints = new Map();
         this.manualConstraints = [];
         this.bannedValues = new Set();
@@ -66,6 +68,8 @@ export default class MultyxValue {
      * @param agent Agent to send EditUpdate to, if undefined, send to all public agents
      */
     [Send](agent?: Agent) {
+        if(!this.relayed) return;
+
         const clients = new Set<Client>();
         
         // Get all clients informed of this change
@@ -95,6 +99,8 @@ export default class MultyxValue {
      * @returns Constraint table
      */
     [Build]() {
+        if(!this.relayed) return {};
+        
         const obj: RawObject = {};
         for(const [cname, { args }] of this.constraints.entries()) obj[cname] = args;
         return obj;
@@ -213,6 +219,26 @@ export default class MultyxValue {
             func: n => n,
         });
         this[Self]('disabled', [false]);
+        return this;
+    }
+
+    relay() {
+        if(this.relayed) return true;
+
+        // Relay all constraints on object
+        for(const [cname, { args }] of this.constraints.entries()) {
+            this[Self](cname, args);
+        }
+
+        // Relay value of object
+        this[Send]();
+
+        this.relayed = true;
+        return this;
+    }
+
+    unrelay() {
+        this.relayed = false;
         return this;
     }
 

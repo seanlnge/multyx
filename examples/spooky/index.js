@@ -46,7 +46,6 @@ multyx.on(Multyx.Events.Connect, (client) => {
     self.vy = 0;
     self.angle = 0;
     self.coins = 10;
-    self.lastShot = 0;
     self.health = 100;
     self.inventorySlot = 1;
 
@@ -56,11 +55,14 @@ multyx.on(Multyx.Events.Connect, (client) => {
     self.team.addPublic(game);
 
     self.disable();
+    self.vy.unrelay();
+    self.angle.unrelay();
     self.inventorySlot.enable().min(0).max(4).int();
 
     game.addClient(client);
     game.self[self.team].players.push(uuid);
     game.self.messages.push(uuid + ' joined ' + self.team + ' team!');
+    game.self.messages.slice(-4);
 
     controller.listenTo([Multyx.Input.LeftShift, 'a', 'd']);
 
@@ -81,7 +83,7 @@ multyx.on(Multyx.Events.Connect, (client) => {
         
         self.angle = Math.atan2(state.mouse.y - self.y, state.mouse.x - self.x);
 
-        game.self[self.team].bullets.push({
+        const length = game.self[self.team].bullets.push({
             x: self.x,
             y: self.y,
             team: self.team,
@@ -93,6 +95,11 @@ multyx.on(Multyx.Events.Connect, (client) => {
             type: self.inventorySlot,
             angle: self.angle
         });
+
+        const bullet = game.self[self.team].bullets[length-1];
+        bullet.unrelay();
+        bullet.x.relay();
+        bullet.y.relay();
     });
 });
 
@@ -102,7 +109,6 @@ function respawn(client) {
     client.self.vy = 0;
     client.self.angle = 0;
     client.self.coins = 10;
-    client.self.lastShot = 0;
     client.self.health = 100;
 }
 
@@ -208,5 +214,5 @@ multyx.on(Multyx.Events.Update, () => {
 
     if(orange.health == 0) game.self.messages.push('Game over! Green won!');
     if(green.health == 0) game.self.messages.push('Game over! Orange won!');
-    game.self.messages = [...game.self.messages].slice(0, -4);
+    game.self.messages.slice(-4);
 });

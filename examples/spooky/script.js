@@ -11,10 +11,12 @@ multyx.on(Multyx.Start, () => {
     orange = multyx.teams.game.orange;
     
     green.bullets.forAll(bullet => {
+        if(!bullet) return;
         bullet.x.Lerp();
         bullet.y.Lerp();
     });
     orange.bullets.forAll(bullet => {
+        if(!bullet) return;
         bullet.x.Lerp();
         bullet.y.Lerp();
     });

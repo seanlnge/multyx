@@ -347,10 +347,6 @@ console.log(team.self.position); // MultyxObject { x: 30, y: 100 }
 console.log(team.self.position.value); // { x: 30, y: 100 }
 ```
 
-#### `MultyxItem.disabled`
-
-Boolean representing whether or not the MultyxItem is disabled, or able to be edited by the client.
-
 #### `MultyxItem.disable()`
 
 Disable the MultyxItem and any of its children from being edited by the client.
@@ -362,6 +358,26 @@ Returns same MultyxItem
 Allow the MultyxItem and any of its children to be edited by the client.
 
 Returns same MultyxItem
+
+#### `MultyxItem.disabled`
+
+Boolean representing whether or not the MultyxItem is disabled, or able to be edited by the client.
+
+#### `MultyxItem.relay()`
+
+Relay any changes on the value of this MultyxItem to the client, along with any other public clients able to view it. Calling this after a client connection has already been established can be memory-inefficient, as this MultyxItem along with any children will all relay their values along with their constraints.
+
+Returns same MultyxItem
+
+#### `MultyxItem.unrelay()`
+
+Stop sending any changes on the value of this MultyxItem to the client, along with any other public clients able to view it. This does not change whether or not the client can edit or view this MultyxItem, and the Multyx server will still send the value of the MultyxItem to the agent along with any public clients on MultyxItem instantiation.
+
+Returns same MultyxItem
+
+#### `MultyxItem.relayed`
+
+Boolean representing whether or not changes in the value of the MultyxItem is being relayed to the client and any other public clients.
 
 #### `MultyxItem.removePublic(team: MultyxTeam)`
 
@@ -521,7 +537,7 @@ A `MultyxList` is the [`MultyxItem`](#multyxitem) representation of JavaScript a
 
 Generally, within a `MultyxList`, any changes to the visibility of editability of the object, such as `.disable()` or `.addPublic()` will propogate throughout all children, overwriting any settings that they had prior.
 
-Along with having the methods and properties inherited from `MultyxObject`, `MultyxList` objects have similar properties and methods to Array objects. Unlike Array objects, however, in methods such as `.map()` or `.flat()`, MultyxList will not create a new list, but edit in-place the already existing MultyxList.
+Along with having the methods and properties inherited from `MultyxObject`, `MultyxList` objects have similar properties and methods to Array objects. Unlike Array objects, however, in methods such as `.map()` or `.splice()`, MultyxList will not create a new list, but edit in-place the already existing MultyxList.
 
 #### `MultyxList.length`
 
@@ -567,6 +583,10 @@ Removes and returns the first item in the MultyxList. If the list is empty, it r
 Changes the contents of the MultyxList by removing or replacing existing elements and/or adding new elements at the specified start index. The deleteCount parameter specifies the number of elements to remove. It shifts elements as needed to accommodate additions.
 
 If utilizing interpolation for values of MultyxList, it is recommended to push new elements and delete old ones instead, as shifted elements will retain unshifted value inside interpolation history, leading to slightly choppy interpolation movement.
+
+#### `MultyxList.slice(start?: number, end?: number)`
+
+Turns MultyxList into a portion of the array ranging from indices `start` to `end` (`end` not included). This does not return a new MultyxList or a reference to a MultyxList, but modifies the original MultyxList.
 
 #### `MultyxList.filter(predicate: (value: any, index: number, array: MultyxList) => boolean)`
 
