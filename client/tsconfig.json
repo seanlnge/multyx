@@ -3,6 +3,7 @@
         "target": "es6",           // Specify the target ECMAScript version.
         "lib": ["es2017", "dom"],
         "module": "commonjs",          // Do not use any module system (for browser use).
+        "declaration": true,
         "outDir": "./dist",
         "rootDir": "./src",        // Specify the root directory of your TypeScript source files.
     }

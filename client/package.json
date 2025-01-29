@@ -1,14 +1,32 @@
 {
   "name": "multyx-client",
-  "version": "0.0.2",
-  "description": "",
-  "main": "index.ts",
+  "version": "0.1.0",
+  "description": "Framework designed to simplify the creation of multiplayer browser games by addressing the complexities of managing server-client communication, shared state, and input handling",
+  "main": "dist/index.js",
   "scripts": {
-    "init": "",
-    "compile": "tsc && npx webpack"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "webpack": "tsc && npx webpack"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seanlnge/multyx.git"
+  },
+  "keywords": [
+    "multiplayer",
+    "javascript",
+    "websocket",
+    "server",
+    "browser-game",
+    "typescript"
+  ],
   "author": "Sean Lange",
   "license": "ISC",
+  "types": "dist/index.d.ts",
+  "bugs": {
+    "url": "https://github.com/seanlnge/multyx/issues"
+  },
+  "homepage": "https://github.com/seanlnge/multyx#readme",
   "devDependencies": {
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"

@@ -6,3 +6,4 @@ client/dist
 compile.bat
 .gitignore
 keepinmind.md
+*.tgz
