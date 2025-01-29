@@ -1,5 +1,43 @@
 # Multyx
 
+A Typescript framework designed to simplify the creation of multiplayer browser games by addressing the complexities of managing server-client communication, shared state, and input handling.
+
+***
+
+## Table of Contents
+
+- [What is Multyx?](#what-is-multyx)
+- [Why Multyx?](#why-multyx)
+  - [Shared Data between Client and Server](#shared-data-between-client-and-server)
+  - [Input Controller](#input-controller)
+  - [Helpful Functionalities](#helpful-functionalities)
+- [Overview](#overview)
+  - [Shared State](#shared-state)
+  - [Teams and Clients](#teams-and-clients)
+- [Server-Side Documentation](#server-side-documentation)
+  - [MultyxServer](#multyxserver)
+  - [Events](#events)
+  - [Event](#event)
+  - [MultyxItem](#multyxitem)
+  - [MultyxValue](#multyxvalue)
+  - [MultyxObject](#multyxobject)
+  - [MultyxList](#multyxlist)
+  - [Agent](#agent)
+  - [Client](#client)
+  - [Controller](#controller)
+  - [ControllerState](#controllerstate)
+  - [Input](#input)
+  - [MultyxTeam](#multyxteam)
+- [Client-Side Documentation](#client-side-documentation)
+  - [Multyx (client)](#multyx-client)
+  - [Controller (Client)](#controller-client)
+  - [MultyxClientItem](#multyxclientitem)
+  - [MultyxClientValue](#multyxclientvalue)
+  - [MultyxClientObject](#multyxclientobject)
+  - [MultyxClientList](#multyxclientlist)
+- [Starter Project Walkthrough](#starter-project-walkthrough)
+- [Common Mistakes and Best Practices](#common-mistakes-and-best-practices)
+
 ***
 
 ## What is Multyx?
@@ -14,12 +52,12 @@ Focused on ease of use and a good developer experience, Multyx turns the difficu
 
 Being able to communicate changes in data is necessary for a functional multiplayer game, but due to needing server-side verification, consistency across websocket endpoints, and a lack of type validation, it can be difficult to bridge the gap between the client and server data transfer. Multyx streamlines this process by including a shared state between the server and client, along with
 
-* Control over which data is public to the client
-* The ability to constrain, disable, and verify data changed by the client
-* Client knowledge of constraints to reduce redundancies
-* The ability to allow or disallow the client to alter data
-* Consistency in data between the client and the server
-* The ability to share a public state between groups of clients
+- Control over which data is public to the client
+- The ability to constrain, disable, and verify data changed by the client
+- Client knowledge of constraints to reduce redundancies
+- The ability to allow or disallow the client to alter data
+- Consistency in data between the client and the server
+- The ability to share a public state between groups of clients
 
 With the use of MultyxObjects, Multyx can integrate seamlessly into projects, letting changes in data be relayed across both endpoints without the need for any extra code to be written.
 
@@ -27,18 +65,18 @@ With the use of MultyxObjects, Multyx can integrate seamlessly into projects, le
 
 Client interactivity is a necessity in any game, but with it being hard to standardize mouse position across varying screen sizes, and manage the state of inputs, it can be tricky to implement an input system. Multyx allows you to
 
-* Pick which client inputs to listen to from the server
-* Map the client's mouse location to canvas coordinates
-* View the state of inputs from both the server and client
-* Add event listeners on the server for client inputs
+- Pick which client inputs to listen to from the server
+- Map the client's mouse location to canvas coordinates
+- View the state of inputs from both the server and client
+- Add event listeners on the server for client inputs
 
 ### Helpful Functionalities
 
 Building a functional, efficient, and secure multiplayer game is notoriously a tedious process, with each project having its own needs. Multyx simplifies this process by offering a variety of helpful functionalities such as
 
-* Predictive and non-predictive interpolation between values
-* Teams to manage public state across groups of clients
-* Options for changing websocket connection and runtime settings
+- Predictive and non-predictive interpolation between values
+- Teams to manage public state across groups of clients
+- Options for changing websocket connection and runtime settings
 
 ***
 
@@ -192,10 +230,10 @@ export {
 
 ### MultyxServer
 
-A MultyxServer is initialized as follows.
+A MultyxServer is initialized as follows. If options are omitted, the first parameter can be the callback.
 
 ```js
-const multyx = new Multyx.MultyxServer(options?: Multyx.Options, callback?: () => void);
+const multyx = new Multyx.MultyxServer(options?: Multyx.Options | () => void, callback?: () => void);
 ```
 
 Initializing a MultyxServer creates a WebsocketServer using the node 'ws' module.
@@ -317,6 +355,10 @@ Name of the event being called.
 
 Delete the event listener. The previous callback function will not be called again even if the Event occurs.
 
+#### `Event.saveHistory`
+
+Boolean representing whether to store the history of event listener calls and their data. Set to false by default. This can be extremely memory intensive if set to true, so use with caution.
+
 #### `Event.history`
 
 View the history of event listener calls, including the time, the client it relates to, the data sent, and the result that the event listener callback returned.
@@ -377,7 +419,7 @@ Returns same MultyxItem
 
 #### `MultyxItem.relayed`
 
-Boolean representing whether or not changes in the value of the MultyxItem is being relayed to the client and any other public clients.
+Boolean representing whether or not changes in the value of the MultyxItem are being relayed to the client and any other public clients.
 
 #### `MultyxItem.removePublic(team: MultyxTeam)`
 
@@ -1531,3 +1573,27 @@ What we have added is an update event listener. When the `Multyx.Events.Update` 
 We use the `Math.atan2()` method to calculate the angle between the mouse and the player, and the `Math.hypot()` method to calculate the distance between the mouse and the player. We then make the speed equivalent to the distance, and cap it at 200.
 
 We then update the client position to move in the direction of the mouse at the given speed. We use the `Math.cos()` and `Math.sin()` methods on our direction to get the x and y-values of our movement respectively, and multiply by our `deltaTime` to make sure the amount we move in that time is proportional to the time between frames.
+
+## Common Mistakes and Best Practices
+
+Ensure you use the `==` operator rather than the `===` operator for checking equivalency on a `MultyxValue` or `MultyxClientValue`.
+
+```js
+// server.js
+client.self.value = 3;
+console.log(client.self.value == 3);  // true, MultyxValue gets typecasted into a number
+console.log(client.self.value === 3); // false, MultyxValue does not get typecasted
+```
+
+Setting a property using a `MultyxValue` or `MultyxClientValue` only copies the value, not the properties of the Multyx item.
+
+```js
+// server.js
+client.self.x = 3;
+client.self.x.disable();
+
+client.self.y = client.self.x;
+
+console.log(client.self.x.disabled); // true
+console.log(client.self.y.disabled); // false
+```
