@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const src_1 = require("../../server/dist/src");
-const multyx = new src_1.MultyxServer({ tps: 20 }, () => console.log("Multyx Server Started"));
-const activePlayers = new src_1.MultyxTeam("players");
+const multyx_1 = require("multyx");
+const multyx = new multyx_1.MultyxServer({ tps: 20 }, () => console.log("Multyx Server Started"));
+const activePlayers = new multyx_1.MultyxTeam("players");
 activePlayers.self.bullets = [];
 // Disallow changing of client values by the client
 // All client movement can be computed by the server
-multyx.on(src_1.Events.Connect, client => client.self.disable());
+multyx.on(multyx_1.Events.Connect, client => client.self.disable());
 multyx.on("join", (client, name) => {
     // Ensure client name is not null, and does not already exist
     if (activePlayers.getClient(client.uuid) !== null)
@@ -28,12 +28,12 @@ multyx.on("join", (client, name) => {
     client.self.bulletDamage = 20;
     client.self.bulletSpeed = 300;
     // Make client send event if pressing these keys
-    client.controller.listenTo(["w", "a", "s", "d", src_1.Input.MouseMove]);
+    client.controller.listenTo(["w", "a", "s", "d", multyx_1.Input.MouseMove]);
     // Constrain client inside box
     client.self.x.min(-1000).max(1000);
     client.self.y.min(-1000).max(1000);
     // Event to listen for shooting
-    client.controller.listenTo(src_1.Input.MouseDown, state => {
+    client.controller.listenTo(multyx_1.Input.MouseDown, state => {
         const direction = Math.atan2(state.mouse.y - client.self.y, state.mouse.x - client.self.x);
         // Get cartesian values of speed
         const speed = client.self.bulletSpeed;
@@ -51,7 +51,7 @@ multyx.on("join", (client, name) => {
     return true;
 });
 // Runs every update before information gets broadcast to clients
-multyx.on(src_1.Events.Update, () => {
+multyx.on(multyx_1.Events.Update, () => {
     for (const { self, controller } of activePlayers.clients) {
         if (controller.state.keys["w"])
             self.y += self.speed * multyx.deltaTime;
