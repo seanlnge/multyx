@@ -3,7 +3,7 @@ import {
     MultyxTeam,
     Events,
     Input
-} from '../../server/dist/src';
+} from 'multyx';
 
 const multyx = new MultyxServer({ tps: 20 }, () => console.log("Multyx Server Started"));
 

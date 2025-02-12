@@ -1,5 +1,5 @@
 {
-    "include": ["chatlog/index.ts", "shooter/index.ts"],
+    "include": ["shooter/index.ts"],
     "compilerOptions": {
         "target": "es2016",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
         "module": "CommonJS",

@@ -2,7 +2,6 @@
   "name": "examples",
   "version": "1.0.0",
   "scripts": {
-    "chatlog": "tsc && node chatlog/index",
     "squares": "node squares/index",
     "spooky": "node spooky/index",
     "shooter": "tsc && node shooter/index"
@@ -13,6 +12,7 @@
   "dependencies": {
     "@types/express": "^5.0.0",
     "express": "^4.21.2",
+    "multyx": "^0.2.2",
     "ts-alias": "^0.0.7"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-const Multyx = require('../../server/dist/index').default;
+const Multyx = require("multyx");
 const multyx = new Multyx.MultyxServer(() => console.log('server started'));
 
 const game = new Multyx.MultyxTeam("game");
