@@ -7,7 +7,7 @@ export type Options = {
 };
 
 export const DefaultOptions: Options = {
-    port: 443,
+    port: 8443,
     secure: false,
     uri: 'localhost',
     verbose: false,

@@ -13,7 +13,7 @@ export type Options = {
 
 export const DefaultOptions: Options = {
     tps: 10,
-    port: 443,
+    port: 8443,
     removeDisconnectedClients: true,
     respondOnFrame: true,
     sendConnectionUpdates: true,
