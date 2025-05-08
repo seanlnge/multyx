@@ -1,16 +1,20 @@
 {
-    "include": ["shooter/index.ts"],
     "compilerOptions": {
-        "target": "es2016",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
+        "target": "es2016",
         "module": "CommonJS",
         "allowJs": true,
         "baseUrl": "./",
         "esModuleInterop": true,
         "strict": true,
+        "outDir": "./dist",
+        "rootDir": "../",
+        "declaration": true,                              /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
+        "declarationMap": true,  "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
+        "strictPropertyInitialization": false,             /* Check for class properties that are declared but not set in the constructor. */
+        "skipLibCheck": true,                                 /* Skip type checking all .d.ts files. */
+        "paths": {
+            "multyx": ["../server/index.ts"]
+        }
     },
-    "tsc-alias": {
-        "verbose": false,
-        "resolveFullPaths": true,
-    }
-  }
-  
+    "include": ["shooter/**/*"]
+}

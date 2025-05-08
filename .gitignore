@@ -1,9 +1,6 @@
-server/node_modules
-server/dist
-examples/node_modules
-client/node_modules
-client/dist
-compile.bat
+*/node_modules
+*/dist
 .gitignore
 keepinmind.md
 *.tgz
+*.zip

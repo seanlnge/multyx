@@ -1,10 +1,9 @@
-import { Message } from "./message";
+import { Message, UncompressUpdate } from "./message";
 import { Unpack, EditWrapper, Add } from './utils';
 import { RawObject } from "./types";
 import { Controller } from "./controller";
 import { MultyxClientObject } from "./items";
 import { DefaultOptions, Options } from "./options";
-
 export default class Multyx {
     ws: WebSocket;
     uuid: string;
@@ -33,7 +32,7 @@ export default class Multyx {
     constructor(options: Options = {}, callback?: () => void) {
         this.options = { ...DefaultOptions, ...options };
 
-        const url = `ws${this.options.secure ? 's' : ''}://${this.options.uri}:${this.options.port}/`;
+        const url = `ws${this.options.secure ? 's' : ''}://${this.options.uri.split('/')[0]}:${this.options.port}/${this.options.uri.split('/')[1] ?? ''}`;
         this.ws = new WebSocket(url);
         this.ping = 0;
         this.events = new Map();
@@ -53,8 +52,7 @@ export default class Multyx {
             if(msg.native) {
                 this.parseNativeEvent(msg);
                 this.events.get(Multyx.Native)?.forEach(cb => cb(msg));
-            } else if(msg.name in this.events) {
-                this.events[msg.name](msg.data);
+            } else {
                 this.events.get(Multyx.Custom)?.forEach(cb => cb(msg));
             }
             this.events.get(Multyx.Any)?.forEach(cb => cb(msg));
@@ -105,7 +103,8 @@ export default class Multyx {
     }
 
     private parseNativeEvent(msg: Message) {
-        if(this.options.logUpdateFrame) console.log(msg);
+        msg.data = msg.data.map(UncompressUpdate);
+        if(this.options.logUpdateFrame) console.log(msg.data);
 
         for(const update of msg.data) {
             switch(update.instruction) {
@@ -238,11 +237,11 @@ export default class Multyx {
     }
 
     private parseSelf(update: RawObject) {
-        if(update.prop == 'controller') {
+        if(update.property == 'controller') {
             this.controller.listening = new Set(update.data);
-        } else if(update.prop == 'uuid') {
+        } else if(update.property == 'uuid') {
             this.uuid = update.data;
-        } else if(update.prop == 'constraint') {
+        } else if(update.property == 'constraint') {
             let route = this.uuid == update.data.path[0] ? this.self : this.teams[update.data.path[0]];
             for(const prop of update.data.path.slice(1)) route = route?.[prop];
             if(route === undefined) return;

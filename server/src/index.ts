@@ -125,7 +125,7 @@ class MultyxServer {
                     for(const c of this.all.clients) {
                         if(c === client) continue;
 
-                        this.addOperation(c, new DisconnectUpdate(client.uuid));
+                        this.addOperation(c, { instruction: 'dcon', clientUUID: client.uuid });
                     }
                 }
 
@@ -186,12 +186,13 @@ class MultyxServer {
         for(const team of client.teams) constraintTable[team.uuid] = team.self[Build]();
 
         // Only time InitializeUpdate is called, to setup client
-        ws.send(Message.Native([new InitializeUpdate(
-            client[Parse](),
+        ws.send(Message.Native([{
+            instruction: 'init',
+            client: client[Parse](),
             constraintTable,
-            rawClients,
+            clients: rawClients,
             teams
-        )]));
+        }]));
 
         // Clear any updates, all data was already sent in InitializeUpdate
         this.updates.set(client, []);
@@ -219,10 +220,11 @@ class MultyxServer {
         for(const c of this.all.clients) {
             if(c === client) continue;
             
-            this.addOperation(c, new ConnectionUpdate(
-                client.uuid,
-                clientToPublic.get(c)!
-            ));
+            this.addOperation(c, {
+                instruction: 'conn',
+                uuid: client.uuid,
+                publicData: clientToPublic.get(c)!
+            });
         }
 
         return client;
@@ -277,7 +279,7 @@ class MultyxServer {
             const clientUpdates = this.updates.get(client) ?? [];
             
             const index = clientUpdates.findIndex(update => {
-                if(!(update instanceof EditUpdate)) return false;
+                if(update.instruction != 'edit') return false;
 
                 if(update.path.every((v, i) => msg.data.path[i+1] == v)
                 && update.value == msg.data.value) return true;
@@ -290,11 +292,12 @@ class MultyxServer {
 
         // If change rejected
         if(!valid) {
-            return this.addOperation(client, new EditUpdate(
-                msg.data.path[0],
-                msg.data.path.slice(1),
-                obj.get(prop).value
-            ));
+            return this.addOperation(client, {
+                instruction: 'edit',
+                team: obj.agent instanceof MultyxTeam,
+                path: [...msg.data.path.slice(1), prop],
+                value: obj.get(prop).value
+            });
         }
     }
 
@@ -391,14 +394,13 @@ class MultyxServer {
      * @param clients Set of all clients to relay event to
      */
     [Edit](item: MultyxItem | MultyxUndefined, clients: Set<Client>) {
-        const update = new EditUpdate(
-            item.agent instanceof MultyxTeam,
-            item.propertyPath,
-            item.value
-        );
-        
         for(const client of clients) {
-            this.addOperation(client, update);
+            this.addOperation(client, {
+                instruction: 'edit',
+                team: item.agent instanceof MultyxTeam,
+                path: item.propertyPath,
+                value: item.value
+            });
         }
     }
 
@@ -406,13 +408,12 @@ class MultyxServer {
      * Create a SelfUpdate event to send to client
      * @param property Self property being updated
      */
-    [Self](client: Client, property: typeof SelfUpdate.Properties[number], data: any) {
-        const update = new SelfUpdate(
+    [Self](client: Client, property: SelfUpdate['property'], data: any) {
+        this.addOperation(client, {
+            instruction: 'self',
             property,
             data
-        );
-
-        this.addOperation(client, update);
+        });
     }
 
     /**
@@ -431,13 +432,19 @@ class MultyxServer {
      * @param response Response
      */    
     [Send](client: Client, eventName: string, response: any) {
-        const update = new ResponseUpdate(eventName, response);
-
         // Wait until next frame to send response?
         if(this.options.respondOnFrame) {
-            this.addOperation(client, update);
+            this.addOperation(client, {
+                instruction: 'resp',
+                name: eventName,
+                response
+            });
         } else {
-            this.ws.get(client)?.send(Message.Native([update]));
+            this.ws.get(client)?.send(Message.Native([{
+                instruction: 'resp',
+                name: eventName,
+                response
+            }]));
         }
     }
 

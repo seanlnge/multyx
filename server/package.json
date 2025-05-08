@@ -27,9 +27,11 @@
   },
   "homepage": "https://github.com/seanlnge/multyx#readme",
   "dependencies": {
-    "nanotimer": "^0.3.15",
-    "ws": "^8.18.0",
     "@types/nanotimer": "^0.3.2",
-    "@types/ws": "^8.5.14"
+    "nanotimer": "^0.3.15",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
   }
 }

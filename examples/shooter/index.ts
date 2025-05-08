@@ -1,18 +1,13 @@
-import {
-    MultyxServer,
-    MultyxTeam,
-    Events,
-    Input
-} from 'multyx';
+import Multyx from 'multyx';
 
-const multyx = new MultyxServer({ tps: 20 }, () => console.log("Multyx Server Started"));
+const multyx = new Multyx.MultyxServer({ tps: 20 }, () => console.log(`Multyx server started on port ${multyx.options.port}`));
 
-const activePlayers = new MultyxTeam("players");
+const activePlayers = new Multyx.MultyxTeam("players");
 activePlayers.self.bullets = [];
 
 // Disallow changing of client values by the client
 // All client movement can be computed by the server
-multyx.on(Events.Connect, client => client.self.disable());
+multyx.on(Multyx.Events.Connect, client => client.self.disable());
 
 multyx.on("join", (client, name) => {
     // Ensure client name is not null, and does not already exist
@@ -36,14 +31,14 @@ multyx.on("join", (client, name) => {
     client.self.bulletSpeed = 300;
     
     // Make client send event if pressing these keys
-    client.controller.listenTo(["w", "a", "s", "d", Input.MouseMove]);
+    client.controller.listenTo(["w", "a", "s", "d", Multyx.Input.MouseMove]);
 
     // Constrain client inside box
     client.self.x.min(-1000).max(1000);
     client.self.y.min(-1000).max(1000);
 
     // Event to listen for shooting
-    client.controller.listenTo(Input.MouseDown, state => {
+    client.controller.listenTo(Multyx.Input.MouseDown, state => {
         const direction = Math.atan2(
             state.mouse.y - client.self.y,
             state.mouse.x - client.self.x
@@ -68,7 +63,7 @@ multyx.on("join", (client, name) => {
 });
 
 // Runs every update before information gets broadcast to clients
-multyx.on(Events.Update, () => {
+multyx.on(Multyx.Events.Update, () => {
     for(const { self, controller } of activePlayers.clients) {
         if(controller.state.keys["w"]) self.y += self.speed * multyx.deltaTime;
         if(controller.state.keys["a"]) self.x -= self.speed * multyx.deltaTime;

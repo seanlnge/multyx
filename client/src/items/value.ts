@@ -10,20 +10,15 @@ export default class MultyxClientValue {
     editable: boolean;
     constraints: { [key: string]: Constraint };
 
-    private interpolator: undefined | {
-        get: () => Value,
-        set: () => void,
-        history: { time: number, value: Value }[]
-    };
+    onChange: (value: Value, previousValue: Value) => void;
+    onChangeDeny: (attemptedValue: Value, currentValue: Value) => boolean;
 
     get value() {
-        if(this.interpolator) return this.interpolator.get();
         return this._value;
     }
 
     set value(v) {
         this._value = v;
-        if(this.interpolator) this.interpolator.set();
     }
 
     constructor(multyx: Multyx, value: Value | EditWrapper<Value>, propertyPath: string[] = [], editable: boolean) {
@@ -36,7 +31,9 @@ export default class MultyxClientValue {
 
     set(value: Value | EditWrapper<Value>) {
         if(value instanceof EditWrapper) {
+            const oldValue = this.value;
             this.value = value.value;
+            this.onChange?.(value.value, oldValue);
             return true;
         }
 
@@ -45,6 +42,7 @@ export default class MultyxClientValue {
             if(this.multyx.options.verbose) {
                 console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.')}' to ${value}`);
             }
+            this.onChangeDeny?.(value, this.value);
             return false;
         }
 
@@ -57,6 +55,7 @@ export default class MultyxClientValue {
                 if(this.multyx.options.verbose) {
                     console.error(`Attempting to set property that failed on constraint. Setting '${this.propertyPath.join('.')}' to ${value}, stopped by constraint '${constraint}'`);
                 }
+                this.onChangeDeny?.(value, this.value);
                 return false;
             }
         }
@@ -85,61 +84,6 @@ export default class MultyxClientValue {
             const constraint = BuildConstraint(cname, args as Value[]);
             if(!constraint) continue;
             this.constraints[cname] = constraint;
-        }
-    }
-
-    /**
-     * Linearly interpolate value across frames
-     * Will run 1 frame behind on average
-     */
-    Lerp() {
-        this.interpolator = {
-            history: [
-                { value: this._value, time: Date.now() },
-                { value: this._value, time: Date.now() }
-            ],
-            get: () => {
-                const [e, s] = this.interpolator.history;
-                const ratio = Math.min(1, (Date.now() - e.time) / Math.min(250, e.time - s.time));
-                if(Number.isNaN(ratio) || typeof e.value != 'number' || typeof s.value != 'number') return e.value;
-                return e.value * ratio + s.value * (1 - ratio);
-            },
-            set: () => {
-                this.interpolator.history.pop();
-                this.interpolator.history.unshift({
-                    value: this._value,
-                    time: Date.now()
-                });
-            }
-        }
-    }
-
-    PredictiveLerp() {
-        this.interpolator = {
-            history: [
-                { value: this._value, time: Date.now() },
-                { value: this._value, time: Date.now() },
-                { value: this._value, time: Date.now() }
-            ],
-            get: () => {
-                const [e, s, p] = this.interpolator.history;
-                const ratio = Math.min(1, (Date.now() - e.time) / (e.time - s.time));
-
-                if(Number.isNaN(ratio) || typeof p.value != 'number') return e.value;
-                if(typeof e.value != 'number' || typeof s.value != 'number') return e.value;
-
-                // Speed changed too fast, don't interpolate, return new value
-                if(Math.abs((e.value - s.value) / (s.value - p.value) - 1) > 0.2) return e.value;
-
-                return e.value * (1 + ratio) - s.value * ratio;
-            },
-            set: () => {
-                this.interpolator.history.pop();
-                this.interpolator.history.unshift({
-                    value: this._value,
-                    time: Date.now()
-                });
-            }
         }
     }
 

@@ -1,4 +1,4 @@
-import { Update } from "./update";
+import { CompressUpdate, Update } from "./update";
 
 export default class Message {
     name: string;
@@ -23,18 +23,17 @@ export default class Message {
         const data = [];
 
         for(const update of updates) {
-            data.push(update.raw());
+            data.push(CompressUpdate(update));
         }
 
-        return JSON.stringify(new Message('_', data, true));
+        return JSON.stringify(data);
     }
 
-    // Create message for user
     static Create(name: string, data: any) {
         if(name.length == 0) throw new Error('Multyx message cannot have empty name');
         if(name[0] == '_') name = '_' + name;
-
-        if(typeof data == 'function') {
+        
+        if(typeof data === 'function') {
             throw new Error('Multyx data must be JSON storable');
         }
 
@@ -45,6 +44,7 @@ export default class Message {
     static Parse(str: string) {
         const parsed = JSON.parse(str);
         if(parsed.name[0] == '_') parsed.name = parsed.name.slice(1);
+        console.log(parsed);
         return new Message(parsed.name, parsed.data, parsed.name == '');
     }
 }

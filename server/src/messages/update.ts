@@ -1,153 +1,73 @@
 import { RawObject } from "../types";
 
-export class EditUpdate {
-    instruction: 'edit' = 'edit';
+export interface EditUpdate {
     team: boolean;
     path: string[];
     value: any;
-
-    /**
-     * Used if visible data is being edited
-     * @param team Editing a team?
-     * @param path Full path [uuid, ...path, property]
-     * @param value Value of property
-     */
-    constructor(team: boolean, path: string[], value: any) {
-        this.team = team;
-        this.path = path;
-        this.value = value;
-    }
-
-    raw(): RawObject {
-        return {
-            instruction: this.instruction,
-            team: this.team,
-            path: this.path,
-            value: this.value
-        }
-    }
+    instruction: 'edit';
 }
 
-export class SelfUpdate {
-    instruction: 'self' = 'self';
-    static Properties = ['controller', 'uuid', 'constraint'] as const;
-
-    property: typeof SelfUpdate.Properties[number];
+export interface SelfUpdate {
+    instruction: 'self';
+    property: 'controller' | 'uuid' | 'constraint';
     data: any;
-
-    /**
-     * Used if client metadata is being changed, such as 
-     * changing which inputs the controller is listening to
-     * @param property Property of client metadata being altered
-     * @param data Data to put in place of client property
-     */
-    constructor(property: typeof SelfUpdate.Properties[number], data: any) {
-        this.property = property;
-        this.data = data;
-    }
-
-    raw(): RawObject {
-        return {
-            instruction: this.instruction,
-            prop: this.property,
-            data: this.data
-        }
-    }
 }
 
-export class ResponseUpdate {
-    instruction: 'resp' = 'resp';
+export interface ResponseUpdate {  
+    instruction: 'resp';
     name: string;
     response: any;
-
-    constructor(eventName: string, response: any) {
-        this.name = eventName;
-        this.response = response;
-    }
-
-    raw(): RawObject {
-        return {
-            instruction: this.instruction,
-            name: this.name,
-            response: this.response
-        }
-    }
 }
 
-export class ConnectionUpdate {
-    instruction: 'conn' = 'conn';
+export interface ConnectionUpdate {
+    instruction: 'conn';
     uuid: string;
     publicData: RawObject;
-
-    /**
-     * Used if new client connects
-     * @param uuid UUID of new client
-     * @param publicData Visible data
-     */
-    constructor(uuid: string, publicData: RawObject) {
-        this.uuid = uuid;
-        this.publicData = publicData;
-    }
-
-    raw(): RawObject {
-        return {
-            instruction: this.instruction,
-            uuid: this.uuid,
-            data: this.publicData
-        }
-    }
 }
 
-export class DisconnectUpdate {
-    instruction: 'dcon' = 'dcon';
+export interface DisconnectUpdate {
+    instruction: 'dcon';
     clientUUID: string;
-
-    /**
-     * Used if client disconnects
-     * @param clientUUID UUID of disconnected client
-     */
-    constructor(clientUUID: string) {
-        this.clientUUID = clientUUID;
-    }
-
-    raw(): RawObject {
-        return {
-            instruction: this.instruction,
-            client: this.clientUUID
-        }
-    }
 }
 
-export class InitializeUpdate {
-    instruction: 'init' = 'init';
+export interface InitializeUpdate {
+    instruction: 'init';
     client: RawObject;
     constraintTable: RawObject;
     clients: RawObject;
     teams: RawObject;
-
-    /**
-     * Used when client first connecting
-     * @param client All client data
-     * @param constraintTable All client constraints
-     * @param clients All visible data of other clients
-     * @param teams All visible data of other teams
-     */
-    constructor(client: RawObject, constraintTable: RawObject, clients: RawObject, teams: RawObject) {
-        this.client = client;
-        this.constraintTable = constraintTable;
-        this.clients = clients;
-        this.teams = teams;
-    }
-
-    raw(): RawObject {
-        return {
-            instruction: this.instruction,
-            client: this.client,
-            constraintTable: this.constraintTable,
-            clients: this.clients,
-            teams: this.teams
-        }
-    }
 }
 
+/**
+ * Compresses update into a string
+ * [instruction][specifier]:[data]
+ * @param update 
+ * @returns 
+ */
+export function CompressUpdate(update: Update) {
+    if(update.instruction == 'edit') {
+        return `${update.team ? '1' : '0'}${update.path.join('.').replace(/;/g, ';;')};${JSON.stringify(update.value)}`;
+    }
+    if(update.instruction == 'self') {
+        const code = update.property == 'controller' ? '2' : update.property == 'uuid' ? '3' : '4';
+        return `${code}${JSON.stringify(update.data)}`;
+    }
+    if(update.instruction == 'resp') {
+        return `5${update.name.replace(/;/g, ';;')};${JSON.stringify(update.response)}`;
+    }
+    if(update.instruction == 'conn') {
+        return `6${update.uuid.replace(/;/g, ';;')};${JSON.stringify(update.publicData)}`;
+    }
+    if(update.instruction == 'dcon') {
+        return `7${update.clientUUID.replace(/;/g, ';;')}`;
+    }
+    if(update.instruction == 'init') {
+        const client = JSON.stringify(update.client).replace(/;/g, ';;');
+        const constraintTable = JSON.stringify(update.constraintTable).replace(/;/g, ';;');
+        const clients = JSON.stringify(update.clients).replace(/;/g, ';;');
+        const teams = JSON.stringify(update.teams).replace(/;/g, ';;');
+        return `8${client};${constraintTable};${clients};${teams}`;
+    }
+    return '';
+}
 export type Update = EditUpdate | SelfUpdate | ResponseUpdate | InitializeUpdate | ConnectionUpdate | DisconnectUpdate;

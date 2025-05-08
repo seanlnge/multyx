@@ -1,5 +1,24 @@
 import { Update } from "./types";
 
+export function UncompressUpdate(str: string) {
+    const [target, ...escapedData] = str.split(/(?<!;);(?!;)/);
+    const instruction = target[0];
+    const specifier = target.slice(1).replace(/;;/g, ';');
+    const data = escapedData.map(d => d.replace(/;;/g, ';')).map(d => d == "undefined" ? undefined : JSON.parse(d));
+
+    if(instruction == '0') return { instruction: 'edit', team: false, path: specifier.split('.'), value: data[0] };
+    if(instruction == '1') return { instruction: 'edit', team: true, path: specifier.split('.'), value: data[0] };
+
+    if(instruction == '2') return { instruction: 'self', property: "controller", data: JSON.parse(specifier) };
+    if(instruction == '3') return { instruction: 'self', property: "uuid", data: JSON.parse(specifier) };
+    if(instruction == '4') return { instruction: 'self', property: "constraint", data: JSON.parse(specifier) };
+
+    if(instruction == '5') return { instruction: 'resp', name: specifier, response: data[0] };
+    if(instruction == '6') return { instruction: 'conn', uuid: specifier, publicData: data[0] };
+    if(instruction == '7') return { instruction: 'dcon', clientUUID: specifier };
+    if(instruction == '8') return { instruction: 'init', client: JSON.parse(specifier), constraintTable: data[0], clients: data[1], teams: data[2] };
+}
+
 export class Message {
     name: string;
     data: any;
@@ -13,7 +32,7 @@ export class Message {
         this.native = native;
     }
 
-    static BundleOperations(deltaTime, operations) {
+    static BundleOperations(deltaTime: number, operations: Update[]) {
         if(!Array.isArray(operations)) operations = [operations];
         return JSON.stringify(new Message('_', { operations, deltaTime }));
     }
@@ -24,9 +43,12 @@ export class Message {
 
     static Parse(str: string) {
         const parsed = JSON.parse(str);
-        if(parsed.name[0] == '_') parsed.name = parsed.name.slice(1);
 
-        return new Message(parsed.name, parsed.data, parsed.name == '');
+        if(Array.isArray(parsed)) {
+            return new Message('_', parsed, true);
+        }
+
+        return new Message(parsed.name ?? '', parsed.data ?? '', false);
     }
 
     static Create(name: string, data: any) {
