@@ -44,7 +44,6 @@ export default class Message {
     static Parse(str: string) {
         const parsed = JSON.parse(str);
         if(parsed.name[0] == '_') parsed.name = parsed.name.slice(1);
-        console.log(parsed);
         return new Message(parsed.name, parsed.data, parsed.name == '');
     }
 }

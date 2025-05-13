@@ -3,6 +3,7 @@ import { Constraint, RawObject, Value } from "./types";
 export const Unpack = Symbol("unpack");
 export const Done = Symbol("done");
 export const Add = Symbol("add");
+export const Edit = Symbol("edit");
 
 export class EditWrapper<T> {
     value: T;

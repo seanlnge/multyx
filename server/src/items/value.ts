@@ -110,9 +110,9 @@ export default class MultyxValue {
      * Edit the property path
      * @param newPath New property path to set value at
      */
-    [Edit](newPath: string[]) {
+    [Edit](newPath: string[], relay: boolean = true) {
         this.propertyPath = newPath;
-        this[Send]();        
+        if(relay) this[Send]();        
     }
 
     /**

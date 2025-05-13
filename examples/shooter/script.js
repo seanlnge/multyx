@@ -1,4 +1,4 @@
-const multyx = new Multyx({ logUpdateFrame: true });
+const multyx = new Multyx({ logUpdateFrame: false });
 
 // Function called when join game button pressed
 async function joinGame() {
@@ -22,12 +22,12 @@ async function joinGame() {
 
     // Lerp all clients to ever join the players team
     multyx.forAll(client => {
-        client.x.Lerp();
-        client.y.Lerp();
+        //client.x.Lerp();
+        //client.y.Lerp();
     });
     multyx.teams.players.bullets.forAll(bullet => {
-        bullet.x.PredictiveLerp();
-        bullet.y.PredictiveLerp();
+        //bullet.x.PredictiveLerp();
+        //bullet.y.PredictiveLerp();
     });
 }
 
@@ -46,6 +46,7 @@ multyx.loop(() => {
         const client = multyx.clients[uuid];
         ctx.fillRect(client.x-20, client.y-20, 40, 40);
     }
+    console.log(multyx.teams.players.bullets.value);
     for(const bullet of multyx.teams.players.bullets) {
         ctx.beginPath();
         ctx.ellipse(bullet.x, bullet.y, 5, 5, 0, 0, Math.PI*2);

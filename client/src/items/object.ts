@@ -1,6 +1,6 @@
 import { Message } from "../message";
 import { RawObject } from '../types';
-import { Add, EditWrapper, Unpack } from "../utils";
+import { Add, Edit, EditWrapper, Unpack } from "../utils";
 
 import type Multyx from '../index';
 import type { MultyxClientItem } from ".";
@@ -19,6 +19,22 @@ export default class MultyxClientObject {
         const parsed = {};
         for(const prop in this.object) parsed[prop] = this.object[prop];
         return parsed;
+    }
+
+    [Edit](updatePath: string[], value: any) {
+        if(updatePath.length == 1) {
+            this.set(updatePath[0], new EditWrapper(value));
+            return;
+        }
+
+        if(updatePath.length == 0 && this.multyx.options.verbose) {
+            console.error("Update path is empty. Attempting to edit MultyxClientObject with no path.");
+        }
+
+        if(!this.has(updatePath[0])) {
+            this.set(updatePath[0], new EditWrapper({}));
+        }
+        this.get(updatePath[0])[Edit](updatePath.slice(1), value);
     }
 
     constructor(multyx: Multyx, object: RawObject | EditWrapper<RawObject>, propertyPath: string[] = [], editable: boolean) {

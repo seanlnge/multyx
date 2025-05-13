@@ -1,8 +1,8 @@
 import { Message, UncompressUpdate } from "./message";
-import { Unpack, EditWrapper, Add } from './utils';
+import { Unpack, EditWrapper, Add, Edit } from './utils';
 import { RawObject } from "./types";
 import { Controller } from "./controller";
-import { MultyxClientObject } from "./items";
+import { MultyxClientItem, MultyxClientObject } from "./items";
 import { DefaultOptions, Options } from "./options";
 export default class Multyx {
     ws: WebSocket;
@@ -50,6 +50,7 @@ export default class Multyx {
             this.ping = 2 * (Date.now() - msg.time);
 
             if(msg.native) {
+                console.log(msg);
                 this.parseNativeEvent(msg);
                 this.events.get(Multyx.Native)?.forEach(cb => cb(msg));
             } else {
@@ -123,7 +124,11 @@ export default class Multyx {
 
                 // Client or team data edit
                 case 'edit': {
-                    this.parseEdit(update);
+                    if(update.team) {
+                        this.teams[Edit](update.path, update.value);
+                    } else {
+                        this.clients[update.path[0]][Edit](update.path.slice(1), update.value);
+                    }
 
                     for(const listener of this.events.get(Multyx.Edit) ?? []) {
                         this.listenerQueue.push(() => listener(update));
@@ -219,21 +224,6 @@ export default class Multyx {
             const obj = this.uuid == uuid ? this.self : this.teams[uuid];
             obj[Unpack](table);
         }
-    }
-
-    private parseEdit(update: RawObject) {
-        let route: any = update.team ? this.teams : this.clients;
-        if(!route) return;
-
-        // Loop through path to get to object being edited
-        for(const p of update.path.slice(0, -1)) {
-            // Create new object at path if non-existent
-            if(!(p in route)) route[p] = new EditWrapper({});
-            route = route[p];
-        }
-
-        const prop = update.path.slice(-1)[0];
-        route[prop] = new EditWrapper(update.value);
     }
 
     private parseSelf(update: RawObject) {

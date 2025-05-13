@@ -1,7 +1,7 @@
 import type Multyx from '../';
 import { Message } from "../message";
 import { Constraint, RawObject, Value } from "../types";
-import { BuildConstraint, EditWrapper, Unpack } from '../utils';
+import { BuildConstraint, Edit, EditWrapper, Unpack } from '../utils';
 
 export default class MultyxClientValue {
     private _value: Value;
@@ -19,6 +19,12 @@ export default class MultyxClientValue {
 
     set value(v) {
         this._value = v;
+    }
+
+    [Edit](updatePath: string[], value: any) {
+        if(updatePath.length != 0) return;
+
+        this.set(new EditWrapper(value));
     }
 
     constructor(multyx: Multyx, value: Value | EditWrapper<Value>, propertyPath: string[] = [], editable: boolean) {

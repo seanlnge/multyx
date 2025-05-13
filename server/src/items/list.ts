@@ -1,22 +1,48 @@
-import type { Agent } from "../agents";
+import type { Agent, MultyxTeam } from "../agents";
 
 import { RawObject, Value } from "../types";
 
-import MultyxObject from "./object";
-import { MultyxItem } from ".";
-import { EditWrapper } from "../utils/native";
+import { IsMultyxItem, MultyxItem, MultyxUndefined, MultyxValue } from ".";
+import { Build, Edit, EditWrapper, Get } from "../utils/native";
+import MultyxItemRouter from "./router";
 
-export default class MultyxList extends MultyxObject {
-    length: number;
+export default class MultyxList {
+    data: MultyxItem[];
+    propertyPath: string[];
+    agent: Agent;
+    disabled: boolean;
+    relayed: boolean;
 
     allowItemChange: boolean;
     allowItemAddition: boolean;
     allowItemDeletion: boolean;
 
+    private publicTeams: Set<MultyxTeam>;
+
+    [key: string]: any;
+
     get value() {
-        const parsed: any[] = [];
-        for(let i=0; i<this.length; i++) parsed[i] = this.get(i)?.value;
-        return parsed;
+        return this.data.map((i: MultyxItem): any => i.value);
+    }
+
+    get length() {
+        return this.data.length;
+    }
+
+    set length(length: number) {
+        for(let i=length; i<this.data.length; i++) {
+            this.delete(i);
+        }
+    }
+
+    private sendShiftOperation(index: number, move: number) {
+        if(index > 0) {
+            for(let i=index; i<this.length; i++) {
+                this.data[i][Edit]([...this.propertyPath, (i+move).toString()], false);
+            }
+        }
+
+        new MultyxValue(move, this.agent, [...this.propertyPath, 'shift', index.toString()]);
     }
 
     /**
@@ -27,18 +53,35 @@ export default class MultyxList extends MultyxObject {
      * @returns MultyxList
      */
     constructor(list: (RawObject | Value | MultyxItem)[], agent: Agent, propertyPath: string[] = [agent.uuid]) {
-        super({}, agent, propertyPath);
+        this.data = [];
+        this.propertyPath = propertyPath;
+        this.agent = agent;
+        this.disabled = false;
+        this.relayed = true;
+        this.publicTeams = new Set();
 
-        this.length = 0;
         this.allowItemAddition = true;
         this.allowItemChange = true;
         this.allowItemDeletion = true;
 
-        this.push(...list);
+        if(list instanceof MultyxList) list = list.value;
+
+        for(const item of list) {
+            this.data.push(new (MultyxItemRouter(item))(
+                item,
+                agent,
+                [...propertyPath, this.data.length.toString()]
+            ));
+        }
 
         if(this.constructor !== MultyxList) return this;
 
         return new Proxy(this, {
+            has: (o, p: any) => {
+                if(typeof p === 'number') return o.has(p)
+                return p in o;
+            },
+
             // Allow users to access properties in MultyxObject without using get
             get: (o, p: any) => {
                 if(p in o) return o[p];
@@ -56,16 +99,73 @@ export default class MultyxList extends MultyxObject {
             
             // Allow users to delete MultyxObject properties by delete client.self.a;
             deleteProperty(o, p: string) {
-                return !!o.delete(p);
+                if(typeof p === 'number') return !!o.delete(p);
+                return false;
             }
         });
+    }
+
+    disable() {
+        this.disabled = true;
+        this.data.forEach((i: MultyxItem) => i.disable());
+        return this;
+    }
+
+    enable() {
+        this.disabled = false;
+        this.data.forEach((i: MultyxItem) => i.enable());
+        return this;
+    }
+
+    relay() {
+        this.relayed = true;
+        this.data.forEach((i: MultyxItem) => i.relay());
+        return this;
+    }
+
+    unrelay() {
+        this.relayed = false;
+        this.data.forEach((i: MultyxItem) => i.unrelay());
+        return this;
+    }
+
+    /**
+     * Publicize MultyxValue from specific MultyxTeam
+     * @param team MultyxTeam to share MultyxValue to
+     * @returns Same MultyxValue
+     */
+    addPublic(team: MultyxTeam) {
+        if(this.publicTeams.has(team)) return this;
+
+        this.publicTeams.add(team);
+        for(const prop in this.data) this.data[prop].addPublic(team);
+
+        return this;
+    }
+
+    /**
+     * Privitize MultyxValue from specific MultyxTeam
+     * @param team MultyxTeam to hide MultyxValue from
+     * @returns Same MultyxValue
+     */
+    removePublic(team: MultyxTeam) {
+        if(!this.publicTeams.has(team)) return this;
+
+        this.publicTeams.delete(team);
+        for(const prop in this.data) this.data[prop].removePublic(team);
+
+        return this;
+    }
+
+    has(index: number) {
+        return index >= 0 && index < this.data.length;
     }
 
     /**
      * Get the ClientValue object of a property
      */
     get(index: string | number) {
-        if(typeof index == 'number') index = index.toString();
+        if(typeof index === 'string') index = parseInt(index);
         return this.data[index];
     }
 
@@ -77,43 +177,102 @@ export default class MultyxList extends MultyxObject {
      * multyx.on('reset', client => client.player.set('x', 5));
      * 
      * // Client
-     * client.player.x = 20 * Math.random();
+     * client.position[1] = 20 * Math.random();
      * multyx.send('reset');
-     * console.log(client.player.x); // 5
+     * console.log(client.position[1]); // 5
      * ```
      */
     set(index: string | number, value: any): this | false {
-        if(typeof index == 'string') index = parseInt(index);
+        if(typeof index === 'string') index = parseInt(index);
         if(!Number.isInteger(index)) return false;
 
         if(value instanceof EditWrapper) {
-            if(!super.has(index.toString())) {
-                if(this.disabled) return false;
-            }
-
+            if(!this.has(index) && this.disabled) return false;
             if(value.value === undefined && !this.allowItemDeletion) return false;
             if(!this.allowItemAddition && index >= this.length) return false;
             if(!this.allowItemChange && index < this.length) return false;
+            value = value.value;
+        } else if(IsMultyxItem(value)) {
             value = value.value;
         }
         
         // Deleting an element by setting MultyxList[index] = undefined
         if(value === undefined) return this.delete(index);
+    
+        const propertyPath = [...this.propertyPath, index.toString()];
 
-        // See if MultyxItem allows setting value
-        const result = super.set(index.toString(), value);
-        if(result) {
-            if(index >= this.length) this.length = index+1;
-            const item = this.get(index);
-            this.data[index] = item;
+        if(IsMultyxItem(value)) {
+            value[Edit](propertyPath);
+            this.data[index] = value;
+        } else {
+            this.data[index] = new (MultyxItemRouter(value))(
+                value,
+                this.agent,
+                propertyPath
+            );
         }
-        return result ? this : false;
+
+
+        if(index >= this.data.length) this.data.length = index+1;
+        const item = this.get(index);
+        this.data[index] = item;
+        return this;
     }
 
-    delete(index: number | string): this {
-        super.delete(index.toString());
-        this.length = this.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
+    delete(index: string | number): this {
+        if(typeof index === 'string') index = parseInt(index);
+        delete this.data[index];
+
+        new MultyxUndefined(
+            this.agent,
+            [...this.propertyPath, index.toString()]
+        );        
+
+        this.data.length = this.data.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
         return this;
+    }
+
+    /**
+     * Get all properties in list publicized to specific team
+     * @param team MultyxTeam to get public data for
+     * @returns Raw object
+     */
+    [Get](team: MultyxTeam) {
+        const parsed: RawObject = [];
+
+        for(const item of this.data) {
+            if(item instanceof MultyxValue) {
+                if(item.isPublic(team)) {
+                    parsed.push(item.value);
+                } else {
+                    parsed.push(undefined);
+                }
+            } else {
+                parsed.push(item[Get](team));
+            }
+        }
+
+        return parsed;
+    }
+    
+    /**
+     * Build a constraint table
+     * @returns Constraint table
+     */
+    [Build]() {
+        const obj: RawObject = [];
+        for(const item of this.data) {
+            obj.push(item[Build]());
+        }
+        return obj;
+    }
+
+    [Edit](newPath: string[]) {
+        this.propertyPath = newPath;
+
+        for(const index in this.data) {
+            this.data[index][Edit]([...newPath, index]);
+        }
     }
 
     push(...items: any[]) {
@@ -124,50 +283,79 @@ export default class MultyxList extends MultyxObject {
     }
 
     pop(): MultyxItem | undefined {
-        const result = this.get(this.length);
-        this.delete(this.length);
+        const result = this.get(this.length-1);
+        this.delete(this.length-1);
         return result;
     }
 
     unshift(...items: any[]) {
-        for(let i=this.length-1; i>=0; i--) {
-            if(i >= items.length) this.set(i, this.get(i-items.length));
-            else this.set(i, items[i]);
-        }
+        // Let client know that all items getting shifted right # of items being added
+        this.sendShiftOperation(0, items.length);
+
+        // Add new items
+        this.data.unshift(...items.map((item, index) => new (MultyxItemRouter(item))(
+            item,
+            this.agent,
+            [...this.propertyPath, (index).toString()]
+        )));
 
         return this.length;
     }
 
     shift() {
         if(this.length == 0) return undefined;
-        const first = this.get(0);
-        for(let i=0; i<this.length; i++) {
-            this.set(i, this.get(i+1));
-        }
-        return first;
+
+        // Let client know that all items from index 1 to end are getting shifted left
+        this.sendShiftOperation(1, -1);
+
+        return this.data.shift();
     }
 
     splice(start: number, deleteCount?: number, ...items: any[]) {
+        // If no delete count, delete all items from start to end
         if(deleteCount === undefined) deleteCount = this.length - start;
 
-        // Move elements in front of splice forward or backward
-        let move = items.length - deleteCount;
-        if(move > 0) {
-            for(let i=this.length-1; i>=start + deleteCount; i--) {
-                this.set(i + move, this.get(i));
-            }
-        } else if(move < 0) {
-            for(let i=start+deleteCount; i<this.length; i++) {
-                this.set(i + move, this.get(i));
-            }
+        // Calculate how much to shift items
+        const move = items.length - deleteCount;
 
-            // Delete elements past end of new list
-            const ogLength = this.length;
-            for(let i=ogLength+move; i<ogLength; i++) this.delete(i);
+        // If items on the right are getting shifted, send a shift operation
+        if(start + deleteCount < this.length && move != 0) {
+            this.sendShiftOperation(start+deleteCount, move);
         }
 
-        // Insert new elements starting at start
-        for(let i=start; i<items.length; i++) this.set(i, items[i]);
+        // splice(3, 1)
+        // move = -1
+        // nl = 6 + -1 = 5
+        // start + deleteCount = 4
+        // a, b, c, d, e, f
+        // a, b, c, e, f
+
+        // Delete items not affected by replacement/shift
+        if(start + deleteCount > this.length + move) {
+            for(let i=this.length + move; i<this.length; i++) {
+                this.delete(i);
+            }
+        }
+
+        // splice(3, 3, g, h)
+        // start + deleteCount = 6
+        // length + move = 5
+        // 6 > 5, so delete 5 onward
+        // a, b, c, d, e, f
+        // a, b, c, g, h
+
+        // Add new items
+        this.data.splice(
+            start,
+            deleteCount,
+            ...items.map((item, index) => new (MultyxItemRouter(item))(
+                item,
+                this.agent,
+                [...this.propertyPath, (start+index).toString()]
+            ))
+        );
+
+        return this;
     }
 
     slice(start?: number, end?: number) {
@@ -178,15 +366,18 @@ export default class MultyxList extends MultyxObject {
         if(end === undefined || end >= this.length) end = this.length;
         if(end < -this.length) end = 0;
         if(end < 0) end += this.length;
-        
-        if(start !== 0) {
-            for(let i=0; i<end-start; i++) {
-                this.set(i, this.get(i + start));
-            }
+
+        // Let client know that all items from start to end are getting shifted left
+        this.sendShiftOperation(start, -start);
+
+        // Shift all items in MultyxList
+        for(let i=start; i<end; i++) {
+            this.data[i-start] = this.data[i];
         }
 
-        for(let j=this.length-1; j>=end-start; j--) {
-            this.delete(j);
+        // Delete old items
+        for(let i=this.length-1; i>=end-start; i--) {
+            this.delete(i);
         }
 
         return this;
@@ -198,11 +389,32 @@ export default class MultyxList extends MultyxObject {
             keep.push(predicate(this.get(i), i, this));
         }
 
-        let negativeOffset = 0;
-        for(let i=0; i<keep.length; i++) {
-            if(keep[i] && negativeOffset) this.set(i - negativeOffset, this.get(i));
-            if(!keep[i]) negativeOffset--;
+        let newLength = 0;
+        let currentShiftLeft = 0;
+
+        for(let i=this.length-1; i>=0; i--) {
+            if(!keep[i]) {
+                currentShiftLeft++;
+            } else {
+                newLength++;
+                if(currentShiftLeft) {
+                    this.sendShiftOperation(i, -currentShiftLeft);
+                    currentShiftLeft = 0;
+                }
+            }
         }
+
+        let offset = 0;
+        for(let i=0; i<this.length; i++) {
+            if(keep[i]) {
+                this.data[i-offset] = this.data[i];
+            } else {
+                offset++;
+            }
+        }
+
+        this.length = newLength;
+        return this;
     }
 
     map(callbackfn: (value: any, index: number, array: MultyxList) => any) {
@@ -239,13 +451,8 @@ export default class MultyxList extends MultyxObject {
     }
 
     reverse() {
-        let right = this.length-1;
-        for(let left=0; left<right; left++) {
-            const a = this.get(left);
-            const b = this.get(right);
-            this.set(left, b);
-            this.set(right, a);
-        }
+        this.data.reverse();
+        this.sendShiftOperation(-1, 0);
         return this;
     }
 
@@ -281,22 +488,6 @@ export default class MultyxList extends MultyxObject {
             if(predicate(this.get(i), i, this)) return i;
         }
         return -1;
-    }
-
-    deorder(): MultyxItem[] {
-        const values = [];
-        for(const index in this.data) {
-            values.push(this.get(index));
-        }
-        return values;
-    }
-
-    deorderEntries(): [number, MultyxItem][] {
-        const values: [number, MultyxItem][] = [];
-        for(const index in this.data) {
-            values.push([parseInt(index), this.get(index)]);
-        }
-        return values;
     }
 
     entries(): [any, any][] {

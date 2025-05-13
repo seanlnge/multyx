@@ -1,19 +1,69 @@
 import Multyx from '../';
 import { MultyxClientItem } from '.';
-import { EditWrapper } from '../utils';
+import { Edit, EditWrapper } from '../utils';
 import MultyxClientObject from "./object";
 
 export default class MultyxClientList extends MultyxClientObject {
+    private _multyx: Multyx;
     length: number;
 
     get value() {
         const parsed: any[] = [];
-        for(let i=0; i<this.length; i++) parsed[i] = this.get(i).value;
+        for(let i=0; i<this.length; i++) parsed[i] = this.get(i)?.value;
         return parsed;
+    }
+
+    [Edit](updatePath: string[], value: any) {
+        if(updatePath.length == 1) {
+            this.set(updatePath[0], new EditWrapper(value));
+            return;
+        }
+        
+        if(updatePath[0] == "shift") {
+            this.handleShiftOperation(parseInt(updatePath[1]), value);
+            return;
+        }
+        
+        if(updatePath.length == 0 && this._multyx.options.verbose) {
+            console.error("Update path is empty. Attempting to edit MultyxClientList with no path.");
+        }
+
+        if(!this.has(updatePath[0])) {
+            this.set(updatePath[0], new EditWrapper({}));
+        }
+        this.get(updatePath[0])[Edit](updatePath.slice(1), value);
+    }
+
+    private handleShiftOperation(index: number, shift: any) {
+        const newLength = this.length + shift;
+        // Reverse the array
+        if(index == -1) {
+            for(let i=0; i<Math.floor(this.length/2); i++) {
+                const temp = this.object[i];
+                this.object[i] = this.object[this.length-1-i];
+                this.object[this.length-1-i] = temp;
+            }
+            return;
+        }
+        
+        // Shift items to right if value is positive left if negative
+        if(shift > 0) {
+            for(let i=this.length-1; i>=index; i--) {
+                this.object[i+shift] = this.object[i];
+            }
+        } else if(shift < 0) {
+            for(let i=index; i<this.length; i++) {
+                if(i+shift < 0) continue;
+                this.object[i+shift] = this.object[i];
+                if(i >= this.length + shift) this.delete(i, true);
+            }
+        }
+        this.length = newLength;
     }
 
     constructor(multyx: Multyx, list: any[] | EditWrapper<any[]>, propertyPath: string[] = [], editable: boolean){
         super(multyx, {}, propertyPath, editable);
+        this._multyx = multyx;
 
         this.length = 0;
         this.push(...(list instanceof EditWrapper ? list.value.map(x => new EditWrapper(x)) : list));
