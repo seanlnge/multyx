@@ -3,7 +3,7 @@ import { RawObject } from '../types';
 import { Add, Edit, EditWrapper, Unpack } from "../utils";
 
 import type Multyx from '../index';
-import type { MultyxClientItem } from ".";
+import { IsMultyxClientItem, type MultyxClientItem } from ".";
 import MultyxClientItemRouter from "./router";
 import MultyxClientValue from "./value";
 
@@ -13,7 +13,7 @@ export default class MultyxClientObject {
     propertyPath: string[];
     editable: boolean;
 
-    private setterListeners: ((key: any, value: any) => void)[]
+    private setterListeners: ((key: any, value: any) => void)[];
 
     get value() {
         const parsed = {};
@@ -45,11 +45,13 @@ export default class MultyxClientObject {
 
         this.setterListeners = [];
 
+        const isEditWrapper = object instanceof EditWrapper;
         if(object instanceof MultyxClientObject) object = object.value;
+        if(object instanceof EditWrapper) object = object.value;
 
-        for(const prop in (object instanceof EditWrapper ? object.value : object)) {
-            this.set(prop, object instanceof EditWrapper
-                ? new EditWrapper(object.value[prop])
+        for(const prop in object) {
+            this.set(prop, isEditWrapper
+                ? new EditWrapper(object[prop])
                 : object[prop]
             );
         }
@@ -89,7 +91,7 @@ export default class MultyxClientObject {
         if(value === undefined) return this.delete(property);
 
         // Only create new MultyxClientItem when needed
-        if(this.object[property] instanceof MultyxClientValue) return this.object[property].set(value);
+        if(this.object[property] instanceof MultyxClientValue && !IsMultyxClientItem(value)) return this.object[property].set(value);
 
         // If value was deleted by the server
         if(value instanceof EditWrapper && value.value === undefined) return this.delete(property, true);
@@ -118,7 +120,7 @@ export default class MultyxClientObject {
         // Relay change to server if not edit wrapped
         if(!(value instanceof EditWrapper)) this.multyx.ws.send(Message.Native({
             instruction: 'edit',
-            path: this.propertyPath,
+            path: [...this.propertyPath, property],
             value: this.object[property].value
         }));
         

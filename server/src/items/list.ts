@@ -260,7 +260,7 @@ export default class MultyxList {
      * @returns Constraint table
      */
     [Build]() {
-        const obj: RawObject = [];
+        const obj: RawObject[] = [];
         for(const item of this.data) {
             obj.push(item[Build]());
         }
@@ -284,7 +284,7 @@ export default class MultyxList {
 
     pop(): MultyxItem | undefined {
         const result = this.get(this.length-1);
-        this.delete(this.length-1);
+        this.sendShiftOperation(-1, -1); // Delete last item
         return result;
     }
 
@@ -323,26 +323,8 @@ export default class MultyxList {
             this.sendShiftOperation(start+deleteCount, move);
         }
 
-        // splice(3, 1)
-        // move = -1
-        // nl = 6 + -1 = 5
-        // start + deleteCount = 4
-        // a, b, c, d, e, f
-        // a, b, c, e, f
-
         // Delete items not affected by replacement/shift
-        if(start + deleteCount > this.length + move) {
-            for(let i=this.length + move; i<this.length; i++) {
-                this.delete(i);
-            }
-        }
-
-        // splice(3, 3, g, h)
-        // start + deleteCount = 6
-        // length + move = 5
-        // 6 > 5, so delete 5 onward
-        // a, b, c, d, e, f
-        // a, b, c, g, h
+        if(move !== 0) this.sendShiftOperation(-1, move);
 
         // Add new items
         this.data.splice(

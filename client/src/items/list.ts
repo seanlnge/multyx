@@ -1,11 +1,16 @@
 import Multyx from '../';
-import { MultyxClientItem } from '.';
-import { Edit, EditWrapper } from '../utils';
-import MultyxClientObject from "./object";
+import { IsMultyxClientItem, MultyxClientItem, MultyxClientValue } from '.';
+import { Add, Edit, EditWrapper, Unpack } from '../utils';
+import MultyxClientItemRouter from './router';
+import { Message } from '../message';
 
-export default class MultyxClientList extends MultyxClientObject {
-    private _multyx: Multyx;
-    length: number;
+export default class MultyxClientList {
+    protected list: MultyxClientItem[];
+    private multyx: Multyx;
+    propertyPath: string[];
+    editable: boolean;
+
+    private setterListeners: ((key: any, value: any) => void)[];
 
     get value() {
         const parsed: any[] = [];
@@ -13,9 +18,25 @@ export default class MultyxClientList extends MultyxClientObject {
         return parsed;
     }
 
+    get length() {
+        return this.list.length;
+    }
+
+    set length(length: number) {
+        this.list.length = length;
+    }
+
     [Edit](updatePath: string[], value: any) {
+        const index = parseInt(updatePath[0]);
+        if(isNaN(index) && updatePath[0] != "shift") {
+            if(this.multyx.options.verbose) {
+                console.error("Update path is not a number. Attempting to edit MultyxClientList with non-number index.");
+            }
+            return;
+        }
+
         if(updatePath.length == 1) {
-            this.set(updatePath[0], new EditWrapper(value));
+            this.set(index, new EditWrapper(value));
             return;
         }
         
@@ -24,89 +45,179 @@ export default class MultyxClientList extends MultyxClientObject {
             return;
         }
         
-        if(updatePath.length == 0 && this._multyx.options.verbose) {
+        if(updatePath.length == 0 && this.multyx.options.verbose) {
             console.error("Update path is empty. Attempting to edit MultyxClientList with no path.");
         }
 
-        if(!this.has(updatePath[0])) {
-            this.set(updatePath[0], new EditWrapper({}));
+        if(!this.has(index)) {
+            this.set(index, new EditWrapper({}));
         }
-        this.get(updatePath[0])[Edit](updatePath.slice(1), value);
+        this.get(index)[Edit](updatePath.slice(1), value);
     }
 
+    /**
+     * Shifting operations are needed to ensure that operations on elements in
+     * the list do not need to worry about the index of the element.
+     * 
+     * Instead of changing each element's value when shifting, these shift
+     * operations are used to ensure that each MultyxClientItem stays the same
+     * @param index Index to shift from, -1 if special operation
+     * @param shift Shift amount, positive for right, negative for left
+     */
     private handleShiftOperation(index: number, shift: any) {
-        const newLength = this.length + shift;
-        // Reverse the array
-        if(index == -1) {
-            for(let i=0; i<Math.floor(this.length/2); i++) {
-                const temp = this.object[i];
-                this.object[i] = this.object[this.length-1-i];
-                this.object[this.length-1-i] = temp;
-            }
-            return;
-        }
+        const operation = index >= 0
+            ? shift >= 0 ? 'right': 'left'
+            : shift == 0 ? 'reverse' : shift < 0 ? 'length' : 'unknown';
         
-        // Shift items to right if value is positive left if negative
-        if(shift > 0) {
-            for(let i=this.length-1; i>=index; i--) {
-                this.object[i+shift] = this.object[i];
-            }
-        } else if(shift < 0) {
-            for(let i=index; i<this.length; i++) {
-                if(i+shift < 0) continue;
-                this.object[i+shift] = this.object[i];
-                if(i >= this.length + shift) this.delete(i, true);
-            }
+        switch(operation) {
+            // Reverse the array
+            case 'reverse':
+                for(let i=0; i<Math.floor(this.length/2); i++) {
+                    const temp = this.list[i];
+                    this.list[i] = this.list[this.length-1-i];
+                    this.list[this.length-1-i] = temp;
+                }
+                break;
+
+            // Shift items to the left
+            case 'left':    
+                for(let i=index; i<this.length; i++) {
+                    if(i+shift < 0) continue;
+                    this.list[i+shift] = this.list[i];
+                }
+                break;
+            
+            // Shift items to the right
+            case 'right':
+                for(let i=this.length-1; i>=index; i--) {
+                    this.list[i+shift] = this.list[i];
+                }
+                break;
+
+            // Alter the length of the array
+            case 'length':
+                this.length += shift;
+                break;
+
+            // Unknown operation
+            default:
+                if(this.multyx.options.verbose) {
+                    console.error("Unknown shift operation: " + operation);
+                }
         }
-        this.length = newLength;
     }
 
     constructor(multyx: Multyx, list: any[] | EditWrapper<any[]>, propertyPath: string[] = [], editable: boolean){
-        super(multyx, {}, propertyPath, editable);
-        this._multyx = multyx;
+        this.list = [];
+        this.propertyPath = propertyPath;
+        this.multyx = multyx;
+        this.editable = editable;
 
-        this.length = 0;
-        this.push(...(list instanceof EditWrapper ? list.value.map(x => new EditWrapper(x)) : list));
+        this.setterListeners = [];
+
+        const isEditWrapper = list instanceof EditWrapper;
+        if(list instanceof MultyxClientList) list = list.value;
+        if(list instanceof EditWrapper) list = list.value;
+
+        for(let i=0; i<list.length; i++) {
+            this.set(i, isEditWrapper
+                ? new EditWrapper(list[i])
+                : list[i]
+            );
+        }
 
         return new Proxy(this, {
-            has: (o, p) => {
-                if(p in o) return true;
-                return o.has(p);
+            has: (o, p: any) => {
+                if(typeof p == 'number') return o.has(p);
+                return p in o;
             },
-            get: (o, p) => {
+            get: (o, p: any) => {
                 if(p in o) return o[p];
-                return o.get(p);
+                return o.get(p) as MultyxClientItem;
             },
-            set: (o, p, v) => {
+            set: (o, p: any, v) => {
                 if(p in o) {
                     o[p] = v;
                     return true;
                 }
-                return o.set(p as string, v);
+                return !!o.set(p, v);
             },
-            deleteProperty: (o, p) => {
-                return o.delete(p as string, false);
+            deleteProperty: (o, p: any) => {
+                if(typeof p == 'number') return o.delete(p);
+                return false;
             }
         });
     }
 
-    set(index: string | number, value: any) {
-        if(typeof index == 'string') index = parseInt(index);
-        if(value === undefined) return this.delete(index, false);
-        if(value instanceof EditWrapper && value.value === undefined) return this.delete(index, true);
-
-        const result = super.set(index, value);
-        if(result && index >= this.length) this.length = index+1;
-        
-        return result;
+    has(index: number): boolean {
+        return index >= 0 && index < this.length;
     }
 
-    delete(index: string | number, native: boolean = false) {
+    get(index: number): MultyxClientItem {
+        return this.list[index];
+    }
+
+    set(index: number, value: any): boolean {
+        if(value === undefined) return this.delete(index, false);
+
+        // If value was deleted by the server
+        if(value instanceof EditWrapper && value.value === undefined) return this.delete(index, true);
+
+        // If value is a MultyxClientValue, set the value
+        if(this.list[index] instanceof MultyxClientValue && !IsMultyxClientItem(value)) return this.list[index].set(value);
+        
+        // Attempting to edit property not editable to client
+        if(!(value instanceof EditWrapper) && !this.editable) {
+            if(this.multyx.options.verbose) {
+                console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.') + '.' + index}' to ${value}`);
+            }
+            return false;
+        }
+        
+        this.list[index] = new (MultyxClientItemRouter(
+            value instanceof EditWrapper ? value.value : value
+        ))(this.multyx, value, [...this.propertyPath, index.toString()], this.editable);
+
+        // We have to push into queue, since object may not be fully created
+        // and there may still be more updates to parse
+        for(const listener of this.setterListeners) {
+            this.multyx[Add](() => {
+                if(this.has(index)) listener(index, this.get(index));
+            });
+        }
+        
+        if(!(value instanceof EditWrapper)) this.multyx.ws.send(Message.Native({
+            instruction: 'edit',
+            path: [...this.propertyPath, index.toString()],
+            value: this.list[index].value
+        }));
+
+        if(index >= this.length) this.length = index+1;
+        
+        return true;
+    }
+
+    delete(index: number, native: boolean = false) {
         if(typeof index == 'string') index = parseInt(index);
 
-        const res = super.delete(index, native);
-        if(res) this.length = this.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
-        return res;
+        if(!this.editable && !native) {
+            if(this.multyx.options.verbose) {
+                console.error(`Attempting to delete property that is not editable. Deleting '${this.propertyPath.join('.') + '.' + index}'`);
+            }
+            return false;
+        }
+        
+        delete this.list[index];
+
+        if(!native) {
+            this.multyx.ws.send(Message.Native({
+                instruction: 'edit',
+                path: [...this.propertyPath, index.toString()],
+                value: undefined
+            }));
+        }
+
+        return true;
     }
 
     /**
@@ -117,7 +228,7 @@ export default class MultyxClientList extends MultyxClientObject {
         for(let i=0; i<this.length; i++) {
             callbackfn(this.get(i), i);
         }
-        super.forAll((key, value) => callbackfn(value, key));
+        this.setterListeners.push(callbackfn);
     }
 
 
@@ -291,6 +402,11 @@ export default class MultyxClientList extends MultyxClientObject {
         return Array(this.length).fill(0).map((_, i) => i);
     }
 
+    [Unpack](constraints: any[]) {
+        for(let i=0; i<this.length; i++) {
+            this.get(i)[Unpack](constraints[i]);
+        }
+    }
     
     /* Native methods to allow MultyxClientList to be treated as array */
     [Symbol.iterator](): Iterator<MultyxClientItem> {
