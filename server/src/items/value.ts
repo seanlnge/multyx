@@ -1,7 +1,7 @@
 import type { Agent, Client, MultyxTeam } from "../agents";
 
 import { RawObject, Value } from "../types";
-import { Build, Edit, Self, Send } from "../utils/native";
+import { Build, Edit, Get, Send, Self } from "../utils/native";
 import MultyxUndefined from "./undefined";
 
 export default class MultyxValue {
@@ -88,7 +88,7 @@ export default class MultyxValue {
     /**
      * Send a ConstraintUpdate
      */
-    [Self](name: string, args: Value[] ) {
+    [Get](name: string, args: Value[] ) {
         for(const client of this.agent.clients) {
             this.agent.server?.[Self](client, 'constraint', { path: this.propertyPath, name, args })
         }
@@ -110,7 +110,7 @@ export default class MultyxValue {
      * Edit the property path
      * @param newPath New property path to set value at
      */
-    [Edit](newPath: string[], relay: boolean = true) {
+    [Self](newPath: string[], relay: boolean = true) {
         this.propertyPath = newPath;
         if(relay) this[Send]();        
     }
@@ -128,7 +128,7 @@ export default class MultyxValue {
             args: [value],
             func: n => n >= value ? n : value
         });
-        this[Self]('min', [value]);
+        this[Get]('min', [value]);
         return this;
     }
 
@@ -145,7 +145,7 @@ export default class MultyxValue {
             args: [value],
             func: n => n <= value ? n : value
         });
-        this[Self]('max', [value]);
+        this[Get]('max', [value]);
         return this;
     }
 
@@ -158,7 +158,7 @@ export default class MultyxValue {
             args: [],
             func: n => Math.floor(n as number)
         });
-        this[Self]('int', []);
+        this[Get]('int', []);
         return this;
     }
 
@@ -178,7 +178,7 @@ export default class MultyxValue {
             args: bans,
             func: n => bans.includes(n) ? null : n
         });
-        this[Self]('ban', bans);
+        this[Get]('ban', bans);
 
         return this;
     }
@@ -204,7 +204,7 @@ export default class MultyxValue {
             args: [true],
             func: n => n,
         });
-        this[Self]('disabled', [true]);
+        this[Get]('disabled', [true]);
         return this;
     }
 
@@ -218,7 +218,7 @@ export default class MultyxValue {
             args: [false],
             func: n => n,
         });
-        this[Self]('disabled', [false]);
+        this[Get]('disabled', [false]);
         return this;
     }
 
@@ -227,7 +227,7 @@ export default class MultyxValue {
 
         // Relay all constraints on object
         for(const [cname, { args }] of this.constraints.entries()) {
-            this[Self](cname, args);
+            this[Get](cname, args);
         }
 
         // Relay value of object

@@ -120,6 +120,7 @@ class MultyxServer {
                 if(this.options.removeDisconnectedClients) {
                     for(const t of client.teams) t.removeClient(client);
                 }
+                this.all.removeClient(client);
                 
                 if(this.options.sendConnectionUpdates) {
                     for(const c of this.all.clients) {
@@ -128,7 +129,6 @@ class MultyxServer {
                         this.addOperation(c, { instruction: 'dcon', clientUUID: client.uuid });
                     }
                 }
-
             });
         });
 
@@ -250,38 +250,29 @@ class MultyxServer {
     }
 
     private parseEditUpdate(msg: Message, client: Client) {
-        // Use path to search for object, prop to work with object
-        const path = msg.data.path.slice(0, -1);
+        console.log(msg.data);
+        const path = msg.data.path.slice(1, -1);
         const prop = msg.data.path.slice(-1)[0];
-        
-        // First value in path array is client uuid / team name
-        let obj;
-        if(client.uuid === path[0]) {
-            obj = client.self;
-        } else {
-            for(const team of client.teams) {
-                if(path[0] === team.uuid) obj = team.self;
-            }
-            if(!obj) return;
-        }
-        
-        // Get object being edited by going through property tree
-        for(const p of path.slice(1)) {
-            obj = obj.get(p);
-            if(!obj || (obj instanceof MultyxValue)) return;
-        }
 
-        // Set value and verify completion
-        const valid = obj.disabled ? false : obj.set(prop, new EditWrapper(msg.data.value));
+        // First value in path array is client uuid / team name
+        const agent = client.uuid === msg.data.path[0]
+            ? client
+            : Array.from(client.teams).find(t => t.uuid === msg.data.path[0]);
+        if(!agent) return;
+
+        const item = agent.self.get(path);
+        if(!item || (item instanceof MultyxValue)) return;
+
+        const result = item.set(prop, msg.data.value);
 
         // Setting object adds an editUpdate to client update list, this removes the redundancy
-        if(valid) {
+        if(result) {
             const clientUpdates = this.updates.get(client) ?? [];
             
             const index = clientUpdates.findIndex(update => {
                 if(update.instruction != 'edit') return false;
 
-                if(update.path.every((v, i) => msg.data.path[i+1] == v)
+                if(update.path.every((v, i) => msg.data.path[i] == v)
                 && update.value == msg.data.value) return true;
                 
                 return false;
@@ -291,12 +282,12 @@ class MultyxServer {
         }
 
         // If change rejected
-        if(!valid) {
+        else {
             return this.addOperation(client, {
                 instruction: 'edit',
-                team: obj.agent instanceof MultyxTeam,
-                path: [...msg.data.path.slice(1), prop],
-                value: obj.get(prop).value
+                team: agent instanceof MultyxTeam,
+                path: [...msg.data.path],
+                value: item.value
             });
         }
     }
@@ -394,13 +385,15 @@ class MultyxServer {
      * @param clients Set of all clients to relay event to
      */
     [Edit](item: MultyxItem | MultyxUndefined, clients: Set<Client>) {
+        const update = {
+            instruction: 'edit',
+            team: item.agent instanceof MultyxTeam,
+            path: item.propertyPath,
+            value: item.value
+        } as Update;
+    
         for(const client of clients) {
-            this.addOperation(client, {
-                instruction: 'edit',
-                team: item.agent instanceof MultyxTeam,
-                path: item.propertyPath,
-                value: item.value
-            });
+            this.addOperation(client, update);
         }
     }
 

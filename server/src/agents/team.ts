@@ -103,6 +103,7 @@ export default class MultyxTeam {
         if(index !== -1) this.self.clients.splice(index, 1);
 
         this._clients.delete(client);
+        this.removePublic(client.self);
         client.teams.delete(this);
     }
 

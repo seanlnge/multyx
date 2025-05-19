@@ -1,8 +1,8 @@
 import { Message, UncompressUpdate } from "./message";
-import { Unpack, EditWrapper, Add, Edit } from './utils';
+import { Unpack, EditWrapper, Add, Edit, Done } from './utils';
 import { RawObject } from "./types";
 import { Controller } from "./controller";
-import { MultyxClientItem, MultyxClientObject } from "./items";
+import { MultyxClientObject, MultyxClientValue } from "./items";
 import { DefaultOptions, Options } from "./options";
 export default class Multyx {
     ws: WebSocket;
@@ -12,14 +12,14 @@ export default class Multyx {
     events: Map<string | Symbol, ((data?: any) => void)[]>;
     self: RawObject;
     all: RawObject;
-    clients: RawObject;
-    teams: RawObject;
+    clients: { [key: string]: MultyxClientObject };
+    teams: MultyxClientObject;
     controller: Controller;
 
     options: Options;
     
     // Queue of functions to be called after each frame
-    private listenerQueue: ((...args: any[]) => void)[];
+    [Done]: ((...args: any[]) => void)[] = [];
 
     static Start = Symbol('start');
     static Connection = Symbol('connection');
@@ -38,10 +38,9 @@ export default class Multyx {
         this.events = new Map();
         this.self = {};
         this.all = {};
-        this.teams = {};
+        this.teams = new MultyxClientObject(this, {}, [], true);
         this.clients = {};
         this.controller = new Controller(this.ws);
-        this.listenerQueue = [];
 
         callback?.();
 
@@ -50,7 +49,6 @@ export default class Multyx {
             this.ping = 2 * (Date.now() - msg.time);
 
             if(msg.native) {
-                console.log(msg);
                 this.parseNativeEvent(msg);
                 this.events.get(Multyx.Native)?.forEach(cb => cb(msg));
             } else {
@@ -91,16 +89,8 @@ export default class Multyx {
         }
     }
 
-    
-    /**
-     * Create a callback function that gets called for any current or future client
-     * @param callbackfn Function to call for every client
-     */
-    forAll(callback: (client: MultyxClientObject) => void) {
-        this.on(Multyx.Start, () => {
-            this.teams.all.clients.forAll((uuid) => callback(this.clients[uuid]));
-        });
-        this.on(Multyx.Connection, callback);
+    [Add](callback: () => void) {
+        this[Done].push(callback);
     }
 
     private parseNativeEvent(msg: Message) {
@@ -114,7 +104,7 @@ export default class Multyx {
                     this.initialize(update);
 
                     for(const listener of this.events.get(Multyx.Start) ?? []) {
-                        this.listenerQueue.push(() => listener(update));
+                        this[Done].push(() => listener(update));
                     }
                     
                     // Clear start event as it will never be called again
@@ -124,14 +114,31 @@ export default class Multyx {
 
                 // Client or team data edit
                 case 'edit': {
-                    if(update.team) {
-                        this.teams[Edit](update.path, update.value);
-                    } else {
-                        this.clients[update.path[0]][Edit](update.path.slice(1), update.value);
+                    if(update.path.length == 1) {
+                        if(update.team) {
+                            this.teams.set(update.path[0], new EditWrapper(update.value));
+                        } else {
+                            this.clients[update.path[0]] = new MultyxClientObject(
+                                this,
+                                new EditWrapper(update.value),
+                                [update.path[0]],
+                                false
+                            );
+                        }
                     }
 
+                    const agent = update.team
+                        ? this.teams.get(update.path[0]) as MultyxClientObject
+                        : this.clients[update.path[0]];
+                    if(!agent) return;
+                    
+                    const path = update.path.slice(1, -1);
+                    const prop = update.path.slice(-1)[0];
+
+                    agent.get(path)?.set(prop, new EditWrapper(update.value));
+
                     for(const listener of this.events.get(Multyx.Edit) ?? []) {
-                        this.listenerQueue.push(() => listener(update));
+                        this[Done].push(() => listener(update));
                     }
                     break;
                 }
@@ -152,7 +159,7 @@ export default class Multyx {
                     );
 
                     for(const listener of this.events.get(Multyx.Connection) ?? []) {
-                        this.listenerQueue.push(() => listener(this.clients[update.uuid]));
+                        this[Done].push(() => listener(this.clients[update.uuid]));
                     }
                     break;
                 }
@@ -161,7 +168,7 @@ export default class Multyx {
                 case 'dcon': {
                     for(const listener of this.events.get(Multyx.Disconnect) ?? []) {
                         const clientValue = this.clients[update.client].value;
-                        this.listenerQueue.push(() => listener(clientValue));
+                        this[Done].push(() => listener(clientValue));
                     }
                     delete this.clients[update.client];
                     break;
@@ -182,8 +189,8 @@ export default class Multyx {
             }
         }
 
-        this.listenerQueue.forEach(x => x());
-        this.listenerQueue.length = 0;
+        this[Done].forEach(x => x());
+        this[Done].length = 0;
     }
 
     private initialize(update: RawObject) {
@@ -192,7 +199,6 @@ export default class Multyx {
         this.controller.listening = new Set(update.client.controller);
 
         // Create MultyxClientObject for all teams
-        this.teams = new MultyxClientObject(this, {}, [], true);
         for(const team of Object.keys(update.teams)) {
             this.teams[team] = new EditWrapper(update.teams[team]);
         }
@@ -238,13 +244,5 @@ export default class Multyx {
 
             route[Unpack]({ [update.data.name]: update.data.args });
         }
-    }
-
-    /**
-     * Add function to listener queue
-     * @param fn Function to call once frame is complete
-     */
-    [Add](fn: ((...args: any[]) => void)) {
-        this.listenerQueue.push(fn);
     }
 }

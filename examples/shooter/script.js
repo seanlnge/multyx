@@ -21,13 +21,16 @@ async function joinGame() {
     ctx.fillRect(-1000, -1000, 2000, 2000);
 
     // Lerp all clients to ever join the players team
-    multyx.forAll(client => {
-        //client.x.Lerp();
-        //client.y.Lerp();
+    ListTools.ForAll(multyx.teams.players.clients, uuid => {
+        const client = multyx.clients[uuid];
+        Interpolator.Lerp(client.x);
+        Interpolator.Lerp(client.y)
     });
-    multyx.teams.players.bullets.forAll(bullet => {
-        //bullet.x.PredictiveLerp();
-        //bullet.y.PredictiveLerp();
+
+    ListTools.ForAll(multyx.teams.players.bullets, bullet => {
+        console.log(bullet.x.value);
+        Interpolator.PredictiveLerp(bullet.x);
+        Interpolator.PredictiveLerp(bullet.y);
     });
 }
 
@@ -46,7 +49,7 @@ multyx.loop(() => {
         const client = multyx.clients[uuid];
         ctx.fillRect(client.x-20, client.y-20, 40, 40);
     }
-    console.log(multyx.teams.players.bullets.value);
+    //console.log(multyx.teams.players.bullets.value);
     for(const bullet of multyx.teams.players.bullets) {
         ctx.beginPath();
         ctx.ellipse(bullet.x, bullet.y, 5, 5, 0, 0, Math.PI*2);

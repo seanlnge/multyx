@@ -3,7 +3,7 @@ import MultyxItemRouter from './router';
 import { MultyxItem, MultyxUndefined } from ".";
 
 import { RawObject } from "../types";
-import { Edit, Get, EditWrapper, Build } from '../utils/native';
+import { Edit, Get, EditWrapper, Build, Self } from '../utils/native';
 
 import type { Agent, MultyxTeam } from "../agents";
 
@@ -155,8 +155,13 @@ export default class MultyxObject {
     /**
      * Get the value of a property
      */
-    get(property: string) {
-        return this.data[property];
+    get(property: string | string[]): MultyxItem | undefined {
+        if(typeof property === 'string') return this.data[property];
+        if(property.length == 1) return this.data[property[0]];
+
+        const next = this.data[property[0]];
+        if(!next || (next instanceof MultyxValue)) return undefined;
+        return next.get(property.slice(1));
     }
 
     /**
@@ -173,6 +178,10 @@ export default class MultyxObject {
      * ```
      */
     set(property: string, value: any): MultyxObject | false {
+        if(value instanceof EditWrapper && !this.has(property) && this.disabled) {
+            return false;
+        }
+
         // If just a normal value change, no need to update shape, can return
         if(typeof value !== "object" && this.data[property] instanceof MultyxValue
         || value instanceof EditWrapper && typeof value.value !== 'object') {
@@ -183,13 +192,9 @@ export default class MultyxObject {
 
         const propertyPath = [...this.propertyPath, property];
 
-        if(value instanceof EditWrapper && !this.has(property) && this.disabled) {
-            return false;
-        }
-
         // If value is a MultyxObject, don't create new object, change path
         if(value instanceof MultyxObject) {
-            value[Edit](propertyPath);
+            value[Self](propertyPath);
             this.data[property] = value;
         } else {
             if(value instanceof MultyxValue || value instanceof EditWrapper) {
@@ -278,11 +283,11 @@ export default class MultyxObject {
      * Edit the property path of MultyxObject and any children
      * @param newPath New property path to take
      */
-    [Edit](newPath: string[]) {
+    [Self](newPath: string[]) {
         this.propertyPath = newPath;
 
         for(const prop in this.data) {
-            this.data[prop][Edit]([...newPath, prop]);
+            this.data[prop][Self]([...newPath, prop]);
         }
     }
 

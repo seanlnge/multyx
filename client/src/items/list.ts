@@ -10,7 +10,11 @@ export default class MultyxClientList {
     propertyPath: string[];
     editable: boolean;
 
-    private setterListeners: ((key: any, value: any) => void)[];
+    private editCallbacks: ((key: any, value: any) => void)[] = [];
+
+    addEditCallback(callback: (key: any, value: any) => void) {
+        this.editCallbacks.push(callback);
+    }
 
     get value() {
         const parsed: any[] = [];
@@ -113,8 +117,6 @@ export default class MultyxClientList {
         this.multyx = multyx;
         this.editable = editable;
 
-        this.setterListeners = [];
-
         const isEditWrapper = list instanceof EditWrapper;
         if(list instanceof MultyxClientList) list = list.value;
         if(list instanceof EditWrapper) list = list.value;
@@ -153,45 +155,50 @@ export default class MultyxClientList {
         return index >= 0 && index < this.length;
     }
 
-    get(index: number): MultyxClientItem {
-        return this.list[index];
+    get(index: number | string[]): MultyxClientItem {
+        if(typeof index === 'number') return this.list[index];
+        if(index.length == 0) return this;
+        if(index.length == 1) return this.list[parseInt(index[0])];
+
+        const item = this.list[parseInt(index[0])];
+        if(!item || (item instanceof MultyxClientValue)) return undefined;
+        return item.get(index.slice(1));
     }
 
     set(index: number, value: any): boolean {
-        if(value === undefined) return this.delete(index, false);
-
-        // If value was deleted by the server
-        if(value instanceof EditWrapper && value.value === undefined) return this.delete(index, true);
+        const serverSet = value instanceof EditWrapper;
+        const allowed = serverSet || this.editable;
+        if(serverSet || IsMultyxClientItem(value)) value = value.value;
+        if(value === undefined) return this.delete(index, serverSet);
 
         // If value is a MultyxClientValue, set the value
-        if(this.list[index] instanceof MultyxClientValue && !IsMultyxClientItem(value)) return this.list[index].set(value);
+        if(this.list[index] instanceof MultyxClientValue && typeof value != 'object') {
+            return this.list[index].set(serverSet ? new EditWrapper(value) : value);
+        }
         
         // Attempting to edit property not editable to client
-        if(!(value instanceof EditWrapper) && !this.editable) {
+        if(!allowed) {
             if(this.multyx.options.verbose) {
                 console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.') + '.' + index}' to ${value}`);
             }
             return false;
         }
         
-        this.list[index] = new (MultyxClientItemRouter(
-            value instanceof EditWrapper ? value.value : value
-        ))(this.multyx, value, [...this.propertyPath, index.toString()], this.editable);
+        this.list[index] = new (MultyxClientItemRouter(value))(
+            this.multyx,
+            serverSet ? new EditWrapper(value) : value,
+            [...this.propertyPath, index.toString()],
+            this.editable
+        );
 
         // We have to push into queue, since object may not be fully created
         // and there may still be more updates to parse
-        for(const listener of this.setterListeners) {
+        for(const listener of this.editCallbacks) {
             this.multyx[Add](() => {
                 if(this.has(index)) listener(index, this.get(index));
             });
         }
         
-        if(!(value instanceof EditWrapper)) this.multyx.ws.send(Message.Native({
-            instruction: 'edit',
-            path: [...this.propertyPath, index.toString()],
-            value: this.list[index].value
-        }));
-
         if(index >= this.length) this.length = index+1;
         
         return true;
@@ -209,6 +216,12 @@ export default class MultyxClientList {
         
         delete this.list[index];
 
+        for(const listener of this.editCallbacks) {
+            this.multyx[Add](() => {
+                if(this.has(index)) listener(index, undefined);
+            });
+        }
+
         if(!native) {
             this.multyx.ws.send(Message.Native({
                 instruction: 'edit',
@@ -219,18 +232,6 @@ export default class MultyxClientList {
 
         return true;
     }
-
-    /**
-     * Create a callback function that gets called for any current or future element in list
-     * @param callbackfn Function to call for every element
-     */
-    forAll(callbackfn: (value: any, index: number) => void) {
-        for(let i=0; i<this.length; i++) {
-            callbackfn(this.get(i), i);
-        }
-        this.setterListeners.push(callbackfn);
-    }
-
 
     /* All general array methods */
     push(...items: any) {

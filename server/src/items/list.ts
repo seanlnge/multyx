@@ -3,7 +3,7 @@ import type { Agent, MultyxTeam } from "../agents";
 import { RawObject, Value } from "../types";
 
 import { IsMultyxItem, MultyxItem, MultyxUndefined, MultyxValue } from ".";
-import { Build, Edit, EditWrapper, Get } from "../utils/native";
+import { Build, Edit, EditWrapper, Get, Self } from "../utils/native";
 import MultyxItemRouter from "./router";
 
 export default class MultyxList {
@@ -18,6 +18,7 @@ export default class MultyxList {
     allowItemDeletion: boolean;
 
     private publicTeams: Set<MultyxTeam>;
+    private writeCallbacks: ((property: string, value: any, previousValue: any) => void)[] = [];
 
     [key: string]: any;
 
@@ -38,7 +39,7 @@ export default class MultyxList {
     private sendShiftOperation(index: number, move: number) {
         if(index > 0) {
             for(let i=index; i<this.length; i++) {
-                this.data[i][Edit]([...this.propertyPath, (i+move).toString()], false);
+                this.data[i][Self]([...this.propertyPath, (i+move).toString()], false);
             }
         }
 
@@ -162,11 +163,15 @@ export default class MultyxList {
     }
 
     /**
-     * Get the ClientValue object of a property
+     * Get the value of a property
      */
-    get(index: string | number) {
-        if(typeof index === 'string') index = parseInt(index);
-        return this.data[index];
+    get(property: number | string[]): MultyxItem | undefined {
+        if(typeof property === 'number') return this.data[property];
+        if(property.length == 1) return this.data[parseInt(property[0])];
+
+        const next = this.data[parseInt(property[0])];
+        if(!next || (next instanceof MultyxValue)) return undefined;
+        return next.get(property.slice(1));
     }
 
     /**
@@ -202,7 +207,7 @@ export default class MultyxList {
         const propertyPath = [...this.propertyPath, index.toString()];
 
         if(IsMultyxItem(value)) {
-            value[Edit](propertyPath);
+            value[Self](propertyPath);
             this.data[index] = value;
         } else {
             this.data[index] = new (MultyxItemRouter(value))(
@@ -214,8 +219,6 @@ export default class MultyxList {
 
 
         if(index >= this.data.length) this.data.length = index+1;
-        const item = this.get(index);
-        this.data[index] = item;
         return this;
     }
 
@@ -267,11 +270,11 @@ export default class MultyxList {
         return obj;
     }
 
-    [Edit](newPath: string[]) {
+    [Self](newPath: string[]) {
         this.propertyPath = newPath;
 
         for(const index in this.data) {
-            this.data[index][Edit]([...newPath, index]);
+            this.data[index][Self]([...newPath, index]);
         }
     }
 
@@ -491,7 +494,10 @@ export default class MultyxList {
     /* Native methods to allow MultyxList to be treated as primitive */
     [Symbol.iterator](): Iterator<MultyxItem> {
         const values = [];
-        for(let i=0; i<this.length; i++) values[i] = this.get(i);
+        for(let i=0; i<this.length; i++) {
+            const item = this.get(i);
+            if(item) values[i] = item;
+        }
         return values[Symbol.iterator]();
     }
     toString = () => this.value.toString();

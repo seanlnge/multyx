@@ -10,15 +10,23 @@ export default class MultyxClientValue {
     editable: boolean;
     constraints: { [key: string]: Constraint };
 
-    onChange: (value: Value, previousValue: Value) => void;
-    onChangeDeny: (attemptedValue: Value, currentValue: Value) => boolean;
-
+    private readModifiers: ((value: Value) => Value)[] = [];
+    private editCallbacks: ((value: Value, previousValue: Value) => void)[] = [];
+    
     get value() {
-        return this._value;
+        return this.readModifiers.reduce((value, modifier) => modifier(value), this._value);
     }
 
     set value(v) {
         this._value = v;
+    }
+
+    addReadModifier(modifier: (value: Value) => Value) {
+        this.readModifiers.push(modifier);
+    }
+
+    addEditCallback(callback: (value: Value, previousValue: Value) => void) {
+        this.editCallbacks.push(callback);
     }
 
     [Edit](updatePath: string[], value: any) {
@@ -39,7 +47,7 @@ export default class MultyxClientValue {
         if(value instanceof EditWrapper) {
             const oldValue = this.value;
             this.value = value.value;
-            this.onChange?.(value.value, oldValue);
+            this.editCallbacks.forEach(fn => fn(value.value, oldValue));
             return true;
         }
 
@@ -48,7 +56,6 @@ export default class MultyxClientValue {
             if(this.multyx.options.verbose) {
                 console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.')}' to ${value}`);
             }
-            this.onChangeDeny?.(value, this.value);
             return false;
         }
 
@@ -57,11 +64,10 @@ export default class MultyxClientValue {
             const fn = this.constraints[constraint];
             nv = fn(nv);
             
-            if(nv === null) {    
+            if(nv === null) {
                 if(this.multyx.options.verbose) {
                     console.error(`Attempting to set property that failed on constraint. Setting '${this.propertyPath.join('.')}' to ${value}, stopped by constraint '${constraint}'`);
                 }
-                this.onChangeDeny?.(value, this.value);
                 return false;
             }
         }
