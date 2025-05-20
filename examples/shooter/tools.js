@@ -3,8 +3,8 @@ class ListTools {
         for(let i = 0; i < multyxList.length; i++) {
             callback(multyxList.get(i), i);
         }
-        multyxList.addEditCallback((index, value) => {
-            if(value) callback(value, index);
+        multyxList.addEditCallback((index, value, oldValue) => {
+            if(oldValue === undefined) callback(value, index);
         });
     }
 }

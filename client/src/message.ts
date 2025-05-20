@@ -16,7 +16,15 @@ export function UncompressUpdate(str: string) {
     if(instruction == '5') return { instruction: 'resp', name: specifier, response: data[0] };
     if(instruction == '6') return { instruction: 'conn', uuid: specifier, publicData: data[0] };
     if(instruction == '7') return { instruction: 'dcon', clientUUID: specifier };
-    if(instruction == '8') return { instruction: 'init', client: JSON.parse(specifier), constraintTable: data[0], clients: data[1], teams: data[2] };
+    
+    if(instruction == '8') return {
+        instruction: 'init',
+        client: JSON.parse(specifier),
+        tps: data[0],
+        constraintTable: data[1],
+        clients: data[2],
+        teams: data[3]
+    };
 }
 
 export class Message {

@@ -33,6 +33,7 @@ export interface DisconnectUpdate {
 export interface InitializeUpdate {
     instruction: 'init';
     client: RawObject;
+    tps: number;
     constraintTable: RawObject;
     clients: RawObject;
     teams: RawObject;
@@ -66,7 +67,7 @@ export function CompressUpdate(update: Update) {
         const constraintTable = JSON.stringify(update.constraintTable).replace(/;/g, ';;');
         const clients = JSON.stringify(update.clients).replace(/;/g, ';;');
         const teams = JSON.stringify(update.teams).replace(/;/g, ';;');
-        return `8${client};${constraintTable};${clients};${teams}`;
+        return `8${client};${update.tps};${constraintTable};${clients};${teams}`;
     }
     return '';
 }

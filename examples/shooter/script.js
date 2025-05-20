@@ -1,4 +1,4 @@
-const multyx = new Multyx({ logUpdateFrame: false });
+const multyx = new Multyx({ logUpdateFrame: false, verbose: true });
 
 // Function called when join game button pressed
 async function joinGame() {
@@ -28,7 +28,6 @@ async function joinGame() {
     });
 
     ListTools.ForAll(multyx.teams.players.bullets, bullet => {
-        console.log(bullet.x.value);
         Interpolator.PredictiveLerp(bullet.x);
         Interpolator.PredictiveLerp(bullet.y);
     });

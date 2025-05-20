@@ -189,6 +189,7 @@ class MultyxServer {
         ws.send(Message.Native([{
             instruction: 'init',
             client: client[Parse](),
+            tps: this.tps,
             constraintTable,
             clients: rawClients,
             teams

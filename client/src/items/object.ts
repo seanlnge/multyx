@@ -3,7 +3,7 @@ import { RawObject } from '../types';
 import { Edit, EditWrapper, Unpack } from "../utils";
 
 import type Multyx from '../index';
-import { IsMultyxClientItem, type MultyxClientItem } from ".";
+import { IsMultyxClientItem, type MultyxClientList, type MultyxClientItem } from ".";
 import MultyxClientItemRouter from "./router";
 import MultyxClientValue from "./value";
 
@@ -68,7 +68,7 @@ export default class MultyxClientObject {
                 if(p in o) return o[p];
                 return o.get(p);
             },
-            set: (o, p, v) => {
+            set: (o, p: string, v) => {
                 if(p in o) {
                     o[p] = v;
                     return true;
@@ -94,8 +94,32 @@ export default class MultyxClientObject {
         if(!next || (next instanceof MultyxClientValue)) return undefined;
         return next.get(property.slice(1));
     }
+
+    private recursiveSet(path: string[], value: any): boolean {
+        if(path.length == 0) {
+            if(this.multyx.options.verbose) {
+                console.error(`Attempting to edit MultyxClientObject with no path. Setting '${this.propertyPath.join('.')}' to ${value}`);
+            }
+            return false;
+        }
+        if(path.length == 1) return this.set(path[0], value);
+
+        let next = this.get(path[0]);
+        if(next instanceof MultyxClientValue || next == undefined) {
+            if(isNaN(parseInt(path[1]))) {
+                this.set(path[0], new EditWrapper({}));
+                next = this.get(path[0]) as MultyxClientObject;
+            } else {
+                this.set(path[0], new EditWrapper([]));
+                next = this.get(path[0]) as MultyxClientList;
+            }
+        }
+        return next.set(path.slice(1), value);
+    }
     
-    set(property: any, value: any): boolean {
+    set(property: string | string[], value: any): boolean {
+        if(Array.isArray(property)) return this.recursiveSet(property, value);
+
         const serverSet = value instanceof EditWrapper;
         const allowed = serverSet || this.editable;
         if(serverSet || IsMultyxClientItem(value)) value = value.value;

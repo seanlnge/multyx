@@ -11,6 +11,7 @@ export default class Multyx {
     ping: number;
     events: Map<string | Symbol, ((data?: any) => void)[]>;
     self: RawObject;
+    tps: number;
     all: RawObject;
     clients: { [key: string]: MultyxClientObject };
     teams: MultyxClientObject;
@@ -37,6 +38,7 @@ export default class Multyx {
         this.ping = 0;
         this.events = new Map();
         this.self = {};
+        this.tps = 0;
         this.all = {};
         this.teams = new MultyxClientObject(this, {}, [], true);
         this.clients = {};
@@ -125,17 +127,13 @@ export default class Multyx {
                                 false
                             );
                         }
+                    } else {
+                        const agent = update.team
+                            ? this.teams.get(update.path[0]) as MultyxClientObject
+                            : this.clients[update.path[0]];
+                        if(!agent) return;
+                        agent.set(update.path.slice(1), new EditWrapper(update.value));
                     }
-
-                    const agent = update.team
-                        ? this.teams.get(update.path[0]) as MultyxClientObject
-                        : this.clients[update.path[0]];
-                    if(!agent) return;
-                    
-                    const path = update.path.slice(1, -1);
-                    const prop = update.path.slice(-1)[0];
-
-                    agent.get(path)?.set(prop, new EditWrapper(update.value));
 
                     for(const listener of this.events.get(Multyx.Edit) ?? []) {
                         this[Done].push(() => listener(update));
@@ -194,6 +192,7 @@ export default class Multyx {
     }
 
     private initialize(update: RawObject) {
+        this.tps = update.tps;
         this.uuid = update.client.uuid;
         this.joinTime = update.client.joinTime;
         this.controller.listening = new Set(update.client.controller);

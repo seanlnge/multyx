@@ -1,5 +1,5 @@
 import Multyx from '../';
-import { IsMultyxClientItem, MultyxClientItem, MultyxClientValue } from '.';
+import { IsMultyxClientItem, type MultyxClientItem, type MultyxClientObject, MultyxClientValue } from '.';
 import { Add, Edit, EditWrapper, Unpack } from '../utils';
 import MultyxClientItemRouter from './router';
 import { Message } from '../message';
@@ -10,9 +10,9 @@ export default class MultyxClientList {
     propertyPath: string[];
     editable: boolean;
 
-    private editCallbacks: ((key: any, value: any) => void)[] = [];
+    private editCallbacks: ((index: number, value: any, oldValue: any) => void)[] = [];
 
-    addEditCallback(callback: (key: any, value: any) => void) {
+    addEditCallback(callback: (index: number, value: any, oldValue: any) => void) {
         this.editCallbacks.push(callback);
     }
 
@@ -28,35 +28,6 @@ export default class MultyxClientList {
 
     set length(length: number) {
         this.list.length = length;
-    }
-
-    [Edit](updatePath: string[], value: any) {
-        const index = parseInt(updatePath[0]);
-        if(isNaN(index) && updatePath[0] != "shift") {
-            if(this.multyx.options.verbose) {
-                console.error("Update path is not a number. Attempting to edit MultyxClientList with non-number index.");
-            }
-            return;
-        }
-
-        if(updatePath.length == 1) {
-            this.set(index, new EditWrapper(value));
-            return;
-        }
-        
-        if(updatePath[0] == "shift") {
-            this.handleShiftOperation(parseInt(updatePath[1]), value);
-            return;
-        }
-        
-        if(updatePath.length == 0 && this.multyx.options.verbose) {
-            console.error("Update path is empty. Attempting to edit MultyxClientList with no path.");
-        }
-
-        if(!this.has(index)) {
-            this.set(index, new EditWrapper({}));
-        }
-        this.get(index)[Edit](updatePath.slice(1), value);
     }
 
     /**
@@ -165,7 +136,34 @@ export default class MultyxClientList {
         return item.get(index.slice(1));
     }
 
-    set(index: number, value: any): boolean {
+    private recursiveSet(path: string[], value: any): boolean {
+        if(path.length == 0) {
+            if(this.multyx.options.verbose) {
+                console.error(`Attempting to edit MultyxClientList with no path. Setting '${this.propertyPath.join('.')}' to ${value}`);
+            }
+            return false;
+        }
+        
+        if(path[0] == "shift" && value instanceof EditWrapper) {
+            this.handleShiftOperation(parseInt(path[1]), value.value);
+            return true;
+        }
+
+        if(path.length == 1) return this.set(parseInt(path[0]), value);
+        
+        let next = this.get(parseInt(path[0]));
+        if(next instanceof MultyxClientValue || next == undefined) {
+            this.set(parseInt(path[0]), new EditWrapper({}));
+            next = this.get(parseInt(path[0])) as MultyxClientObject;
+        }
+        return next.set(path.slice(1), value);
+    }
+
+    set(index: number | string[], value: any): boolean {
+        if(Array.isArray(index)) return this.recursiveSet(index, value);
+
+        const oldValue = this.get(index);
+
         const serverSet = value instanceof EditWrapper;
         const allowed = serverSet || this.editable;
         if(serverSet || IsMultyxClientItem(value)) value = value.value;
@@ -194,17 +192,15 @@ export default class MultyxClientList {
         // We have to push into queue, since object may not be fully created
         // and there may still be more updates to parse
         for(const listener of this.editCallbacks) {
-            this.multyx[Add](() => {
-                if(this.has(index)) listener(index, this.get(index));
-            });
+            this.multyx[Add](() => listener(index, this.get(index), oldValue));
         }
-        
-        if(index >= this.length) this.length = index+1;
         
         return true;
     }
 
     delete(index: number, native: boolean = false) {
+        const oldValue = this.get(index);
+
         if(typeof index == 'string') index = parseInt(index);
 
         if(!this.editable && !native) {
@@ -217,9 +213,7 @@ export default class MultyxClientList {
         delete this.list[index];
 
         for(const listener of this.editCallbacks) {
-            this.multyx[Add](() => {
-                if(this.has(index)) listener(index, undefined);
-            });
+            this.multyx[Add](() => listener(index, undefined, oldValue));
         }
 
         if(!native) {

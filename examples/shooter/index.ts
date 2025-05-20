@@ -1,6 +1,6 @@
 import Multyx from 'multyx';
 
-const multyx = new Multyx.MultyxServer({ tps: 20 }, () => console.log(`Multyx server started on port ${multyx.options.port}`));
+const multyx = new Multyx.MultyxServer({ tps: 8 }, () => console.log(`Multyx server started on port ${multyx.options.port}`));
 
 const activePlayers = new Multyx.MultyxTeam("players");
 activePlayers.self.bullets = [];
