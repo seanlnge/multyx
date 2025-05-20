@@ -16,5 +16,5 @@
             "multyx": ["../server/index.ts"]
         }
     },
-    "include": ["shooter/**/*"]
+    "include": ["shooter/**/*", "blackjack/**/*"]
 }

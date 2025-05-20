@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Multyx Blackjack</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: #eee; }
+        .messages, #gameArea { margin: 2em auto; max-width: 500px; }
+        .hand { margin: 0.5em 0; padding: 0.5em; background: #333; border-radius: 6px; }
+        .hand.me { background: #2a2; }
+        .result { margin-left: 1em; font-weight: bold; }
+        .turn { color: #ff0; margin-left: 1em; }
+        .end { margin: 1em 0; color: #f88; font-size: 1.2em; }
+        #controls { margin: 1em 0; }
+        button { font-size: 1em; margin: 0 0.5em; }
+    </style>
+</head>
+<body>
+    <div class="messages">
+        <input class="messageEntry" placeholder="Enter your name" />
+        <button id="joinBtn">Join Game</button>
+    </div>
+    <div id="gameArea">
+        <!-- Game state will be rendered here -->
+        <div id="controls">
+            <button id="hitBtn">Hit</button>
+            <button id="standBtn">Stand</button>
+        </div>
+    </div>
+    <script src="../../client/multyx.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -4,7 +4,8 @@
   "scripts": {
     "squares": "node squares/index",
     "spooky": "node spooky/index",
-    "shooter": "cd ../server && tsc && cd ../client && npm run build && cd ../examples && tsc && tsc-alias && node dist/examples/shooter/index.js"
+    "shooter": "cd ../server && tsc && cd ../client && npm run build && cd ../examples && tsc && tsc-alias && node dist/examples/shooter/index.js",
+    "blackjack": "cd ../server && tsc && cd ../client && npm run build && cd ../examples && tsc && tsc-alias && node dist/examples/blackjack/index.js"
   },
   "author": "",
   "license": "ISC",
