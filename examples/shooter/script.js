@@ -24,12 +24,12 @@ async function joinGame() {
     ListTools.ForAll(multyx.teams.players.clients, uuid => {
         const client = multyx.clients[uuid];
         Interpolator.Lerp(client.x);
-        Interpolator.Lerp(client.y)
+        Interpolator.Lerp(client.y);
     });
 
     ListTools.ForAll(multyx.teams.players.bullets, bullet => {
-        Interpolator.PredictiveLerp(bullet.x);
-        Interpolator.PredictiveLerp(bullet.y);
+        Interpolator.SpeedLerp(bullet.x, bullet.speedX);
+        Interpolator.SpeedLerp(bullet.y, bullet.speedY);
     });
 }
 

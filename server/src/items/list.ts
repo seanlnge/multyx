@@ -86,6 +86,7 @@ export default class MultyxList {
             // Allow users to access properties in MultyxObject without using get
             get: (o, p: any) => {
                 if(p in o) return o[p];
+                if(Number.isInteger(parseInt(p))) p = parseInt(p);
                 return o.get(p) as MultyxItem; 
             },
             
@@ -217,8 +218,6 @@ export default class MultyxList {
             );
         }
 
-
-        if(index >= this.data.length) this.data.length = index+1;
         return this;
     }
 
@@ -229,9 +228,8 @@ export default class MultyxList {
         new MultyxUndefined(
             this.agent,
             [...this.propertyPath, index.toString()]
-        );        
+        );
 
-        this.data.length = this.data.reduce((a, c, i) => c !== undefined ? i+1 : a, 0);
         return this;
     }
 
@@ -279,16 +277,19 @@ export default class MultyxList {
     }
 
     push(...items: any[]) {
-        for(const item of items) {
-            this.set(this.length, item);
-        }
+        this.data.push(...items.map((item, index) => new (MultyxItemRouter(item))(
+            item,
+            this.agent,
+            [...this.propertyPath, (this.length+index).toString()]
+        )));
+        
         return this.length;
     }
 
     pop(): MultyxItem | undefined {
-        const result = this.get(this.length-1);
+        if(this.length == 0) return undefined;
         this.sendShiftOperation(-1, -1); // Delete last item
-        return result;
+        return this.data.pop();
     }
 
     unshift(...items: any[]) {
@@ -307,10 +308,7 @@ export default class MultyxList {
 
     shift() {
         if(this.length == 0) return undefined;
-
-        // Let client know that all items from index 1 to end are getting shifted left
         this.sendShiftOperation(1, -1);
-
         return this.data.shift();
     }
 
@@ -339,7 +337,6 @@ export default class MultyxList {
                 [...this.propertyPath, (start+index).toString()]
             ))
         );
-
         return this;
     }
 

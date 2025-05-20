@@ -53,5 +53,15 @@ class Interpolator {
         return interpolator;
     }
 
-    
+    static SpeedLerp(multyxItem, changePerSecond) {
+        const interpolator = new Interpolator(multyxItem);
+        interpolator.function = (values, times) => values[0] + (Date.now() - times[0]) / 1000 * changePerSecond;
+        return interpolator;
+    }
+
+    static Manual(multyxItem, interpolationFunction) {
+        const interpolator = new Interpolator(multyxItem);
+        interpolator.function = interpolationFunction;
+        return interpolator;
+    }
 }

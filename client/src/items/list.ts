@@ -106,6 +106,7 @@ export default class MultyxClientList {
             },
             get: (o, p: any) => {
                 if(p in o) return o[p];
+                if(!isNaN(parseInt(p))) return p = parseInt(p);
                 return o.get(p) as MultyxClientItem;
             },
             set: (o, p: any, v) => {
