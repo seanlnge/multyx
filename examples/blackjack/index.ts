@@ -31,18 +31,20 @@ const multyx = new Multyx.MultyxServer({ tps: 4 }, () => console.log('Blackjack 
 const blackjack = new TurnBasedGame('players', {
     minPlayers: 1,
     maxPlayers: 4,
-    turnOrder: 'sequential',
-    turnCount: 'player-count',
+    turnOrder: TurnBasedGame.TurnOrder.Sequential,
+    turnCount: TurnBasedGame.TurnCount.PlayerCount,
     secondsTimeout: 8
 });
 
 blackjack.self.deck = createDeck();
 blackjack.self.deck.unrelay();
 
-blackjack.on(TurnBasedGame.Events.GameStart, async ({ client, nextTurn, repeatTurn }) => {
-    client.self.cards = [blackjack.self.deck.pop(), blackjack.self.deck.pop()];
-    client.self.cardsValue = handValue(client.self.cards);
-    client.self.bet = 1;
+blackjack.on(TurnBasedGame.Events.GameStart, async ({ clients }) => {
+    clients.forEach(client => {
+        client.self.cards = [blackjack.self.deck.pop(), blackjack.self.deck.pop()];
+        client.self.cardsValue = handValue(client.self.cards);
+        client.self.bet = 1;
+    });
 });
 
 blackjack.on(TurnBasedGame.Events.TurnStart, async ({ client, nextTurn, repeatTurn }) => {
@@ -63,15 +65,11 @@ blackjack.on(TurnBasedGame.Events.TurnStart, async ({ client, nextTurn, repeatTu
 });
 
 multyx.on('join', (client, name) => {
-    if (blackjack.players.includes(client)) return false;
+    if (blackjack.team.clients.includes(client)) return false;
     client.self.name = name;
-    blackjack.addPlayer(client);
-    if (!blackjack.inProgress && blackjack.players.length >= (blackjack.options.minPlayers || 1)) {
+    blackjack.addClient(client);
+    if (!blackjack.inProgress && blackjack.team.clients.length >= (blackjack.options.minPlayers || 1)) {
         blackjack.startGame();
     }
     return true;
-});
-
-multyx.on('action', (client, action) => {
-    blackjack.handleAction(client, action);
 });

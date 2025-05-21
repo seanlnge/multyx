@@ -18,22 +18,50 @@ const DEFAULT_OPTIONS: TurnBasedOptions = {
     relayOrder: false,
 };
 
-interface TurnBasedEventArguments {
+type ValueOf<T> = T[keyof T];
+
+interface TurnBasedGameStartArgs {
+    clients: Multyx.Client[];
+    endGame: () => void;
+}
+
+interface TurnBasedTurnStartArgs {
     client: Multyx.Client;
+    clients: Multyx.Client[];
     nextTurn: () => void;
     repeatTurn: () => void;
+    endGame: () => void;
     turnStart: number;
     secondsRemaining: number;
 }
 
+interface TurnBasedTimeoutArgs {
+    client: Multyx.Client;
+    clients: Multyx.Client[];
+    nextTurn: () => void;
+    repeatTurn: () => void;
+    endGame: () => void;
+    turnStart: number;
+}
+
+interface TurnBasedGameEndArgs {
+    clients: Multyx.Client[];
+}
+
+type TurnBasedEventArguments<T extends ValueOf<typeof TurnBasedGame.Events>> = 
+    T extends typeof TurnBasedGame.Events.TurnStart ? TurnBasedTurnStartArgs :
+    T extends typeof TurnBasedGame.Events.Timeout ? TurnBasedTimeoutArgs :
+    T extends typeof TurnBasedGame.Events.GameStart ? TurnBasedGameStartArgs :
+    T extends typeof TurnBasedGame.Events.GameEnd ? TurnBasedGameEndArgs :
+    never;
+
 export class TurnBasedGame {
     team: Multyx.MultyxTeam;
-    currentTurnTeam: Multyx.MultyxTeam;
     order: number[];
     inProgress: boolean;
     options: TurnBasedOptions;
     self: Multyx.MultyxObject;
-    events: Map<Symbol, ((args: TurnBasedEventArguments) => void)[]>;
+    events: Map<any, ((args: TurnBasedEventArguments<any>) => void)[]>;
 
     constructor(teamName: string, options: TurnBasedOptions = {}) {
         this.team = new Multyx.MultyxTeam(teamName);
@@ -42,26 +70,29 @@ export class TurnBasedGame {
 
         this.inProgress = false;
         this.options = this.self.options = { ...DEFAULT_OPTIONS, ...options };
-        this.order = this.self.options.relayOrder ? (this.self.order = []) : [];
+        if(this.self.options.relayOrder) this.order =this.self.order = [];
+        else this.order = this.self.order;
     }
+    
+    addClient = (client: Multyx.Client) => this.team.addClient(client);
+    removeClient = (client: Multyx.Client) => this.team.removeClient(client);
 
-    on(event: Symbol, callback: (args: TurnBasedEventArguments) => void) {
+    on<T extends ValueOf<typeof TurnBasedGame.Events>>(event: T, callback: (args: TurnBasedEventArguments<T>) => void): void {
+        if(!this.events) this.events = new Map();
         if(!this.events.has(event)) this.events.set(event, []);
-        this.events.get(event)!.push(callback);
+        this.events.get(event)!.push(callback as (args: TurnBasedEventArguments<any>) => void);
     }
 
-    emit(event: Symbol) {
+    emit(event: ValueOf<typeof TurnBasedGame.Events>) {
         this.events.get(event)?.forEach(callback => callback({
             client: this.team.clients.find(c => c.uuid === this.self.currentTurn)!,
             nextTurn: () => this.nextTurn(),
             repeatTurn: () => this.repeatTurn(),
+            endGame: () => this.endGame(),
             turnStart: this.self.turnStart,
             secondsRemaining: this.self.options.secondsTimeout - (Date.now() - this.self.turnStart) / 1000
-        }));
+        } as TurnBasedEventArguments<typeof event>));
     }
-
-    addClient = (client: Multyx.Client) => this.team.addClient(client);
-    removeClient = (client: Multyx.Client) => this.team.removeClient(client);
 
     startGame() {
         this.inProgress = true;
@@ -75,23 +106,18 @@ export class TurnBasedGame {
             this.order = Array(turnCount).fill(0).map(() => Math.floor(Math.random() * this.team.clients.length));
         }
         
-        // Looks like it does nothing, but since this.self is a proxy, it will update the order in the original object
         if(this.options.relayOrder) {
-            this.self.order = this.order;
-            this.order = this.self.order;
+            this.self.order = this.order; // stores order and sends to clients
+            this.order = this.self.order; // stores reference to multyxobject
         }
 
+        this.emit(TurnBasedGame.Events.GameStart);
         this.nextTurn();
     }
 
     endGame() {
         this.inProgress = false;
-
-        const oldClient = this.currentTurnTeam.clients[0];
-        if(oldClient) this.currentTurnTeam.removeClient(oldClient);
-        this.currentTurnTeam.self.keys().forEach(key => {
-            this.currentTurnTeam.self.delete(key);
-        });
+        this.emit(TurnBasedGame.Events.GameEnd);
     }
 
     repeatTurn() {
@@ -108,24 +134,23 @@ export class TurnBasedGame {
         this.emit(TurnBasedGame.Events.TurnStart);
     }
 
-    startTurn(client: Multyx.Client) {
-        this.currentTurnTeam.self.set('client', client.uuid);
-        this.currentTurnTeam.addClient(client);
-    }
-
-    endTurn(client: Multyx.Client) {
-        this.currentTurnTeam.removeClient(client);
-        this.currentTurnTeam.self.keys().forEach(key => {
-            this.currentTurnTeam.self.delete(key);
-        });
-    }
-
     static Events = {
-        TurnStart: Symbol('turn-start'),
-        Timeout: Symbol('timeout'),
-        GameStart: Symbol('game-start'),
-        GameEnd: Symbol('game-end')
-    }
+        TurnStart: 'turn-start' as 'turn-start',
+        Timeout: 'timeout' as 'timeout',
+        GameStart: 'game-start' as 'game-start',
+        GameEnd: 'game-end' as 'game-end'
+    };
+
+    static TurnOrder = {
+        Sequential: 'sequential' as 'sequential',
+        Random: 'random' as 'random',
+        RandomRepeat: 'random-repeat' as 'random-repeat'
+    };
+
+    static TurnCount = {
+        PlayerCount: 'player-count' as 'player-count',
+        Fixed: 'fixed' as 'fixed'
+    };
 }
 
 export default TurnBasedGame;
