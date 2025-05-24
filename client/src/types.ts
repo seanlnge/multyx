@@ -14,4 +14,10 @@ export type InputUpdate = {
     data?: RawObject<Value>
 };
 
-export type Update = EditUpdate | InputUpdate;
+export type ResponseUpdate = {
+    instruction: 'resp',
+    name: string,
+    response: any
+};
+
+export type Update = EditUpdate | InputUpdate | ResponseUpdate;

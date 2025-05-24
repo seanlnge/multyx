@@ -43,7 +43,11 @@ export default class Message {
     // Parse message from user
     static Parse(str: string) {
         const parsed = JSON.parse(str);
-        if(parsed.name[0] == '_') parsed.name = parsed.name.slice(1);
-        return new Message(parsed.name, parsed.data, parsed.name == '');
+
+        if(Array.isArray(parsed)) {
+            return new Message('_', parsed, true);
+        }
+
+        return new Message(parsed.name ?? '', parsed.data ?? '', false);
     }
 }

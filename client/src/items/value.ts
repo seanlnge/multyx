@@ -1,7 +1,7 @@
 import type Multyx from '../';
 import { Message } from "../message";
 import { Constraint, RawObject, Value } from "../types";
-import { BuildConstraint, Edit, EditWrapper, Unpack } from '../utils';
+import { BuildConstraint, Done, Edit, EditWrapper, Unpack } from '../utils';
 
 export default class MultyxClientValue {
     private _value: Value;
@@ -41,6 +41,13 @@ export default class MultyxClientValue {
         this.multyx = multyx;
         this.constraints = {};
         this.set(value);
+
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
+        if(this.multyx.events.has(propSymbol)) {
+            this.multyx[Done].push(...this.multyx.events.get(propSymbol).map(e =>
+                () => e(this.value)
+            ));
+        }
     }
 
     set(value: Value | EditWrapper<Value>) {

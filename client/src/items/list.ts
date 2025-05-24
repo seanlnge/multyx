@@ -1,6 +1,6 @@
 import Multyx from '../';
 import { IsMultyxClientItem, type MultyxClientItem, type MultyxClientObject, MultyxClientValue } from '.';
-import { Add, Edit, EditWrapper, Unpack } from '../utils';
+import { Add, Done, Edit, EditWrapper, Unpack } from '../utils';
 import MultyxClientItemRouter from './router';
 import { Message } from '../message';
 
@@ -190,6 +190,13 @@ export default class MultyxClientList {
             this.editable
         );
 
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
+        if(this.multyx.events.has(propSymbol)) {
+            this.multyx[Done].push(...this.multyx.events.get(propSymbol).map(e =>
+                () => e(this.list[index])
+            ));
+        }
+
         // We have to push into queue, since object may not be fully created
         // and there may still be more updates to parse
         for(const listener of this.editCallbacks) {
@@ -226,6 +233,17 @@ export default class MultyxClientList {
         }
 
         return true;
+    }
+
+    /**
+     * Wait for a specific index to be set
+     * @param index Index to wait for
+     * @returns Promise that resolves when the value is set
+     */
+    await(index: number) {
+        if(this.has(index)) return Promise.resolve(this.get(index));
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
+        return new Promise(res => this.multyx.on(propSymbol, res));
     }
 
     /* All general array methods */

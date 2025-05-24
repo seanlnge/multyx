@@ -1,4 +1,5 @@
 import Message from "../messages/message";
+import { InputUpdate } from "../messages/update";
 import { Parse, Self } from "../utils/native";
 import type Client from "./client";
 
@@ -89,42 +90,42 @@ export class Controller {
      * Parse an input update from client
      * @param msg Message containing input data
      */
-    [Parse](msg: Message) {
-        switch(msg.data.input) {
+    [Parse](update: InputUpdate) {
+        switch(update.input) {
             case Input.MouseDown: {
-                this.state.mouse.x = msg.data.data.x;
-                this.state.mouse.y = msg.data.data.y;
+                this.state.mouse.x = update.data.x;
+                this.state.mouse.y = update.data.y;
                 this.state.mouse.down = true;
                 this.events.get(Input.MouseDown)?.forEach(c => c(this.state));
                 break;
             }
 
             case Input.MouseUp: {
-                this.state.mouse.x = msg.data.data.x;
-                this.state.mouse.y = msg.data.data.y;
+                this.state.mouse.x = update.data.x;
+                this.state.mouse.y = update.data.y;
                 this.state.mouse.down = false;
                 this.events.get(Input.MouseUp)?.forEach(c => c(this.state));
                 break;
             }
 
             case Input.MouseMove: {
-                this.state.mouse.x = msg.data.data.x;
-                this.state.mouse.y = msg.data.data.y;
+                this.state.mouse.x = update.data.x;
+                this.state.mouse.y = update.data.y;
                 this.events.get(Input.MouseMove)?.forEach(c => c(this.state));
                 break;
             }
 
             case Input.KeyUp: {
-                delete this.state.keys[msg.data.data.code];
+                delete this.state.keys[update.data.code];
                 this.events.get(Input.KeyUp)?.forEach(c => c(this.state));
-                this.events.get(msg.data.data.code)?.forEach(c => c(this.state));
+                this.events.get(update.data.code)?.forEach(c => c(this.state));
                 break;
             }
             
             case Input.KeyDown: {
-                this.state.keys[msg.data.data.code] = true;
+                this.state.keys[update.data.code] = true;
                 this.events.get(Input.KeyDown)?.forEach(c => c(this.state));
-                this.events.get(msg.data.data.code)?.forEach(c => c(this.state));
+                this.events.get(update.data.code)?.forEach(c => c(this.state));
                 break;
             }
 

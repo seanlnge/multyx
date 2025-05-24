@@ -1,6 +1,6 @@
 import { Message, UncompressUpdate } from "./message";
 import { Unpack, EditWrapper, Add, Edit, Done } from './utils';
-import { RawObject } from "./types";
+import { RawObject, ResponseUpdate } from "./types";
 import { Controller } from "./controller";
 import { MultyxClientObject, MultyxClientValue } from "./items";
 import { DefaultOptions, Options } from "./options";
@@ -64,17 +64,38 @@ export default class Multyx {
         }
     }
 
+    /**
+     * Listen for a message from the server
+     * @param name Name of the message
+     * @param callback Function to call when the message is received
+     */
     on(name: string | Symbol, callback: (data: RawObject) => any) {
         const events = this.events.get(name) ?? [];
         events.push(callback);
         this.events.set(name, events);
     }
 
+    /**
+     * Send a message to the server
+     * @param name Name of the message
+     * @param data Data to send
+     */
     send(name: string, data: any) {
         if(name[0] === '_') name = '_' + name;
-        this.ws.send(Message.Create(name, data));
+        const update = {
+            instruction: 'resp',
+            name,
+            response: data
+        } as ResponseUpdate;
+        this.ws.send(Message.Native(update));
     }
 
+    /**
+     * Send a message to the server and wait for a response
+     * @param name Name of the message
+     * @param data Data to send
+     * @returns Promise that resolves when the message is received
+     */
     await(name: string, data?: any) {
         this.send(name, data);
         return new Promise(res => this.events.set(Symbol.for("_" + name), [res]));
@@ -97,10 +118,18 @@ export default class Multyx {
         }
     }
 
+    /**
+     * Add a function to be called after each frame
+     * @param callback Function to call after each frame
+     */
     [Add](callback: () => void) {
         this[Done].push(callback);
     }
 
+    /**
+     * Parse a native event from the server
+     * @param msg Message to parse
+     */
     private parseNativeEvent(msg: Message) {
         msg.data = msg.data.map(UncompressUpdate);
         if(this.options.logUpdateFrame) console.log(msg.data);
@@ -182,7 +211,7 @@ export default class Multyx {
                 case 'resp': {
                     const promiseResolve = this.events.get(Symbol.for("_" + update.name))[0];
                     this.events.delete(Symbol.for("_" + update.name));
-                    promiseResolve(update.response);
+                    this[Done].push(() => promiseResolve(update.response));
                     break;
                 }
 

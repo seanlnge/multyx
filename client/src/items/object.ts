@@ -1,6 +1,6 @@
 import { Message } from "../message";
 import { RawObject } from '../types';
-import { Edit, EditWrapper, Unpack } from "../utils";
+import { Done, Edit, EditWrapper, Unpack } from "../utils";
 
 import type Multyx from '../index';
 import { IsMultyxClientItem, type MultyxClientList, type MultyxClientItem } from ".";
@@ -146,6 +146,13 @@ export default class MultyxClientObject {
             this.editable
         );
 
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
+        if(this.multyx.events.has(propSymbol)) {
+            this.multyx[Done].push(...this.multyx.events.get(propSymbol).map(e =>
+                () => e(this.object[property])
+            ));
+        }
+
         return true;
     }
 
@@ -186,6 +193,17 @@ export default class MultyxClientObject {
             entryList.push([prop, this.get(prop)]);
         }
         return entryList;
+    }
+
+    /**
+     * Wait for a specific property to be set
+     * @param property Property to wait for
+     * @returns Promise that resolves when the value is set
+     */
+    await(property: string) {
+        if(this.has(property)) return Promise.resolve(this.get(property));
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
+        return new Promise(res => this.multyx.on(propSymbol, res));
     }
 
     /**

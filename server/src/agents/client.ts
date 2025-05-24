@@ -17,6 +17,8 @@ export default class Client {
     teams: Set<MultyxTeam>;
     server: MultyxServer;
     uuid: string;
+    warnings: number;
+    networkIssues: number;
     updateSize: number;
     joinTime: number;
     clients: Client[];
@@ -26,9 +28,11 @@ export default class Client {
         this.teams = new Set();
         this.server = server;
         this.uuid = GenerateUUID();
+        this.warnings = 0;
+        this.networkIssues = 0;
         this.joinTime = Date.now();
         this.clients = [this];
-        
+        this.updateSize = 0;
         this.self = new MultyxObject({}, this);
         this.controller = new Controller(this);
     }

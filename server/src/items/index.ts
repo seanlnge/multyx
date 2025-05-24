@@ -3,7 +3,7 @@ import MultyxObject from "./object";
 import MultyxValue from "./value";
 import MultyxUndefined from './undefined';
 
-function IsMultyxItem(data: any) {
+function IsMultyxItem(data: any): data is MultyxItem {
     if(data instanceof MultyxList) return true;
     if(data instanceof MultyxObject) return true;
     if(data instanceof MultyxValue) return true;

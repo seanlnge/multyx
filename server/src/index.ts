@@ -30,6 +30,7 @@ import {
     InitializeUpdate,
     ResponseUpdate,
     SelfUpdate,
+    UncompressUpdate,
     Update
 } from './messages/update';
 
@@ -99,8 +100,14 @@ class MultyxServer {
                 const msg = Message.Parse(str);
                 
                 if(msg.native) {
-                    this.parseNativeMessage(msg, client);
-                    this.events.get(Events.Native)?.forEach(cb => cb.call(client, msg.data));
+                    const update = UncompressUpdate(msg.data);
+                    if(!update) {
+                        client.warnings++;
+                        return;
+                    }
+
+                    this.parseNativeMessage(update, client);
+                    this.events.get(Events.Native)?.forEach(cb => cb.call(client, update));
                 } else {
                     this.events.get(Events.Custom)?.forEach(cb => cb.call(client, msg.data));
                     this.parseCustomMessage(msg, client);
@@ -235,46 +242,51 @@ class MultyxServer {
         this.events.get(msg.name)?.forEach(event => event.call(client, msg.data));
     }
     
-    private parseNativeMessage(msg: Message, client: Client) {
-        switch(msg.data.instruction) {
+    private parseNativeMessage(update: Update, client: Client) {
+        switch(update.instruction) {
             case 'edit': {
-                this.parseEditUpdate(msg, client);
-                this.events.get(Events.Edit)?.forEach(event => event.call(client, msg.data));
+                this.parseEditUpdate(update, client);
+                this.events.get(Events.Edit)?.forEach(event => event.call(client, update));
                 break;
             }
             case 'input': {
-                client.controller[Parse](msg);
+                client.controller[Parse](update);
                 this.events.get(Events.Input)?.forEach(event => event.call(client, client.controller.state));
+                break;
+            }
+            case 'resp': {
+                const promises = this.events.get(Symbol.for("_" + update.name)) ?? [];
+                this.events.delete(Symbol.for("_" + update.name));
+                promises.forEach(event => event.call(client, update));
                 break;
             }
         }
     }
 
-    private parseEditUpdate(msg: Message, client: Client) {
-        console.log(msg.data);
-        const path = msg.data.path.slice(1, -1);
-        const prop = msg.data.path.slice(-1)[0];
+    private parseEditUpdate(update: EditUpdate, client: Client) {
+        const path = update.path.slice(1, -1);
+        const prop = update.path.slice(-1)[0];
 
         // First value in path array is client uuid / team name
-        const agent = client.uuid === msg.data.path[0]
+        const agent = client.uuid === update.path[0]
             ? client
-            : Array.from(client.teams).find(t => t.uuid === msg.data.path[0]);
+            : Array.from(client.teams).find(t => t.uuid === update.path[0]);
         if(!agent) return;
 
         const item = agent.self.get(path);
         if(!item || (item instanceof MultyxValue)) return;
 
-        const result = item.set(prop, msg.data.value);
+        const result = item.set(prop, update.value);
 
         // Setting object adds an editUpdate to client update list, this removes the redundancy
         if(result) {
             const clientUpdates = this.updates.get(client) ?? [];
             
-            const index = clientUpdates.findIndex(update => {
-                if(update.instruction != 'edit') return false;
+            const index = clientUpdates.findIndex(pushed => {
+                if(pushed.instruction != 'edit') return false;
 
-                if(update.path.every((v, i) => msg.data.path[i] == v)
-                && update.value == msg.data.value) return true;
+                if(pushed.path.every((v, i) => update.path[i] == v)
+                && pushed.value == update.value) return true;
                 
                 return false;
             });
@@ -287,7 +299,7 @@ class MultyxServer {
             return this.addOperation(client, {
                 instruction: 'edit',
                 team: agent instanceof MultyxTeam,
-                path: [...msg.data.path],
+                path: [...update.path],
                 value: item.value
             });
         }
@@ -367,7 +379,10 @@ class MultyxServer {
             
             // Client is backpressured and cannot currently be sent more data
             // without ws._sender._queue being stuffed and the heap growing to 1GB+
-            if(ws.bufferedAmount > 4 * 1024 * 1024) continue;
+            if(ws.bufferedAmount > 4 * 1024 * 1024) {
+                client.networkIssues++;
+                continue;
+            }
             
             const msg = Message.Native(updates);
             client.updateSize = msg.length;

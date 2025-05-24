@@ -218,6 +218,13 @@ export default class MultyxList {
             );
         }
 
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
+        if(this.agent.server.events.has(propSymbol)) {
+            this.agent.server.events.get(propSymbol)!.forEach(event =>
+                event.call(undefined, this.data[index])
+            );
+        }
+
         return this;
     }
 
@@ -231,6 +238,12 @@ export default class MultyxList {
         );
 
         return this;
+    }
+
+    await(index: number) {
+        if(this.has(index)) return Promise.resolve(this.get(index));
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
+        return new Promise(res => this.agent.server.on(propSymbol, res));
     }
 
     /**

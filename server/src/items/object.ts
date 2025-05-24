@@ -215,6 +215,12 @@ export default class MultyxObject {
             this.data[property].addPublic(team);
         }
 
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
+        if(this.agent.server.events.has(propSymbol)) {
+            this.agent.server.events.get(propSymbol)!.forEach(event =>
+                event.call(undefined, this.data[property])
+            );
+        }
         return this;
     }
 
@@ -232,6 +238,12 @@ export default class MultyxObject {
         );
 
         return this;
+    }
+
+    await(property: string) {
+        if(this.has(property)) return Promise.resolve(this.get(property));
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
+        return new Promise(res => this.agent.server.on(propSymbol, res));
     }
 
     /**

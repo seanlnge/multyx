@@ -1,10 +1,10 @@
 import { Update } from "./types";
 
 export function UncompressUpdate(str: string) {
-    const [target, ...escapedData] = str.split(/(?<!;);(?!;)/);
+    const [target, ...escapedData] = str.split(/;,/);
     const instruction = target[0];
-    const specifier = target.slice(1).replace(/;;/g, ';');
-    const data = escapedData.map(d => d.replace(/;;/g, ';')).map(d => d == "undefined" ? undefined : JSON.parse(d));
+    const specifier = target.slice(1).replace(/;_/g, ';');
+    const data = escapedData.map(d => d.replace(/;_/g, ';')).map(d => d == "undefined" ? undefined : JSON.parse(d));
 
     if(instruction == '0') return { instruction: 'edit', team: false, path: specifier.split('.'), value: data[0] };
     if(instruction == '1') return { instruction: 'edit', team: true, path: specifier.split('.'), value: data[0] };
@@ -27,6 +27,31 @@ export function UncompressUpdate(str: string) {
     };
 }
 
+export function CompressUpdate(update: Update) {
+    let code, pieces;
+    if(update.instruction == 'edit') {
+        code = 0;
+        pieces = [
+            update.path.join('.'),
+            JSON.stringify(update.value)
+        ];
+    } else if(update.instruction == 'input') {
+        code = 1;
+        pieces = [update.input];
+    } else if(update.instruction == 'resp') {
+        code = 2;
+        pieces = [update.name, JSON.stringify(update.response)];
+    }
+
+    if(!pieces) return '';
+    let compressed = code;
+    for(let i = 0; i < pieces.length; i++) {
+        compressed += pieces[i].replace(/;/g, ';_');
+        if(i < pieces.length - 1) compressed += ';,';
+    }
+    return compressed;
+}
+
 export class Message {
     name: string;
     data: any;
@@ -46,7 +71,7 @@ export class Message {
     }
 
     static Native(update: Update) {
-        return JSON.stringify(new Message('_', update, true));
+        return CompressUpdate(update);
     }
 
     static Parse(str: string) {
