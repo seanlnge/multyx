@@ -49,7 +49,7 @@ export function CompressUpdate(update: Update) {
         compressed += pieces[i].replace(/;/g, ';_');
         if(i < pieces.length - 1) compressed += ';,';
     }
-    return compressed;
+    return JSON.stringify([compressed]);
 }
 
 export class Message {

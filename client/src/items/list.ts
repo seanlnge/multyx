@@ -106,7 +106,7 @@ export default class MultyxClientList {
             },
             get: (o, p: any) => {
                 if(p in o) return o[p];
-                if(!isNaN(parseInt(p))) return p = parseInt(p);
+                if(!isNaN(parseInt(p))) p = parseInt(p);
                 return o.get(p) as MultyxClientItem;
             },
             set: (o, p: any, v) => {
@@ -327,8 +327,9 @@ export default class MultyxClientList {
     }
 
     map(callbackfn: (value: any, index: number, array: MultyxClientList) => any) {
+        const mapped = [];
         for(let i=0; i<this.length; i++) {
-            this.set(i, callbackfn(this.get(i), i, this));
+            mapped.push(callbackfn(this.get(i), i, this));
         }
     }
 

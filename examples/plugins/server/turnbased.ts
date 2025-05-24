@@ -15,7 +15,6 @@ const DEFAULT_OPTIONS: TurnBasedOptions = {
     turnOrder: 'sequential',
     secondsTimeout: 0,
     turnCount: 'player-count',
-    relayOrder: false,
 };
 
 type ValueOf<T> = T[keyof T];
@@ -68,10 +67,9 @@ export class TurnBasedGame {
         this.self = this.team.self;
         this.self.disable();
 
-        this.inProgress = false;
+        this.self.inProgress = false;
         this.options = this.self.options = { ...DEFAULT_OPTIONS, ...options };
-        if(this.self.options.relayOrder) this.order =this.self.order = [];
-        else this.order = this.self.order;
+        this.order = [];
     }
     
     addClient = (client: Multyx.Client) => this.team.addClient(client);
@@ -85,7 +83,8 @@ export class TurnBasedGame {
 
     emit(event: ValueOf<typeof TurnBasedGame.Events>) {
         this.events.get(event)?.forEach(callback => callback({
-            client: this.team.clients.find(c => c.uuid === this.self.currentTurn)!,
+            client: this.team.clients.find(c => c.uuid == this.self.currentTurn)!,
+            clients: this.team.clients,
             nextTurn: () => this.nextTurn(),
             repeatTurn: () => this.repeatTurn(),
             endGame: () => this.endGame(),
@@ -95,8 +94,8 @@ export class TurnBasedGame {
     }
 
     startGame() {
-        this.inProgress = true;
-        const turnCount = this.options.turnCount == 'player-count' ? this.team.clients.length : this.options.turnCount ?? 0;
+        this.self.inProgress = true;
+        const turnCount = this.options.turnCount == 'player-count' ? this.team.clients.length : (this.options.turnCount ?? 0);
 
         if(this.options.turnOrder == 'sequential') {
             this.order = Array(turnCount).fill(0).map((_, i) => i % this.team.clients.length);
@@ -105,18 +104,14 @@ export class TurnBasedGame {
         } else if(this.options.turnOrder == 'random-repeat') {
             this.order = Array(turnCount).fill(0).map(() => Math.floor(Math.random() * this.team.clients.length));
         }
-        
-        if(this.options.relayOrder) {
-            this.self.order = this.order; // stores order and sends to clients
-            this.order = this.self.order; // stores reference to multyxobject
-        }
 
         this.emit(TurnBasedGame.Events.GameStart);
         this.nextTurn();
     }
 
     endGame() {
-        this.inProgress = false;
+        this.self.inProgress = false;
+        this.self.currentTurn = undefined;
         this.emit(TurnBasedGame.Events.GameEnd);
     }
 

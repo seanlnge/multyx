@@ -100,6 +100,7 @@ export function CompressUpdate(update: Update) {
     if(!pieces) return '';
     let compressed = code;
     for(let i = 0; i < pieces.length; i++) {
+        if(pieces[i] === undefined) pieces[i] = 'undefined';
         compressed += pieces[i].replace(/;/g, ';_');
         if(i < pieces.length - 1) compressed += ';,';
     }
@@ -107,27 +108,31 @@ export function CompressUpdate(update: Update) {
 }
 
 export function UncompressUpdate(str: string) {
-    const [target, ...escapedData] = str.split(/;,/);
-    const instruction = target[0];
-    const specifier = target.slice(1).replace(/;_/g, ';');
-    const data = escapedData.map(d => d.replace(/;_/g, ';')).map(d => d == "undefined" ? undefined : JSON.parse(d));
+    try {
+        const [target, ...escapedData] = str.split(/;,/);
+        const instruction = target[0];
+        const specifier = target.slice(1).replace(/;_/g, ';');
+        const data = escapedData.map(d => d.replace(/;_/g, ';')).map(d => d == "undefined" ? undefined : JSON.parse(d));
 
-    if(instruction == '0') return {
-        instruction: 'edit',
-        team: false,
-        path: specifier.split('.'),
-        value: data[0]
-    } as EditUpdate;
-    if(instruction == '1') return {
-        instruction: 'input',
-        input: specifier, 
-        data: data[0]
-    } as InputUpdate;
-    if(instruction == '2') return {
-        instruction: 'resp',
-        name: specifier,
-        response: data[0]
-    } as ResponseUpdate;
+        if(instruction == '0') return {
+            instruction: 'edit',
+            team: false,
+            path: specifier.split('.'),
+            value: data[0]
+        } as EditUpdate;
+        if(instruction == '1') return {
+            instruction: 'input',
+            input: specifier, 
+            data: data[0]
+        } as InputUpdate;
+        if(instruction == '2') return {
+            instruction: 'resp',
+            name: specifier,
+            response: data[0]
+        } as ResponseUpdate;
+    } catch {
+        return null;
+    }
 }
 
 export type Update = EditUpdate | InputUpdate | SelfUpdate | ResponseUpdate | InitializeUpdate | ConnectionUpdate | DisconnectUpdate;

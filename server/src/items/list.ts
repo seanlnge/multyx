@@ -168,6 +168,7 @@ export default class MultyxList {
      */
     get(property: number | string[]): MultyxItem | undefined {
         if(typeof property === 'number') return this.data[property];
+        if(property.length == 0) return this;
         if(property.length == 1) return this.data[parseInt(property[0])];
 
         const next = this.data[parseInt(property[0])];
@@ -217,10 +218,13 @@ export default class MultyxList {
                 propertyPath
             );
         }
+        
+        this.data[index].disabled = this.disabled;
+        this.data[index].relayed = this.relayed;
 
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
-        if(this.agent.server.events.has(propSymbol)) {
-            this.agent.server.events.get(propSymbol)!.forEach(event =>
+        if(this.agent.server?.events.has(propSymbol)) {
+            this.agent.server?.events.get(propSymbol)!.forEach(event =>
                 event.call(undefined, this.data[index])
             );
         }
@@ -231,6 +235,7 @@ export default class MultyxList {
     delete(index: string | number): this {
         if(typeof index === 'string') index = parseInt(index);
         delete this.data[index];
+        if(index == this.length-1) this.length = index;
 
         new MultyxUndefined(
             this.agent,
@@ -243,7 +248,7 @@ export default class MultyxList {
     await(index: number) {
         if(this.has(index)) return Promise.resolve(this.get(index));
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
-        return new Promise(res => this.agent.server.on(propSymbol, res));
+        return new Promise(res => this.agent.server?.on(propSymbol, () => res(this.get(index))));
     }
 
     /**

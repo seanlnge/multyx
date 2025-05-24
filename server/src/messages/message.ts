@@ -42,12 +42,12 @@ export default class Message {
 
     // Parse message from user
     static Parse(str: string) {
-        const parsed = JSON.parse(str);
-
-        if(Array.isArray(parsed)) {
-            return new Message('_', parsed, true);
+        try {
+            const parsed = JSON.parse(str);
+            if(Array.isArray(parsed)) return new Message('_', parsed[0], true);
+            return new Message(parsed.name ?? '', parsed.data ?? '', false);
+        } catch {
+            return null;
         }
-
-        return new Message(parsed.name ?? '', parsed.data ?? '', false);
     }
 }

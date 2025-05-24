@@ -157,6 +157,7 @@ export default class MultyxObject {
      */
     get(property: string | string[]): MultyxItem | undefined {
         if(typeof property === 'string') return this.data[property];
+        if(property.length == 0) return this;
         if(property.length == 1) return this.data[property[0]];
 
         const next = this.data[property[0]];
@@ -209,6 +210,7 @@ export default class MultyxObject {
         }
 
         this.data[property].disabled = this.disabled;
+        this.data[property].relayed = this.relayed;
 
         // Propogate publicAgents to clients
         for(const team of this.publicTeams) {
@@ -216,8 +218,8 @@ export default class MultyxObject {
         }
 
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
-        if(this.agent.server.events.has(propSymbol)) {
-            this.agent.server.events.get(propSymbol)!.forEach(event =>
+        if(this.agent.server?.events.has(propSymbol)) {
+            this.agent.server?.events.get(propSymbol)!.forEach(event =>
                 event.call(undefined, this.data[property])
             );
         }
@@ -243,7 +245,7 @@ export default class MultyxObject {
     await(property: string) {
         if(this.has(property)) return Promise.resolve(this.get(property));
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
-        return new Promise(res => this.agent.server.on(propSymbol, res));
+        return new Promise(res => this.agent?.server?.on(propSymbol, () => res(this.get(property))));
     }
 
     /**

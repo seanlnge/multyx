@@ -1,65 +1,39 @@
 const multyx = new Multyx({ logUpdateFrame: false, verbose: true });
 
-document.querySelector('#hitBtn').onclick = () => {
-    multyx.self.action = 'hit';
-};
-document.querySelector('#standBtn').onclick = () => {
-    multyx.self.action = 'stand';
-};
+multyx.loop(() => {
+    const dealer = multyx.teams.players;
+    if (!dealer) return;
+    document.querySelector('#gameArea').style.display = 'block';
 
-multyx.on('action', () => {
-    if(multyx.self.action) return multyx.self.action;
-});
-
-function render() {
-    if (!gameState || !gameState.players) return;
     let html = '';
     html += `<h2>Dealer</h2><div class='hand'>`;
-    if (gameState.finished) {
-        html += gameState.state.dealer.map(card => `${card.value}${card.suit}`).join(' ');
-    } else {
-        html += `${gameState.state.dealer[0].value}${gameState.state.dealer[0].suit} ??`;
-    }
+    html += dealer.cards.value.map(card => `${card.number}${card.suit}`).join(' ');
     html += '</div>';
     html += '<h2>Players</h2>';
-    for (const uuid of gameState.players) {
-        const hand = gameState.state.hands[uuid];
+    for (const uuid of dealer.clients) {
+        const client = multyx.clients[uuid];
+        const hand = client.cards;
+        const handValue = client.cardsValue;
         if (!hand) continue;
-        const name = multyx.clients[uuid]?.name || uuid;
-        html += `<div class='hand${uuid === myUUID ? ' me' : ''}'>`;
+        const name = client?.name || uuid;
+        html += `<div class='hand${uuid == multyx.uuid ? ' me' : ''}'>`;
         html += `<b>${name}</b>: `;
-        html += hand.map(card => `${card.value}${card.suit}`).join(' ');
-        html += ` (${handValue(hand)})`;
-        if (gameState.state.results && gameState.state.results[uuid]) {
-            html += ` <span class='result'>${gameState.state.results[uuid]}</span>`;
+        html += hand.value.map(card => `${card.number}${card.suit}`).join(' ');
+        html += ` (${handValue})`;
+        if (client.result) {
+            html += ` <span class='result'>${client.result}</span>`;
         }
-        if (gameState.currentTurn === uuid && !gameState.finished) {
+        if (dealer.currentTurn == uuid) {
             html += ' <span class="turn">&larr; Your turn</span>';
         }
         html += '</div>';
     }
-    if (gameState.finished) {
+    if (!dealer.inProgress) {
         html += '<div class="end">Game over! New game soon...</div>';
     }
-    document.querySelector('#gameArea').innerHTML = html + document.querySelector('#controls').outerHTML;
-    document.querySelector('#hitBtn').disabled = !(gameState.currentTurn === myUUID && !gameState.finished);
-    document.querySelector('#standBtn').disabled = !(gameState.currentTurn === myUUID && !gameState.finished);
-}
-
-function handValue(hand) {
-    let value = 0, aces = 0;
-    for (const card of hand) {
-        if (card.value === 'A') { aces++; value += 11; }
-        else if (['K', 'Q', 'J'].includes(card.value)) value += 10;
-        else value += +card.value;
-    }
-    while (value > 21 && aces) { value -= 10; aces--; }
-    return value;
-}
-
-multyx.on('turnbased_state', state => {
-    gameState = state;
-    render();
+    document.querySelector('#gameArea').innerHTML = html;
+    document.querySelector('#hitBtn').disabled = dealer.currentTurn != multyx.uuid;
+    document.querySelector('#standBtn').disabled = dealer.currentTurn != multyx.uuid;
 });
 
 // Initial UI setup

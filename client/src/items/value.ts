@@ -94,6 +94,14 @@ export default class MultyxClientValue {
         return true;
     }
 
+    bindElement(element: HTMLElement) {
+        this.addEditCallback((value, previousValue) => {
+            if(value !== previousValue) {
+                element.innerText = value.toString();
+            }
+        });
+    }
+
     /**
      * Unpack constraints sent from server and store 
      * @param constraints Packed constraints from server

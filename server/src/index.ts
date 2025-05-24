@@ -98,10 +98,11 @@ class MultyxServer {
                 if(!client) return;
 
                 const msg = Message.Parse(str);
+                if(msg == null) return client.warnings++;
                 
                 if(msg.native) {
                     const update = UncompressUpdate(msg.data);
-                    if(!update) {
+                    if(update == null) {
                         client.warnings++;
                         return;
                     }

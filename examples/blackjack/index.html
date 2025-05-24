@@ -15,12 +15,10 @@
     </style>
 </head>
 <body>
-    <div id="gameArea">
-        <!-- Game state will be rendered here -->
-        <div id="controls">
-            <button id="hitBtn">Hit</button>
-            <button id="standBtn">Stand</button>
-        </div>
+    <div id="gameArea"></div>
+    <div id="controls">
+        <button id="hitBtn" onclick="multyx.self.action = 'hit'">Hit</button>
+        <button id="standBtn" onclick="multyx.self.action = 'stand'">Stand</button>
     </div>
     <script src="../../client/multyx.js"></script>
     <script src="script.js"></script>
