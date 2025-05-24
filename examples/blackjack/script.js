@@ -1,32 +1,17 @@
 const multyx = new Multyx({ logUpdateFrame: false, verbose: true });
 
-let myUUID = null;
-let gameState = {};
-
-async function joinGame() {
-    const name = document.querySelector('.messageEntry').value;
-    const valid = await multyx.send('join', name, true);
-    if (!valid) {
-        document.querySelector('.messageEntry').value = '';
-        alert('Name was not valid. Try another one');
-        return;
-    }
-    document.querySelector('.messages').style.display = 'none';
-    document.querySelector('#gameArea').style.display = 'block';
-    myUUID = multyx.uuid;
-}
-
-document.querySelector('#joinBtn').onclick = joinGame;
-
 document.querySelector('#hitBtn').onclick = () => {
-    multyx.send('action', 'hit');
+    multyx.self.action = 'hit';
 };
 document.querySelector('#standBtn').onclick = () => {
-    multyx.send('action', 'stand');
+    multyx.self.action = 'stand';
 };
 
+multyx.on('action', () => {
+    if(multyx.self.action) return multyx.self.action;
+});
+
 function render() {
-    const area = document.querySelector('#gameArea');
     if (!gameState || !gameState.players) return;
     let html = '';
     html += `<h2>Dealer</h2><div class='hand'>`;

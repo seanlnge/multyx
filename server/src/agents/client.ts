@@ -33,12 +33,19 @@ export default class Client {
         this.controller = new Controller(this);
     }
 
-    send(eventName: string, data: any, expectResponse = false) {
-        this.server[Build](this, Message.Create(eventName, data));
+    on(eventName: string, callback: (data: any) => any) {
+        this.server.on(eventName, (client, response) => {
+            if(client == this) callback(response);
+        });
+    }
 
-        if(expectResponse) {
-            return new Promise((resolve) => this.server.on(eventName, resolve));
-        }
+    send(eventName: string, data?: any) {
+        this.server[Build](this, Message.Create(eventName, data));
+    }
+
+    await(eventName: string, data?: any) {
+        this.send(eventName, data);
+        return new Promise((res) => this.on(eventName, res));
     }
 
     /**

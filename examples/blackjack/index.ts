@@ -36,40 +36,49 @@ const blackjack = new TurnBasedGame('players', {
     secondsTimeout: 8
 });
 
+multyx.on(Multyx.Events.Connect, (client) => {
+    if(blackjack.team.clients.includes(client)) return false;
+    client.self.disable();
+
+    blackjack.addClient(client);
+    if(!blackjack.inProgress && blackjack.team.clients.length >= (blackjack.options.minPlayers || 1)) {
+        blackjack.startGame();
+    }
+    return true;
+});
+
 blackjack.self.deck = createDeck();
 blackjack.self.deck.unrelay();
 
+// Disable betting when the game starts + give cards
 blackjack.on(TurnBasedGame.Events.GameStart, async ({ clients }) => {
+    blackjack.self.deck.shuffle();
     clients.forEach(client => {
         client.self.cards = [blackjack.self.deck.pop(), blackjack.self.deck.pop()];
         client.self.cardsValue = handValue(client.self.cards);
-        client.self.bet = 1;
+        client.self.bet.disable();
     });
 });
 
 blackjack.on(TurnBasedGame.Events.TurnStart, async ({ client, nextTurn, repeatTurn }) => {
-    const data = await client.send('turn', {}, true);
+    const data = await client.await('action');
 
     if(data == 'hit') {
         client.self.cards.push(blackjack.self.deck.pop());
         client.self.cardsValue = handValue(client.self.cards);
         repeatTurn();
-    } else if(data == 'stand') {
-        nextTurn();
     } else if(data == 'double') {
         client.self.bet *= 2;
         client.self.cards.push(blackjack.self.deck.pop());
         client.self.cardsValue = handValue(client.self.cards);
-        nextTurn();
     }
+
+    nextTurn();
 });
 
-multyx.on('join', (client, name) => {
-    if (blackjack.team.clients.includes(client)) return false;
-    client.self.name = name;
-    blackjack.addClient(client);
-    if (!blackjack.inProgress && blackjack.team.clients.length >= (blackjack.options.minPlayers || 1)) {
-        blackjack.startGame();
-    }
-    return true;
+// Enable betting after the game ends
+blackjack.on(TurnBasedGame.Events.GameEnd, async ({ clients }) => {
+    clients.forEach(client => {
+        client.self.bet.enable();
+    });
 });

@@ -54,23 +54,29 @@ export default class Multyx {
                 this.parseNativeEvent(msg);
                 this.events.get(Multyx.Native)?.forEach(cb => cb(msg));
             } else {
+                this.events.get(msg.name)?.forEach(cb => {
+                    const response = cb(msg.data);
+                    if(response !== undefined) this.send(msg.name, response);
+                });
                 this.events.get(Multyx.Custom)?.forEach(cb => cb(msg));
             }
             this.events.get(Multyx.Any)?.forEach(cb => cb(msg));
         }
     }
 
-    on(name: string | Symbol, callback: (data: RawObject) => void) {
+    on(name: string | Symbol, callback: (data: RawObject) => any) {
         const events = this.events.get(name) ?? [];
         events.push(callback);
         this.events.set(name, events);
     }
 
-    send(name: string, data: any, expectResponse: boolean = false) {
+    send(name: string, data: any) {
         if(name[0] === '_') name = '_' + name;
         this.ws.send(Message.Create(name, data));
-        if(!expectResponse) return;
+    }
 
+    await(name: string, data?: any) {
+        this.send(name, data);
         return new Promise(res => this.events.set(Symbol.for("_" + name), [res]));
     }
 
@@ -175,6 +181,7 @@ export default class Multyx {
                 // Response to client
                 case 'resp': {
                     const promiseResolve = this.events.get(Symbol.for("_" + update.name))[0];
+                    this.events.delete(Symbol.for("_" + update.name));
                     promiseResolve(update.response);
                     break;
                 }
