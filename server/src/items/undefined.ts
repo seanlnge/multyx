@@ -3,6 +3,7 @@ import { Edit } from "../utils/native";
 
 export default class MultyxUndefined {
     value: undefined;
+    relayedValue: undefined;
     agent: Agent;
     propertyPath: string[];
 

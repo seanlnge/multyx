@@ -45,6 +45,7 @@ interface TurnBasedTimeoutArgs {
 
 interface TurnBasedGameEndArgs {
     clients: Multyx.Client[];
+    startGame: () => void;
 }
 
 type TurnBasedEventArguments<T extends ValueOf<typeof TurnBasedGame.Events>> = 
@@ -61,6 +62,7 @@ export class TurnBasedGame {
     options: TurnBasedOptions;
     self: Multyx.MultyxObject;
     events: Map<any, ((args: TurnBasedEventArguments<any>) => void)[]>;
+    private queuedFunctions: ((args: TurnBasedEventArguments<any>) => void)[] = [];
 
     constructor(teamName: string, options: TurnBasedOptions = {}) {
         this.team = new Multyx.MultyxTeam(teamName);
@@ -81,16 +83,27 @@ export class TurnBasedGame {
         this.events.get(event)!.push(callback as (args: TurnBasedEventArguments<any>) => void);
     }
 
-    emit(event: ValueOf<typeof TurnBasedGame.Events>) {
-        this.events.get(event)?.forEach(callback => callback({
+    async emit(event: ValueOf<typeof TurnBasedGame.Events>, after?: () => any) {
+        const args = {
             client: this.team.clients.find(c => c.uuid == this.self.currentTurn)!,
             clients: this.team.clients,
-            nextTurn: () => this.nextTurn(),
-            repeatTurn: () => this.repeatTurn(),
-            endGame: () => this.endGame(),
+            nextTurn: () => this.queuedFunctions.push(this.nextTurn),
+            repeatTurn: () => this.queuedFunctions.push(this.repeatTurn),
+            endGame: () => this.queuedFunctions.push(this.endGame),
+            startGame: () => this.queuedFunctions.push(this.startGame),
             turnStart: this.self.turnStart,
             secondsRemaining: this.self.options.secondsTimeout - (Date.now() - this.self.turnStart) / 1000
-        } as TurnBasedEventArguments<typeof event>));
+        } as TurnBasedEventArguments<typeof event>;
+
+        // Execute all event callbacks
+        if(this.events.has(event)) {
+            for(const callback of this.events.get(event)!) {
+                await Promise.all([callback(args)]);
+                await Promise.all(this.queuedFunctions.map(fn => fn.bind(this)(args)));
+                this.queuedFunctions.length = 0;
+                after?.bind(this)();
+            }
+        }
     }
 
     startGame() {
@@ -105,8 +118,7 @@ export class TurnBasedGame {
             this.order = Array(turnCount).fill(0).map(() => Math.floor(Math.random() * this.team.clients.length));
         }
 
-        this.emit(TurnBasedGame.Events.GameStart);
-        this.nextTurn();
+        this.emit(TurnBasedGame.Events.GameStart, this.nextTurn);
     }
 
     endGame() {
@@ -124,6 +136,7 @@ export class TurnBasedGame {
         const index = this.order.pop();
         if(index == undefined) return this.endGame();
         const client = this.team.clients[index];
+        if(!client) return this.endGame();
         this.self.currentTurn = client.uuid;
         this.self.turnStart = Date.now();
         this.emit(TurnBasedGame.Events.TurnStart);

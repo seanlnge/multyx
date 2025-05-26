@@ -21,6 +21,30 @@ export default class MultyxObject {
     [key: string]: any
 
     /**
+     * Turn MultyxObject back into regular object
+     * @returns RawObject mirroring shape and values of MultyxObject
+     */
+    get value() {
+        const parsed: RawObject = {};
+        for(const p in this.data) parsed[p] = this.data[p].value;
+        return parsed;
+    }
+
+    /**
+     * Get the value of MultyxObject that is relayed to public agents
+     * @returns RawObject mirroring shape and values of relayed MultyxObject
+     */
+    get relayedValue() {
+        if(!this.relayed) return {};
+        const parsed: RawObject = {};
+        for(const p in this.data) {
+            const m = this.data[p].relayedValue;
+            if(m) parsed[p] = m;
+        }
+        return parsed;
+    }
+
+    /**
      * Create a MultyxItem representation of an object
      * @param object Object to turn into MultyxItem
      * @param agent Client or MultyxTeam hosting this MultyxItem
@@ -112,9 +136,9 @@ export default class MultyxObject {
     unrelay() {
         for(const prop in this.data) {
             this.data[prop].unrelay();
-            this.relayed = false;
-            return this;
         }
+        this.relayed = false;
+        return this;
     }
 
     /**
@@ -249,16 +273,6 @@ export default class MultyxObject {
     }
 
     /**
-     * Turn MultyxObject back into regular object
-     * @returns RawObject mirroring shape and values of MultyxObject
-     */
-    get value() {
-        const parsed: RawObject = {};
-        for(const p in this.data) parsed[p] = this.data[p].value;
-        return parsed;
-    }
-
-    /**
      * Get all properties in object publicized to specific team
      * @param team MultyxTeam to get public data for
      * @returns Raw object
@@ -284,6 +298,8 @@ export default class MultyxObject {
      * @returns Constraint table
      */
     [Build]() {
+        if(!this.relayed) return {};
+
         const obj: RawObject = {};
         for(const prop in this.data) {
             const table = this.data[prop][Build]();

@@ -165,7 +165,6 @@ export default class MultyxClientObject {
             return false;
         }
 
-        const previousValue = this.object[property];
         delete this.object[property];
 
         if(!native) {

@@ -60,7 +60,7 @@ export default class Client {
             uuid: this.uuid,
             joinTime: this.joinTime,
             controller: Array.from(this.controller.listening.values()),
-            self: this.self.value,
+            self: this.self.relayedValue,
         }
     }
 }

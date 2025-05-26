@@ -35,7 +35,7 @@ import {
 } from './messages/update';
 
 import { Event, EventName, Events } from './messages/event';
-import { Edit, Get, Parse, Self, EditWrapper, Build, Send } from './utils/native';
+import { Edit, Get, Parse, Self, EditWrapper, Build, Send, Remove } from './utils/native';
 import { DefaultOptions, Options } from './options';
 
 export {
@@ -165,7 +165,7 @@ class MultyxServer {
 
         // Find all public data shared to client and compile into raw data
         const publicToClient: Map<Client, RawObject> = new Map();
-        publicToClient.set(client, client.self.value);
+        publicToClient.set(client, client.self.relayedValue);
         
         for(const team of client.teams) {
             const clients = team[Get]();
@@ -186,7 +186,7 @@ class MultyxServer {
 
         const teams: RawObject = {};
         for(const team of client.teams) {
-            teams[team.uuid] = team.self.value;
+            teams[team.uuid] = team.self.relayedValue;
         }
 
         // Build table of constraints for client-side prediction
@@ -333,6 +333,11 @@ class MultyxServer {
 
             // Replace old edits on same property
             else if(update.instruction == 'edit') {
+                if(update.value == Symbol.for("_remove")) {
+                    pathToEdit.delete(update.path.join(' '));
+                    continue;
+                }
+                
                 // Property path references are same across updates
                 pathToEdit.set(update.path.join(' '), update);
             }
@@ -406,11 +411,27 @@ class MultyxServer {
             instruction: 'edit',
             team: item.agent instanceof MultyxTeam,
             path: item.propertyPath,
-            value: item.value
+            value: item.relayedValue
         } as Update;
     
         for(const client of clients) {
             this.addOperation(client, update);
+        }
+    }
+
+    /**
+     * Create an EditUpdate event to remove an item from update
+     * @param item MultyxItem to relay state of
+     * @param clients Set of all clients to relay event to
+     */
+    [Remove](item: MultyxItem | MultyxUndefined, clients: Set<Client>) {
+        for(const client of clients) {
+            this.addOperation(client, {
+                instruction: 'edit',
+                team: item.agent instanceof MultyxTeam,
+                path: item.propertyPath,
+                value: Symbol.for("_remove")
+            });
         }
     }
 

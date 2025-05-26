@@ -1,7 +1,7 @@
 import type { Agent, Client, MultyxTeam } from "../agents";
 
 import { RawObject, Value } from "../types";
-import { Build, Edit, Get, Send, Self } from "../utils/native";
+import { Build, Edit, Get, Remove, Send, Self } from "../utils/native";
 import MultyxUndefined from "./undefined";
 
 export default class MultyxValue {
@@ -17,6 +17,11 @@ export default class MultyxValue {
     constraints: Map<string, { args: any[], func: (value: Value) => Value | null }>;
     manualConstraints: ((value: Value) => Value | null)[];
     bannedValues: Set<Value>;
+
+    get relayedValue() {
+        if(!this.relayed) return undefined;
+        return this.value;
+    }
 
     /**
      * Create a MultyxItem representation of a primitive
@@ -88,7 +93,7 @@ export default class MultyxValue {
     /**
      * Send a ConstraintUpdate
      */
-    [Get](name: string, args: Value[] ) {
+    [Get](name: string, args: Value[]) {
         for(const client of this.agent.clients) {
             this.agent.server?.[Self](client, 'constraint', { path: this.propertyPath, name, args })
         }
@@ -223,7 +228,8 @@ export default class MultyxValue {
     }
 
     relay() {
-        if(this.relayed) return true;
+        if(this.relayed) return this;
+        this.relayed = true;
 
         // Relay all constraints on object
         for(const [cname, { args }] of this.constraints.entries()) {
@@ -233,12 +239,23 @@ export default class MultyxValue {
         // Relay value of object
         this[Send]();
 
-        this.relayed = true;
         return this;
     }
 
     unrelay() {
+        if(!this.relayed) return this;
         this.relayed = false;
+
+        const clients = new Set<Client>();
+        
+        // Get all clients informed of this change
+        
+        for(const a of this.publicAgents) {
+            for(const c of a.clients) clients.add(c);
+        }
+
+        this.agent.server?.[Remove](this, clients);
+
         return this;
     }
 

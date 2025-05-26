@@ -39,7 +39,7 @@ export default class MultyxClientList {
      * @param index Index to shift from, -1 if special operation
      * @param shift Shift amount, positive for right, negative for left
      */
-    private handleShiftOperation(index: number, shift: any) {
+    private handleShiftOperation(index: number, shift: number) {
         const operation = index >= 0
             ? shift >= 0 ? 'right': 'left'
             : shift == 0 ? 'reverse' : shift < 0 ? 'length' : 'unknown';

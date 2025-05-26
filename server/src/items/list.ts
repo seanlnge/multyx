@@ -26,6 +26,11 @@ export default class MultyxList {
         return this.data.map((i: MultyxItem): any => i.value);
     }
 
+    get relayedValue() {
+        if(!this.relayed) return [];
+        return this.data.map((i: MultyxItem): any => i.relayedValue);
+    }
+
     get length() {
         return this.data.length;
     }
@@ -37,6 +42,8 @@ export default class MultyxList {
     }
 
     private sendShiftOperation(index: number, move: number) {
+        if(!this.relayed) return;
+        
         if(index > 0) {
             for(let i=index; i<this.length; i++) {
                 this.data[i][Self]([...this.propertyPath, (i+move).toString()], false);
@@ -279,6 +286,8 @@ export default class MultyxList {
      * @returns Constraint table
      */
     [Build]() {
+        if(!this.relayed) return [];
+        
         const obj: RawObject[] = [];
         for(const item of this.data) {
             obj.push(item[Build]());
