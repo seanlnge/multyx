@@ -46,20 +46,23 @@ multyx.on(Multyx.Events.Connect, (client) => {
     lobby.addClient(client);
     client.self.funds = 1000;
 
-    // Start the game if there are enough players
-    if(!blackjack.inProgress && lobby.clients.length >= blackjack.options.minPlayers!) {
-        for(const client of lobby.clients) blackjack.addClient(client);
-        blackjack.startGame();
-    }
+    // Ensure the bet can only be a positive integer
+    client.self.bet.int().min(1);
 
-    return true;
+    // Wait for client to enter bet to add to game
+    client.self.bet.await().then(() => {
+        lobby.removeClient(client);
+        blackjack.addClient(client);
+
+        // Start the game if there are enough players
+        if(!blackjack.inProgress && blackjack.team.clients.length > blackjack.options.minPlayers!) {
+            blackjack.startGame();
+        }
+    });
 });
 
 // Disable betting when the game starts + give cards
 blackjack.on(TurnBasedGame.Events.GameStart, async ({ clients }) => {
-    console.log("game start");
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Allow time for bets
-
     // Shuffle deck if low on cards
     if(blackjack.self.deck.length < 26) shuffle(blackjack.self.deck);
 
@@ -70,11 +73,6 @@ blackjack.on(TurnBasedGame.Events.GameStart, async ({ clients }) => {
 
     // Deal cards to the clients
     for(const client of clients) {
-        if(!client.self.bet) {
-            blackjack.removeClient(client);
-            continue;
-        }
-
         delete client.self.result;
         client.self.funds -= client.self.bet;
         client.self.cards = [blackjack.self.deck.pop(), blackjack.self.deck.pop()]; // Deal two cards to the client
@@ -90,7 +88,6 @@ blackjack.on(TurnBasedGame.Events.GameStart, async ({ clients }) => {
 
 // Handle the client's turn
 blackjack.on(TurnBasedGame.Events.TurnStart, async ({ client, nextTurn, repeatTurn }) => {
-    console.log(client.uuid, "turn start");
     const data = await client.self.await("action"); // Wait for the client to send an action
     delete client.self.action; // Delete the action from the client
 
@@ -114,7 +111,6 @@ blackjack.on(TurnBasedGame.Events.TurnStart, async ({ client, nextTurn, repeatTu
 
 // Enable betting after the game ends
 blackjack.on(TurnBasedGame.Events.GameEnd, async ({ clients, startGame }) => {
-    console.log("game end");
     blackjack.self.cards[1].relay(); // Reveal the second card to the clients
     blackjack.self.cardsValue = handValue(blackjack.self.cards); // Calculate the value of the cards
 

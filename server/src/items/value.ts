@@ -69,6 +69,25 @@ export default class MultyxValue {
     }
 
     /**
+     * Wait for value to be changed
+     * @returns Promise that resolves once value is changed
+     */
+    await() {
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
+        return new Promise(res => this.agent.server.on(propSymbol, () => res(this)));
+    }
+
+    /**
+     * Create a callback that gets called whenever the value is changed
+     * @param callback Function to call whenever value is changed
+     * @returns Event object representing write callback
+     */
+    onWrite(callback: (...args: any[]) => void) {
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
+        return this.agent.server.on(propSymbol, callback);
+    }
+
+    /**
      * Send an EditUpdate
      * @param agent Agent to send EditUpdate to, if undefined, send to all public agents
      */

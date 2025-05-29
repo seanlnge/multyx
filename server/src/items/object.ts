@@ -243,9 +243,10 @@ export default class MultyxObject {
 
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
         if(this.agent.server?.events.has(propSymbol)) {
-            this.agent.server?.events.get(propSymbol)!.forEach(event =>
-                event.call(undefined, this.data[property])
-            );
+            this.agent.server?.events.get(propSymbol)!.forEach(event => {
+                event.call(undefined, this.data[property]);
+                if(event.saveHistory) event.delete(); // delete temp events
+            });
         }
         return this;
     }
@@ -266,10 +267,28 @@ export default class MultyxObject {
         return this;
     }
 
+    /**
+     * Wait for a property in object to be defined
+     * @param property Name of property in object to wait for 
+     * @returns Promise that resolves once object[property] is defined
+     */
     await(property: string) {
         if(this.has(property)) return Promise.resolve(this.get(property));
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
-        return new Promise(res => this.agent?.server?.on(propSymbol, () => res(this.get(property))));
+        return new Promise(res => {
+            const event = this.agent?.server?.on(propSymbol, () => res(this.get(property)));
+            event.saveHistory = true; // so that caller knows to delete
+        });
+    }
+
+    /**
+     * Create a callback that gets called whenever the object is edited
+     * @param callback Function to call whenever object is edited
+     * @returns Event object representing write callback
+     */
+    onWrite(callback: (...args: any[]) => void) {
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
+        return this.agent.server.on(propSymbol, callback);
     }
 
     /**
