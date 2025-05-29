@@ -211,7 +211,7 @@ export default class MultyxClientObject {
      */
     [Unpack](constraints: RawObject) {
         for(const prop in constraints) {
-            this.object[prop][Unpack](constraints[prop]);
+            this.object[prop]?.[Unpack](constraints[prop]);
         }
     }
 }

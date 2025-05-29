@@ -39,7 +39,7 @@ export default class MultyxObject {
         const parsed: RawObject = {};
         for(const p in this.data) {
             const m = this.data[p].relayedValue;
-            if(m) parsed[p] = m;
+            if(m !== undefined) parsed[p] = m;
         }
         return parsed;
     }
@@ -283,11 +283,12 @@ export default class MultyxObject {
 
     /**
      * Create a callback that gets called whenever the object is edited
+     * @param property Property to listen for writes on
      * @param callback Function to call whenever object is edited
      * @returns Event object representing write callback
      */
-    onWrite(callback: (...args: any[]) => void) {
-        const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
+    onWrite(property: string, callback: (...args: any[]) => void) {
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + "." + property);
         return this.agent.server.on(propSymbol, callback);
     }
 

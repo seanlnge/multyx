@@ -65,26 +65,15 @@ export default class MultyxValue {
 
         this.value = value;
         this[Send]();
+        
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
+        if(this.agent.server?.events.has(propSymbol)) {
+            this.agent.server?.events.get(propSymbol)!.forEach(event => {
+                event.call(undefined, this);
+                if(event.saveHistory) event.delete(); // delete temp events
+            });
+        }
         return true;
-    }
-
-    /**
-     * Wait for value to be changed
-     * @returns Promise that resolves once value is changed
-     */
-    await() {
-        const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
-        return new Promise(res => this.agent.server.on(propSymbol, () => res(this)));
-    }
-
-    /**
-     * Create a callback that gets called whenever the value is changed
-     * @param callback Function to call whenever value is changed
-     * @returns Event object representing write callback
-     */
-    onWrite(callback: (...args: any[]) => void) {
-        const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
-        return this.agent.server.on(propSymbol, callback);
     }
 
     /**

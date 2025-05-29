@@ -38,6 +38,7 @@ const blackjack = new TurnBasedGame('players', {
 });
 
 blackjack.self.deck = createDeck(); // Create a new deck if the old one is out of cards
+shuffle(createDeck());
 blackjack.self.deck.unrelay(); // Hide the deck from the clients
 
 const lobby = new Lobby('lobby');
@@ -47,15 +48,17 @@ multyx.on(Multyx.Events.Connect, (client) => {
     client.self.funds = 1000;
 
     // Ensure the bet can only be a positive integer
+    client.self.bet = 1;
     client.self.bet.int().min(1);
 
     // Wait for client to enter bet to add to game
-    client.self.bet.await().then(() => {
+    client.self.onWrite('bet', () => {
         lobby.removeClient(client);
         blackjack.addClient(client);
+        console.log("bet write");
 
         // Start the game if there are enough players
-        if(!blackjack.inProgress && blackjack.team.clients.length > blackjack.options.minPlayers!) {
+        if(!blackjack.inProgress && blackjack.team.clients.length >= blackjack.options.minPlayers!) {
             blackjack.startGame();
         }
     });
@@ -73,7 +76,6 @@ blackjack.on(TurnBasedGame.Events.GameStart, async ({ clients }) => {
 
     // Deal cards to the clients
     for(const client of clients) {
-        delete client.self.result;
         client.self.funds -= client.self.bet;
         client.self.cards = [blackjack.self.deck.pop(), blackjack.self.deck.pop()]; // Deal two cards to the client
         client.self.cardsValue = handValue(client.self.cards); // Calculate the value of the cards
@@ -110,7 +112,7 @@ blackjack.on(TurnBasedGame.Events.TurnStart, async ({ client, nextTurn, repeatTu
 });
 
 // Enable betting after the game ends
-blackjack.on(TurnBasedGame.Events.GameEnd, async ({ clients, startGame }) => {
+blackjack.on(TurnBasedGame.Events.GameEnd, async ({ clients }) => {
     blackjack.self.cards[1].relay(); // Reveal the second card to the clients
     blackjack.self.cardsValue = handValue(blackjack.self.cards); // Calculate the value of the cards
 
@@ -131,13 +133,18 @@ blackjack.on(TurnBasedGame.Events.GameEnd, async ({ clients, startGame }) => {
         } else {
             client.self.result = 'lose';
         }
-        client.self.bet.enable(); // Allow client to change their bet
     });
 
-    // Move all clients from lobby into blackjack
-    lobby.clients.forEach(client => {
-        lobby.removeClient(client);
-        blackjack.addClient(client);
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds before moving to next game
+    clients.forEach(client => {
+        // Reset client state
+        delete client.self.result;
+        delete client.self.bet;
+        delete client.self.cards;
+        delete client.self.cardsValue;
+        
+        // Move client back to lobby
+        blackjack.removeClient(client);
+        lobby.addClient(client);
     });
-    startGame();
 });

@@ -43,7 +43,7 @@ export default class MultyxList {
 
     private sendShiftOperation(index: number, move: number) {
         if(!this.relayed) return;
-        
+
         if(index > 0) {
             for(let i=index; i<this.length; i++) {
                 this.data[i][Self]([...this.propertyPath, (i+move).toString()], false);
@@ -256,6 +256,17 @@ export default class MultyxList {
         if(this.has(index)) return Promise.resolve(this.get(index));
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
         return new Promise(res => this.agent.server?.on(propSymbol, () => res(this.get(index))));
+    }
+
+    /**
+     * Create a callback that gets called whenever the object is edited
+     * @param index Index to listen for writes on
+     * @param callback Function to call whenever object is edited
+     * @returns Event object representing write callback
+     */
+    onWrite(index: number, callback: (...args: any[]) => void) {
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + "." + index.toString());
+        return this.agent.server.on(propSymbol, callback);
     }
 
     /**

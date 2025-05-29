@@ -419,7 +419,7 @@ export default class MultyxClientList {
 
     [Unpack](constraints: any[]) {
         for(let i=0; i<this.length; i++) {
-            this.get(i)[Unpack](constraints[i]);
+            this.get(i)?.[Unpack](constraints[i]);
         }
     }
     
