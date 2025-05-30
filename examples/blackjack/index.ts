@@ -1,6 +1,7 @@
 import Multyx from 'multyx';
 import TurnBasedGame from '../plugins/server/turnbased';
-import Lobby from '../plugins/server/lobby';
+import { WaitingRoom } from '../plugins/server/lobby';
+import { GameStateManager } from '../plugins/server/manager';
 
 // Simple card/deck helpers
 const suits = ['♠', '♥', '♦', '♣'];
@@ -29,39 +30,34 @@ function handValue(hand: any[]) {
 
 const multyx = new Multyx.MultyxServer(() => console.log('Blackjack server started'));
 
-const blackjack = new TurnBasedGame('players', {
+const waitingRoom = new WaitingRoom(multyx, 'lobby');
+const blackjack = new TurnBasedGame(multyx, 'players', {
     minPlayers: 2,
     maxPlayers: 10,
     turnOrder: TurnBasedGame.TurnOrder.Sequential,
     turnCount: TurnBasedGame.TurnCount.PlayerCount,
     secondsTimeout: 8
 });
+const manager = new GameStateManager(multyx, 'manager', waitingRoom);
 
 blackjack.self.deck = createDeck(); // Create a new deck if the old one is out of cards
-shuffle(createDeck());
+shuffle(blackjack.self.deck);
 blackjack.self.deck.unrelay(); // Hide the deck from the clients
 
-const lobby = new Lobby('lobby');
-
 multyx.on(Multyx.Events.Connect, (client) => {
-    lobby.addClient(client);
+    waitingRoom.addClient(client);
+});
+
+waitingRoom.on(WaitingRoom.Events.ClientJoin, ({ client }) => {
     client.self.funds = 1000;
 
     // Ensure the bet can only be a positive integer
     client.self.bet = 1;
     client.self.bet.int().min(1);
+});
 
-    // Wait for client to enter bet to add to game
-    client.self.onWrite('bet', () => {
-        lobby.removeClient(client);
-        blackjack.addClient(client);
-        console.log("bet write");
-
-        // Start the game if there are enough players
-        if(!blackjack.inProgress && blackjack.team.clients.length >= blackjack.options.minPlayers!) {
-            blackjack.startGame();
-        }
-    });
+waitingRoom.on(WaitingRoom.Events.AllReady, () => {
+    manager.move({ from: waitingRoom, to: blackjack });
 });
 
 // Disable betting when the game starts + give cards
@@ -91,11 +87,13 @@ blackjack.on(TurnBasedGame.Events.GameStart, async ({ clients }) => {
 // Handle the client's turn
 blackjack.on(TurnBasedGame.Events.TurnStart, async ({ client, nextTurn, repeatTurn }) => {
     const data = await client.self.await("action"); // Wait for the client to send an action
-    delete client.self.action; // Delete the action from the client
 
+    delete client.self.action; // Delete the action from the client
+    
     if(data == 'hit' || data == 'double') {
         client.self.cards.push(blackjack.self.deck.pop()); // Deal a card to the client
         client.self.cardsValue = handValue(client.self.cards); // Calculate the value of the cards
+        
         if(client.self.cardsValue > 21) { // If the client has busted
             client.self.result = 'lose'; // Set the result to lose
             return nextTurn(); // Move to the next turn
@@ -139,12 +137,10 @@ blackjack.on(TurnBasedGame.Events.GameEnd, async ({ clients }) => {
     clients.forEach(client => {
         // Reset client state
         delete client.self.result;
-        delete client.self.bet;
         delete client.self.cards;
         delete client.self.cardsValue;
-        
-        // Move client back to lobby
-        blackjack.removeClient(client);
-        lobby.addClient(client);
+        client.self.bet.enable();
     });
+
+    manager.move({ from: blackjack, to: waitingRoom });
 });

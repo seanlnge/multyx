@@ -255,7 +255,7 @@ export default class MultyxList {
     await(index: number) {
         if(this.has(index)) return Promise.resolve(this.get(index));
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
-        return new Promise(res => this.agent.server?.on(propSymbol, () => res(this.get(index))));
+        return new Promise(res => this.agent.server?.on(propSymbol, (_, v) => res(v)));
     }
 
     /**
@@ -264,9 +264,9 @@ export default class MultyxList {
      * @param callback Function to call whenever object is edited
      * @returns Event object representing write callback
      */
-    onWrite(index: number, callback: (...args: any[]) => void) {
+    onWrite(index: number, callback: (v: any) => void) {
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + "." + index.toString());
-        return this.agent.server.on(propSymbol, callback);
+        return this.agent.server.on(propSymbol, (_, v) => callback(v));
     }
 
     /**

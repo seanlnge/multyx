@@ -1,5 +1,5 @@
 import Multyx from 'multyx';
-
+import MultyxPlugin from '../plugin';
 interface TurnBasedOptions {
     minPlayers?: number;
     maxPlayers?: number;
@@ -48,39 +48,32 @@ interface TurnBasedGameEndArgs {
     startGame: () => void;
 }
 
-type TurnBasedEventArguments<T extends ValueOf<typeof TurnBasedGame.Events>> = 
+type TurnBasedEventContext<T extends ValueOf<typeof TurnBasedGame.Events>> = 
     T extends typeof TurnBasedGame.Events.TurnStart ? TurnBasedTurnStartArgs :
     T extends typeof TurnBasedGame.Events.Timeout ? TurnBasedTimeoutArgs :
     T extends typeof TurnBasedGame.Events.GameStart ? TurnBasedGameStartArgs :
     T extends typeof TurnBasedGame.Events.GameEnd ? TurnBasedGameEndArgs :
     never;
 
-export class TurnBasedGame {
-    team: Multyx.MultyxTeam;
+export class TurnBasedGame extends MultyxPlugin {
     order: number[];
     inProgress: boolean;
     options: TurnBasedOptions;
-    self: Multyx.MultyxObject;
-    events: Map<any, ((args: TurnBasedEventArguments<any>) => void)[]>;
-    private queuedFunctions: ((args: TurnBasedEventArguments<any>) => void)[] = [];
+    events: Map<any, ((args: TurnBasedEventContext<any>) => void)[]>;
+    private queuedFunctions: ((args: TurnBasedEventContext<any>) => void)[] = [];
 
-    constructor(teamName: string, options: TurnBasedOptions = {}) {
-        this.team = new Multyx.MultyxTeam(teamName);
-        this.self = this.team.self;
-        this.self.disable();
+    constructor(server: Multyx.MultyxServer, name: string, options: TurnBasedOptions = {}) {
+        super(server, name);
 
         this.self.inProgress = false;
         this.options = this.self.options = { ...DEFAULT_OPTIONS, ...options };
         this.order = [];
     }
     
-    addClient = (client: Multyx.Client) => this.team.addClient(client);
-    removeClient = (client: Multyx.Client) => this.team.removeClient(client);
-
-    on<T extends ValueOf<typeof TurnBasedGame.Events>>(event: T, callback: (args: TurnBasedEventArguments<T>) => void): void {
+    on<T extends ValueOf<typeof TurnBasedGame.Events>>(event: T, callback: (args: TurnBasedEventContext<T>) => void): void {
         if(!this.events) this.events = new Map();
         if(!this.events.has(event)) this.events.set(event, []);
-        this.events.get(event)!.push(callback as (args: TurnBasedEventArguments<any>) => void);
+        this.events.get(event)!.push(callback as (args: TurnBasedEventContext<any>) => void);
     }
 
     async emit(event: ValueOf<typeof TurnBasedGame.Events>, after?: () => any) {
@@ -93,12 +86,14 @@ export class TurnBasedGame {
             startGame: () => this.queuedFunctions.push(this.startGame),
             turnStart: this.self.turnStart,
             secondsRemaining: this.self.options.secondsTimeout - (Date.now() - this.self.turnStart) / 1000
-        } as TurnBasedEventArguments<typeof event>;
+        } as TurnBasedEventContext<typeof event>;
 
         // Execute all event callbacks
         if(this.events.has(event)) {
             for(const callback of this.events.get(event)!) {
                 await Promise.all([callback(args)]);
+
+                // Use queued functions to avoid stack overflow
                 await Promise.all(this.queuedFunctions.map(fn => fn.bind(this)(args)));
                 this.queuedFunctions.length = 0;
                 after?.bind(this)();
@@ -127,12 +122,12 @@ export class TurnBasedGame {
         this.emit(TurnBasedGame.Events.GameEnd);
     }
 
-    repeatTurn() {
+    private repeatTurn() {
         this.self.turnStart = Date.now();
         this.emit(TurnBasedGame.Events.TurnStart);
     }
 
-    nextTurn() {
+    private nextTurn() {
         const index = this.order.pop();
         if(index == undefined) return this.endGame();
         const client = this.team.clients[index];
@@ -143,22 +138,22 @@ export class TurnBasedGame {
     }
 
     static Events = {
-        TurnStart: 'turn-start' as 'turn-start',
-        Timeout: 'timeout' as 'timeout',
-        GameStart: 'game-start' as 'game-start',
-        GameEnd: 'game-end' as 'game-end'
-    };
+        TurnStart: 'turn-start',
+        Timeout: 'timeout',
+        GameStart: 'game-start',
+        GameEnd: 'game-end'
+    } as const;
 
     static TurnOrder = {
-        Sequential: 'sequential' as 'sequential',
-        Random: 'random' as 'random',
-        RandomRepeat: 'random-repeat' as 'random-repeat'
-    };
+        Sequential: 'sequential',
+        Random: 'random',
+        RandomRepeat: 'random-repeat'
+    } as const;
 
     static TurnCount = {
-        PlayerCount: 'player-count' as 'player-count',
-        Fixed: 'fixed' as 'fixed'
-    };
+        PlayerCount: 'player-count',
+        Fixed: 'fixed'
+    } as const;
 }
 
 export default TurnBasedGame;

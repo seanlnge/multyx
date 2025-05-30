@@ -276,7 +276,7 @@ export default class MultyxObject {
         if(this.has(property)) return Promise.resolve(this.get(property));
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
         return new Promise(res => {
-            const event = this.agent?.server?.on(propSymbol, () => res(this.get(property)));
+            const event = this.agent?.server?.on(propSymbol, (_, v) => res(v));
             event.saveHistory = true; // so that caller knows to delete
         });
     }
@@ -287,9 +287,9 @@ export default class MultyxObject {
      * @param callback Function to call whenever object is edited
      * @returns Event object representing write callback
      */
-    onWrite(property: string, callback: (...args: any[]) => void) {
+    onWrite(property: string, callback: (v: any) => void) {
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + "." + property);
-        return this.agent.server.on(propSymbol, callback);
+        return this.agent.server.on(propSymbol, (_, v) => callback(v));
     }
 
     /**
