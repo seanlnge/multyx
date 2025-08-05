@@ -6,7 +6,7 @@ import Message from "../messages/message";
 import { GenerateUUID } from "../utils/uuid";
 
 import { MultyxObject } from "../items";
-import { Build, Parse } from "../utils/native";
+import { Build, Parse, Self, Send } from "../utils/native";
 import { Controller, ControllerState } from "./controller";
 
 import type MultyxTeam from "./team";
@@ -23,6 +23,8 @@ export default class Client {
     joinTime: number;
     clients: Client[];
     onUpdate: (deltaTime: number, controllerState: ControllerState) => void;
+    
+    private space: string;
 
     constructor(server: MultyxServer) {
         this.teams = new Set();
@@ -35,6 +37,7 @@ export default class Client {
         this.updateSize = 0;
         this.self = new MultyxObject({}, this);
         this.controller = new Controller(this);
+        this.space = 'default';
     }
 
     on(eventName: string, callback: (data: any) => any) {
@@ -53,6 +56,22 @@ export default class Client {
     }
 
     /**
+     * Set the space of the client
+     * @param space 
+     */
+    setSpace(space: string) {
+        this.space = space;
+        this.server[Self](this, "space", space);
+    }
+
+    /**
+     * Get the space of the client
+     */
+    getSpace() {
+        return this.space;
+    }
+
+    /**
      * Create client-side representation of client object
      */
     [Parse](): RawObject {
@@ -61,6 +80,7 @@ export default class Client {
             joinTime: this.joinTime,
             controller: Array.from(this.controller.listening.values()),
             self: this.self.relayedValue,
+            space: this.space,
         }
     }
 }

@@ -12,6 +12,7 @@ export function UncompressUpdate(str: string) {
     if(instruction == '2') return { instruction: 'self', property: "controller", data: JSON.parse(specifier) };
     if(instruction == '3') return { instruction: 'self', property: "uuid", data: JSON.parse(specifier) };
     if(instruction == '4') return { instruction: 'self', property: "constraint", data: JSON.parse(specifier) };
+    if(instruction == '9') return { instruction: 'self', property: "space", data: JSON.parse(specifier) };
 
     if(instruction == '5') return { instruction: 'resp', name: specifier, response: data[0] };
     if(instruction == '6') return { instruction: 'conn', uuid: specifier, publicData: data[0] };

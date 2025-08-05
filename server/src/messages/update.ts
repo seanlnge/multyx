@@ -9,7 +9,7 @@ export interface EditUpdate {
 
 export interface SelfUpdate {
     instruction: 'self';
-    property: 'controller' | 'uuid' | 'constraint';
+    property: 'controller' | 'uuid' | 'constraint' | 'space';
     data: any;
 }
 
@@ -43,6 +43,7 @@ export interface InitializeUpdate {
     constraintTable: RawObject;
     clients: RawObject;
     teams: RawObject;
+    space: string;
 }
 
 /**
@@ -61,7 +62,10 @@ export function CompressUpdate(update: Update) {
         ];
     }
     if(update.instruction == 'self') {
-        code = update.property == 'controller' ? '2' : update.property == 'uuid' ? '3' : '4';
+        if(update.property == 'controller') code = '2';
+        else if(update.property == 'uuid') code = '3';
+        else if(update.property == 'space') code = '9';
+        else code = '4';
         pieces = [
             JSON.stringify(update.data)
         ];
@@ -93,7 +97,8 @@ export function CompressUpdate(update: Update) {
             update.tps.toString(),
             JSON.stringify(update.constraintTable),
             JSON.stringify(update.clients),
-            JSON.stringify(update.teams)
+            JSON.stringify(update.teams),
+            update.space
         ];
     };
 

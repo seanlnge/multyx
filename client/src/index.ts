@@ -13,6 +13,7 @@ export default class Multyx {
     self: RawObject;
     tps: number;
     all: RawObject;
+    space: string;
     clients: { [key: string]: MultyxClientObject };
     teams: MultyxClientObject;
     controller: Controller;
@@ -36,6 +37,7 @@ export default class Multyx {
         const url = `ws${this.options.secure ? 's' : ''}://${this.options.uri.split('/')[0]}:${this.options.port}/${this.options.uri.split('/')[1] ?? ''}`;
         this.ws = new WebSocket(url);
         this.ping = 0;
+        this.space = 'default';
         this.events = new Map();
         this.self = {};
         this.tps = 0;
@@ -278,6 +280,25 @@ export default class Multyx {
             if(route === undefined) return;
 
             route[Unpack]({ [update.data.name]: update.data.args });
+        } else if(update.property == 'space') {
+            this.space = update.data;
+            this.updateSpace();
         }
+    }
+
+    // Hide all spaces except the current one
+    private updateSpace() {
+        if(this.space == 'default') {
+            (document.querySelectorAll('[data-multyx-space]') as NodeListOf<HTMLElement>).forEach(space => {
+                space.style.display = 'block';
+                space.style.pointerEvents = 'auto';
+            });
+            return;
+        }
+
+        (document.querySelectorAll('[data-multyx-space]') as NodeListOf<HTMLElement>).forEach(space => {
+            space.style.display = space.dataset.multyxSpace == this.space ? 'block' : 'none';
+            space.style.pointerEvents = space.dataset.multyxSpace == this.space ? 'auto' : 'none';
+        });
     }
 }

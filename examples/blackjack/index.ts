@@ -56,7 +56,7 @@ waitingRoom.on(WaitingRoom.Events.ClientJoin, ({ client }) => {
     client.self.bet.int().min(1);
 });
 
-waitingRoom.on(WaitingRoom.Events.AllReady, () => {
+waitingRoom.on(WaitingRoom.Events.AllReady, ({ clients }) => {
     manager.move({ from: waitingRoom, to: blackjack });
 });
 
