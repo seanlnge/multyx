@@ -24,7 +24,8 @@ export function UncompressUpdate(str: string) {
         tps: data[0],
         constraintTable: data[1],
         clients: data[2],
-        teams: data[3]
+        teams: data[3],
+        space: data[4]
     };
 }
 

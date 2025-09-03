@@ -98,7 +98,7 @@ export function CompressUpdate(update: Update) {
             JSON.stringify(update.constraintTable),
             JSON.stringify(update.clients),
             JSON.stringify(update.teams),
-            update.space
+            JSON.stringify(update.space)
         ];
     };
 
