@@ -4,3 +4,5 @@
 keepinmind.md
 *.tgz
 *.zip
+examples/plugins/
+examples/multyxsite/

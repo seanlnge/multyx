@@ -200,7 +200,8 @@ class MultyxServer {
             tps: this.tps,
             constraintTable,
             clients: rawClients,
-            teams
+            teams,
+            space: "default"
         }]));
 
         // Clear any updates, all data was already sent in InitializeUpdate
