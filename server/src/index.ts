@@ -259,7 +259,10 @@ class MultyxServer {
             case 'resp': {
                 const promises = this.events.get(Symbol.for("_" + update.name)) ?? [];
                 this.events.delete(Symbol.for("_" + update.name));
-                promises.forEach(event => event.call(client, update));
+                promises.forEach(event => event.call(client, update.response));
+
+                const events = this.events.get(update.name) ?? [];
+                events.forEach(event => event.call(client, update.response));
                 break;
             }
         }

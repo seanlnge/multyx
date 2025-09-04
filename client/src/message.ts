@@ -39,7 +39,7 @@ export function CompressUpdate(update: Update) {
         ];
     } else if(update.instruction == 'input') {
         code = 1;
-        pieces = [update.input];
+        pieces = [update.input, JSON.stringify(update.data)];
     } else if(update.instruction == 'resp') {
         code = 2;
         pieces = [update.name, JSON.stringify(update.response)];

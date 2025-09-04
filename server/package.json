@@ -1,6 +1,6 @@
 {
   "name": "multyx",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Framework designed to simplify the creation of multiplayer browser games by addressing the complexities of managing server-client communication, shared state, and input handling",
   "main": "dist/index.js",
   "module": "dist/index.js",

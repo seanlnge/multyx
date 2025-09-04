@@ -1,6 +1,6 @@
 {
   "name": "multyx-client",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Framework designed to simplify the creation of multiplayer browser games by addressing the complexities of managing server-client communication, shared state, and input handling",
   "main": "dist/index.js",
   "scripts": {
