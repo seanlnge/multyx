@@ -7,7 +7,7 @@ import { Build, Edit, EditWrapper, Get, Self } from "../utils/native";
 import MultyxItemRouter from "./router";
 
 export default class MultyxList<T = any> {
-    data: MultyxItem[];
+    data: MultyxItem<T>[];
     propertyPath: string[];
     agent: Agent;
     disabled: boolean;
@@ -23,12 +23,12 @@ export default class MultyxList<T = any> {
     [key: string]: any;
 
     get value() {
-        return this.data.map((i: MultyxItem): any => i.value);
+        return this.data.map((i: MultyxItem<T>): any => i.value);
     }
 
     get relayedValue() {
         if(!this.relayed) return [];
-        return this.data.map((i: MultyxItem): any => i.relayedValue);
+        return this.data.map((i: MultyxItem<T>): any => i.relayedValue);
     }
 
     get length() {
@@ -60,7 +60,7 @@ export default class MultyxList<T = any> {
      * @param propertyPath Entire path from agent to this MultyxList
      * @returns MultyxList
      */
-    constructor(list: (RawObject | Value | MultyxItem)[], agent: Agent, propertyPath: string[] = [agent.uuid]) {
+    constructor(list: (RawObject | Value | MultyxItem<T>)[], agent: Agent, propertyPath: string[] = [agent.uuid]) {
         this.data = [];
         this.propertyPath = propertyPath;
         this.agent = agent;
@@ -84,7 +84,7 @@ export default class MultyxList<T = any> {
 
         if(this.constructor !== MultyxList) return this;
 
-        return new Proxy(this, {
+        return new Proxy(this as MultyxList<T>, {
             has: (o, p: any) => {
                 if(typeof p === 'number') return o.has(p)
                 return p in o;
@@ -116,25 +116,25 @@ export default class MultyxList<T = any> {
 
     disable() {
         this.disabled = true;
-        this.data.forEach((i: MultyxItem) => i.disable());
+        this.data.forEach((i: MultyxItem<T>) => i.disable());
         return this;
     }
 
     enable() {
         this.disabled = false;
-        this.data.forEach((i: MultyxItem) => i.enable());
+        this.data.forEach((i: MultyxItem<T>) => i.enable());
         return this;
     }
 
     relay() {
         this.relayed = true;
-        this.data.forEach((i: MultyxItem) => i.relay());
+        this.data.forEach((i: MultyxItem<T>) => i.relay());
         return this;
     }
 
     unrelay() {
         this.relayed = false;
-        this.data.forEach((i: MultyxItem) => i.unrelay());
+        this.data.forEach((i: MultyxItem<T>) => i.unrelay());
         return this;
     }
 
@@ -217,7 +217,7 @@ export default class MultyxList<T = any> {
 
         if(IsMultyxItem(value)) {
             value[Self](propertyPath);
-            this.data[index] = value;
+            this.data[index] = value as MultyxItem<T>;
         } else {
             this.data[index] = new (MultyxItemRouter(value))(
                 value,
@@ -331,7 +331,7 @@ export default class MultyxList<T = any> {
         return this.length;
     }
 
-    pop(): MultyxItem | undefined {
+    pop(): MultyxItem<T> | undefined {
         if(this.length == 0) return undefined;
         this.sendShiftOperation(-1, -1); // Delete last item
         return this.data.pop();
@@ -358,6 +358,11 @@ export default class MultyxList<T = any> {
     }
 
     splice(start: number, deleteCount?: number, ...items: any[]) {
+        if(!deleteCount) return this.data.splice(start);
+        return this.data.splice(start, deleteCount, ...items);
+    }
+
+    setSplice(start: number, deleteCount?: number, ...items: any[]) {
         // If no delete count, delete all items from start to end
         if(deleteCount === undefined) deleteCount = this.length - start;
 
@@ -373,19 +378,25 @@ export default class MultyxList<T = any> {
         if(move !== 0) this.sendShiftOperation(-1, move);
 
         // Add new items
+        const newItems = items.map((item, index) => new (MultyxItemRouter(item))(
+            item,
+            this.agent,
+            [...this.propertyPath, (start+index).toString()]
+        )) as MultyxItem<T>[];
+
         this.data.splice(
             start,
             deleteCount,
-            ...items.map((item, index) => new (MultyxItemRouter(item))(
-                item,
-                this.agent,
-                [...this.propertyPath, (start+index).toString()]
-            ))
+            ...newItems
         );
-        return this;
+        return newItems;
     }
 
     slice(start?: number, end?: number) {
+        return this.data.slice(start, end) as MultyxItem<T>[];
+    }
+
+    setSlice(start?: number, end?: number) {
         if(start === undefined) return this;
         if(start < -this.length) start = 0;
         if(start < 0) start += this.length;
@@ -411,6 +422,14 @@ export default class MultyxList<T = any> {
     }
 
     filter(predicate: (value: any, index: number, array: MultyxList) => boolean) {
+        const keep = [];
+        for(let i=0; i<this.length; i++) {
+            keep.push(predicate(this.get(i), i, this));
+        }
+        return keep;
+    }
+
+    setFilter(predicate: (value: any, index: number, array: MultyxList) => boolean) {
         const keep = [];
         for(let i=0; i<this.length; i++) {
             keep.push(predicate(this.get(i), i, this));
@@ -445,12 +464,25 @@ export default class MultyxList<T = any> {
     }
 
     map(callbackfn: (value: any, index: number, array: MultyxList) => any) {
+        const next = [];
+        for(let i=0; i<this.length; i++) {
+            next.push(callbackfn(this.get(i), i, this));
+        }
+        return next;
+    }
+
+    setMap(callbackfn: (value: any, index: number, array: MultyxList) => any) {
         for(let i=0; i<this.length; i++) {
             this.set(i, callbackfn(this.get(i), i, this));
         }
+        return this;
     }
 
     flat() {
+        return this.data.flat();
+    }
+
+    setFlat() {
         for(let i=0; i<this.length; i++) {
             const item = this.get(i);
 
@@ -534,13 +566,13 @@ export default class MultyxList<T = any> {
     }
     
     /* Native methods to allow MultyxList to be treated as primitive */
-    [Symbol.iterator](): Iterator<MultyxItem> {
+    [Symbol.iterator](): Iterator<MultyxItem<T>> {
         const values = [];
         for(let i=0; i<this.length; i++) {
             const item = this.get(i);
             if(item) values[i] = item;
         }
-        return values[Symbol.iterator]();
+        return values[Symbol.iterator]() as Iterator<MultyxItem<T>>;
     }
     toString = () => this.value.toString();
     valueOf = () => this.value;
