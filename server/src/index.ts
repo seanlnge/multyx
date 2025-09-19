@@ -47,6 +47,7 @@ export {
     MultyxValue,
     MultyxList,
     MultyxObject,
+    MultyxItem,
     MultyxTeam,
     MultyxServer,
 

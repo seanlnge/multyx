@@ -4,6 +4,10 @@
     "target": "es2016",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
     /* Modules */
     "module": "commonjs",                                /* Specify what module code is generated. */
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["src/*"]
+    },
 
     /* Emit */
     "declaration": true,                              /* Generate .d.ts files from TypeScript and JavaScript files in your project. */

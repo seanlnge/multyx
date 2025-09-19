@@ -18,7 +18,7 @@ type MultyxItem<T = any> = T extends any[]
         ? MultyxObject<T> & { [K in keyof T]: MultyxItem<T[K]> }
         : T extends undefined 
             ? MultyxValue<T>
-            : MultyxValue<T>;
+            : MultyxValue<T>
 
 // Helper type to get the proper MultyxItem type for object properties  
 type MultyxObjectData<T extends object> = {
@@ -29,7 +29,7 @@ type MultyxObjectData<T extends object> = {
 type bro = MultyxItem<{ a: number[] }>
 type bro2 = bro["a"] // This should be MultyxList<number>
 type bro3 = bro2[0] // This should be MultyxValue<number>
-
+Array().reverse
 export {
     IsMultyxItem,
     MultyxList,
