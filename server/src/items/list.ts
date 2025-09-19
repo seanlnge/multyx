@@ -2,11 +2,11 @@ import type { Agent, MultyxTeam } from "../agents";
 
 import { RawObject, Value } from "../types";
 
-import { IsMultyxItem, MultyxItem, MultyxUndefined, MultyxValue } from ".";
+import { IsMultyxItem, MultyxItem, MultyxValue } from ".";
 import { Build, Edit, EditWrapper, Get, Self } from "../utils/native";
 import MultyxItemRouter from "./router";
 
-export default class MultyxList {
+export default class MultyxList<T = any> {
     data: MultyxItem[];
     propertyPath: string[];
     agent: Agent;
@@ -94,7 +94,7 @@ export default class MultyxList {
             get: (o, p: any) => {
                 if(p in o) return o[p];
                 if(Number.isInteger(parseInt(p))) p = parseInt(p);
-                return o.get(p) as MultyxItem; 
+                return o.data[p];
             },
             
             // Allow users to set MultyxObject properties by client.self.a = b
@@ -244,7 +244,8 @@ export default class MultyxList {
         delete this.data[index];
         if(index == this.length-1) this.length = index;
 
-        new MultyxUndefined(
+        new MultyxValue<undefined>(
+            undefined,
             this.agent,
             [...this.propertyPath, index.toString()]
         );
@@ -285,8 +286,12 @@ export default class MultyxList {
                     parsed.push(undefined);
                 }
             } else {
-                parsed.push(item[Get](team));
-            }
+                if(!(Get in item)) {
+                    parsed.push(undefined);
+                } else {
+                    parsed.push(item[Get](team));
+                }
+            }   
         }
 
         return parsed;
@@ -301,6 +306,7 @@ export default class MultyxList {
         
         const obj: RawObject[] = [];
         for(const item of this.data) {
+            if(!(Build in item)) continue;
             obj.push(item[Build]());
         }
         return obj;
@@ -310,6 +316,7 @@ export default class MultyxList {
         this.propertyPath = newPath;
 
         for(const index in this.data) {
+            if(!(Self in this.data[index])) continue;
             this.data[index][Self]([...newPath, index]);
         }
     }

@@ -2,10 +2,9 @@ import type { Agent, Client, MultyxTeam } from "../agents";
 
 import { RawObject, Value } from "../types";
 import { Build, Edit, Get, Remove, Send, Self } from "../utils/native";
-import MultyxUndefined from "./undefined";
 
-export default class MultyxValue {
-    value: Value;
+export default class MultyxValue<T = Value | undefined>{
+    value: T;
     propertyPath: string[];
 
     agent: Agent;
@@ -14,9 +13,9 @@ export default class MultyxValue {
     disabled: boolean;
     relayed: boolean;
 
-    constraints: Map<string, { args: any[], func: (value: Value) => Value | null }>;
-    manualConstraints: ((value: Value) => Value | null)[];
-    bannedValues: Set<Value>;
+    constraints: Map<string, { args: any[], func: (value: T) => T | null }>;
+    manualConstraints: ((value: T) => T | null)[];
+    bannedValues: Set<T>;
 
     get relayedValue() {
         if(!this.relayed) return undefined;
@@ -29,7 +28,7 @@ export default class MultyxValue {
      * @param agent Client or MultyxTeam hosting this MultyxItem
      * @param propertyPath Entire path leading from agent to root
      */
-    constructor(value: Value | MultyxValue, agent: Agent, propertyPath: string[]) {
+    constructor(value: T | MultyxValue<T>, agent: Agent, propertyPath: string[]) {
         this.disabled = false;
         this.relayed = true;
         this.constraints = new Map();
@@ -45,7 +44,7 @@ export default class MultyxValue {
     }
 
     // Only proper way to set value of MultyxValue to ensure client sync
-    set(value: Value | MultyxValue): boolean {
+    set(value: T | MultyxValue<T>): boolean {
         if(value instanceof MultyxValue) value = value.value;
 
         // Check if value setting changes constraints
@@ -101,7 +100,7 @@ export default class MultyxValue {
     /**
      * Send a ConstraintUpdate
      */
-    [Get](name: string, args: Value[]) {
+    [Get](name: string, args: any[]) {
         for(const client of this.agent.clients) {
             this.agent.server?.[Self](client, 'constraint', { path: this.propertyPath, name, args })
         }
@@ -134,7 +133,7 @@ export default class MultyxValue {
      * @param value Minimum value to allow
      * @returns Same multyx object
      */
-    min = (value: Value | MultyxValue) => {
+    min = (value: T | MultyxValue<T>) => {
         if(value instanceof MultyxValue) value = value.value;
         
         this.constraints.set('min', {
@@ -151,7 +150,7 @@ export default class MultyxValue {
      * @param value Maximum value to allow
      * @returns Same multyx object
      */
-    max = (value: Value | MultyxValue) => {
+    max = (value: T | MultyxValue<T>) => {
         if(value instanceof MultyxValue) value = value.value;
 
         this.constraints.set('max', {
@@ -169,7 +168,7 @@ export default class MultyxValue {
     int = () => {
         this.constraints.set('int', {
             args: [],
-            func: n => Math.floor(n as number)
+            func: n => Math.floor(typeof n === 'number' ? n : Number(n)) as T
         });
         this[Get]('int', []);
         return this;
@@ -181,7 +180,7 @@ export default class MultyxValue {
      * @param value Value to ban
      * @returns Same Multyx object
      */
-    ban = (value: Value | MultyxValue) => {
+    ban = (value: T | MultyxValue<T>) => {
         if(value instanceof MultyxValue) value = value.value;
 
         const bans = this.constraints.get('ban')?.args ?? [];
@@ -202,7 +201,7 @@ export default class MultyxValue {
      * @param fn Function accepting requested value and returning either null or accepted value. If this function returns null, the value will not be accepted and the change reverted.
      * @returns Same MultyxValue
      */
-    constrain = (fn: ((value: any) => Value | null)) => {
+    constrain = (fn: ((value: any) => T | null)) => {
         this.manualConstraints.push(fn);
         return this;
     }
@@ -217,7 +216,7 @@ export default class MultyxValue {
             args: [true],
             func: n => n,
         });
-        this[Get]('disabled', [true]);
+        this[Get]('disabled', [true as T]);
         return this;
     }
 
@@ -295,7 +294,7 @@ export default class MultyxValue {
         team.removePublic(this);
 
         // Send an EditUpdate clearing property from clients
-        new MultyxUndefined(team, this.propertyPath);
+        new MultyxValue<undefined>(undefined, team, this.propertyPath);
 
         return this;
     }
@@ -310,7 +309,7 @@ export default class MultyxValue {
     }
 
     /* Native methods to allow MultyxValue to be treated as primitive */
-    toString = () => this.value.toString();
+    toString = () => String(this.value);
     valueOf = () => this.value;
     [Symbol.toPrimitive] = () => this.value;
 }

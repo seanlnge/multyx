@@ -1,14 +1,17 @@
 import MultyxValue from './value';
 import MultyxItemRouter from './router';
-import { MultyxItem, MultyxUndefined } from ".";
+import { MultyxItem, MultyxObjectData } from ".";
 
 import { RawObject } from "../types";
 import { Edit, Get, EditWrapper, Build, Self } from '../utils/native';
 
 import type { Agent, MultyxTeam } from "../agents";
 
-export default class MultyxObject {
-    data: { [key: string]: MultyxItem };
+export default interface MultyxObject<T extends object = object> {
+    [key: string]: any;
+}
+export default class MultyxObject<T extends object = object> {
+    data: MultyxObjectData<T>;
     propertyPath: string[];
     agent: Agent;
     disabled: boolean;
@@ -18,7 +21,6 @@ export default class MultyxObject {
 
     // spent 2 hours tryna make this [key: Exclude<string, keyof MultyxObject>]: MultyxItem<any>
     // fuck you ryan cavanaugh https://github.com/microsoft/TypeScript/issues/17867
-    [key: string]: any
 
     /**
      * Turn MultyxObject back into regular object
@@ -52,7 +54,7 @@ export default class MultyxObject {
      * @returns MultyxObject
      */
     constructor(object: RawObject | MultyxObject, agent: Agent, propertyPath: string[] = [agent.uuid]) {
-        this.data = {};
+        const data: { [key: string]: MultyxItem<any> } = {};
         this.propertyPath = propertyPath;
         this.agent = agent;
         this.disabled = false;
@@ -70,12 +72,14 @@ export default class MultyxObject {
 
             // MultyxItemRouter used to circumvent circular dependencies
             // Check /items/router.ts for extra information
-            this.data[prop] = new (MultyxItemRouter(child))(
+            data[prop] = new (MultyxItemRouter(child))(
                 child,
                 agent,
                 [...propertyPath, prop]
             );
         }
+
+        this.data = data as MultyxObjectData<T>;
 
         // Apply proxy inside other constructor rather than here
         if(this.constructor !== MultyxObject) return this;
@@ -88,7 +92,7 @@ export default class MultyxObject {
             // Allow users to access properties in MultyxObject without using get
             get: (o, p: string) => {
                 if(p in o) return o[p];
-                return o.get(p) as MultyxItem<any>; 
+                return o.data[p];
             },
             
             // Allow users to set MultyxObject properties by client.self.a = b
@@ -210,7 +214,7 @@ export default class MultyxObject {
         // If just a normal value change, no need to update shape, can return
         if(typeof value !== "object" && this.data[property] instanceof MultyxValue
         || value instanceof EditWrapper && typeof value.value !== 'object') {
-            return (this.data[property] as MultyxValue).set(
+            return (this.data[property] as MultyxValue<any>).set(
                 value instanceof EditWrapper ? value.value : value
             ) ? this : false;
         }
@@ -220,13 +224,13 @@ export default class MultyxObject {
         // If value is a MultyxObject, don't create new object, change path
         if(value instanceof MultyxObject) {
             value[Self](propertyPath);
-            this.data[property] = value;
+            (this.data as any)[property] = value;
         } else {
             if(value instanceof MultyxValue || value instanceof EditWrapper) {
                 value = value.value;
             }
 
-            this.data[property] = new (MultyxItemRouter(value))(
+            (this.data as any)[property] = new (MultyxItemRouter(value))(
                 value,
                 this.agent,
                 propertyPath
@@ -259,7 +263,8 @@ export default class MultyxObject {
     delete(property: string) {
         delete this.data[property];
 
-        new MultyxUndefined(
+        new MultyxValue<undefined>(
+            undefined,
             this.agent,
             [...this.propertyPath, property]
         );
@@ -305,9 +310,11 @@ export default class MultyxObject {
 
             if(m instanceof MultyxValue) {
                 if(m.isPublic(team)) parsed[prop] = m.value;
-            } else {
-                parsed[prop] = m[Get];
-            }
+             } else {
+                 if(Get in m) {
+                     parsed[prop] = (m as any)[Get](team);
+                 }
+             }
         }
 
         return parsed;
@@ -322,9 +329,11 @@ export default class MultyxObject {
 
         const obj: RawObject = {};
         for(const prop in this.data) {
-            const table = this.data[prop][Build]();
-            if(Object.keys(table).length == 0) continue;
-            obj[prop] = table;
+            if(Build in this.data[prop]) {
+                const table = (this.data[prop] as any)[Build]();
+                if(Object.keys(table).length == 0) continue;
+                obj[prop] = table;
+            }
         }
         return obj;
     }
@@ -337,7 +346,9 @@ export default class MultyxObject {
         this.propertyPath = newPath;
 
         for(const prop in this.data) {
-            this.data[prop][Self]([...newPath, prop]);
+            if(Self in this.data[prop]) {
+                (this.data[prop] as any)[Self]([...newPath, prop]);
+            }
         }
     }
 

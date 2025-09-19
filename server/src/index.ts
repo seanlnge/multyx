@@ -19,7 +19,6 @@ import {
     MultyxItem,
     MultyxList,
     MultyxObject,
-    MultyxUndefined,
     MultyxValue
 } from './items';
 
@@ -410,7 +409,7 @@ class MultyxServer {
      * @param item MultyxItem to relay state of
      * @param clients Set of all clients to relay event to
      */
-    [Edit](item: MultyxItem | MultyxUndefined, clients: Set<Client>) {
+    [Edit](item: MultyxItem, clients: Set<Client>) {
         const update = {
             instruction: 'edit',
             team: item.agent instanceof MultyxTeam,
@@ -428,7 +427,7 @@ class MultyxServer {
      * @param item MultyxItem to relay state of
      * @param clients Set of all clients to relay event to
      */
-    [Remove](item: MultyxItem | MultyxUndefined, clients: Set<Client>) {
+    [Remove](item: MultyxItem, clients: Set<Client>) {
         for(const client of clients) {
             this.addOperation(client, {
                 instruction: 'edit',
