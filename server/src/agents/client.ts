@@ -6,7 +6,7 @@ import Message from "../messages/message";
 import { GenerateUUID } from "../utils/uuid";
 
 import { MultyxObject } from "../items";
-import { Build, Parse, Self, Send } from "../utils/native";
+import { Build, Parse, Self } from "../utils/native";
 import { Controller, ControllerState } from "./controller";
 
 import type MultyxTeam from "./team";

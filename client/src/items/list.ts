@@ -282,8 +282,16 @@ export default class MultyxClientList {
         }
         return res;
     }
-    
+
+    slice(start?: number, end?: number) {
+        return this.list.slice(start, end);
+    }
+
     splice(start: number, deleteCount?: number, ...items: any[]) {
+        return this.list.splice(start, deleteCount, ...items);
+    }
+    
+    setSplice(start: number, deleteCount?: number, ...items: any[]) {
         if(deleteCount === undefined) {
             deleteCount = this.length - start;
         }
@@ -312,8 +320,11 @@ export default class MultyxClientList {
         }
     }
 
-    
     filter(predicate: (value: any, index: number, array: MultyxClientList) => boolean) {
+        return this.list.filter((value, index) => predicate(value, index, this));
+    }
+
+    setFilter(predicate: (value: any, index: number, array: MultyxClientList) => boolean) {
         const keep = [];
         for(let i=0; i<this.length; i++) {
             keep.push(predicate(this.get(i), i, this));
@@ -331,9 +342,14 @@ export default class MultyxClientList {
         for(let i=0; i<this.length; i++) {
             mapped.push(callbackfn(this.get(i), i, this));
         }
+        return mapped;
     }
 
     flat() {
+        return this.list.flat();
+    }
+
+    setFlat() {
         for(let i=0; i<this.length; i++) {
             const item = this.get(i);
 
