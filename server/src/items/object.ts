@@ -6,10 +6,6 @@ import { RawObject } from "../types";
 import { Edit, Get, EditWrapper, Build, Self } from '../utils/native';
 
 import type { Agent, MultyxTeam } from "../agents";
-
-export default interface MultyxObject<T extends object = object> {
-    [key: string]: any;
-}
 export default class MultyxObject<T extends object = object> {
     data: MultyxObjectData<T>;
     propertyPath: string[];
@@ -21,7 +17,8 @@ export default class MultyxObject<T extends object = object> {
 
     // spent 2 hours tryna make this [key: Exclude<string, keyof MultyxObject>]: MultyxItem<any>
     // fuck you ryan cavanaugh https://github.com/microsoft/TypeScript/issues/17867
-
+    [key: string]: any;
+    
     /**
      * Turn MultyxObject back into regular object
      * @returns RawObject mirroring shape and values of MultyxObject
@@ -96,7 +93,7 @@ export default class MultyxObject<T extends object = object> {
             },
             
             // Allow users to set MultyxObject properties by client.self.a = b
-            set: (o, p: string, v) => {
+            set: (o, p: string, v: T[keyof T]) => {
                 if(p in o) {
                     o[p] = v;
                     return true;

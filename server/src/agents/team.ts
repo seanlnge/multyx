@@ -3,7 +3,7 @@ import Message from "../messages/message";
 import { RawObject } from "../types";
 import { AddUUID } from "../utils/uuid";
 import { Build, Edit, Get, Send } from "../utils/native";
-import { MultyxValue, MultyxObject, MultyxItem } from "../items";
+import { MultyxValue, MultyxObject, type MultyxItem } from "../items";
 
 import type Client from "./client";
 

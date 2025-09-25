@@ -2,7 +2,7 @@ import type { Agent, MultyxTeam } from "../agents";
 
 import { RawObject, Value } from "../types";
 
-import { IsMultyxItem, MultyxItem, MultyxValue } from ".";
+import { IsMultyxItem, type MultyxItem, MultyxValue } from ".";
 import { Build, Edit, EditWrapper, Get, Self } from "../utils/native";
 import MultyxItemRouter from "./router";
 
@@ -82,7 +82,7 @@ export default class MultyxList<T = any> {
             ));
         }
 
-        if(this.constructor !== MultyxList) return this;
+        if(this.constructor !== MultyxList) return this as unknown as MultyxItem<T[]>;
 
         return new Proxy(this as MultyxList<T>, {
             has: (o, p: any) => {
@@ -98,7 +98,7 @@ export default class MultyxList<T = any> {
             },
             
             // Allow users to set MultyxObject properties by client.self.a = b
-            set: (o, p: any, v) => {
+            set: (o, p: any, v: T | MultyxItem<T>) => {
                 if(p in o) {
                     o[p] = v;
                     return true;
@@ -111,7 +111,7 @@ export default class MultyxList<T = any> {
                 if(typeof p === 'number') return !!o.delete(p);
                 return false;
             }
-        });
+        }) as MultyxItem<T[]>;
     }
 
     disable() {
@@ -175,7 +175,7 @@ export default class MultyxList<T = any> {
      */
     get(property: number | string[]): MultyxItem | undefined {
         if(typeof property === 'number') return this.data[property];
-        if(property.length == 0) return this;
+        if(property.length == 0) return this as unknown as MultyxItem<T[]>;
         if(property.length == 1) return this.data[parseInt(property[0])];
 
         const next = this.data[parseInt(property[0])];
