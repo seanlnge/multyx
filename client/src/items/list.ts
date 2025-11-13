@@ -82,6 +82,8 @@ export default class MultyxClientList {
         }
     }
 
+    [index: number]: MultyxClientItem | undefined;
+
     constructor(multyx: Multyx, list: any[] | EditWrapper<any[]>, propertyPath: string[] = [], editable: boolean){
         this.list = [];
         this.propertyPath = propertyPath;
@@ -127,7 +129,7 @@ export default class MultyxClientList {
         return index >= 0 && index < this.length;
     }
 
-    get(index: number | string[]): MultyxClientItem {
+    get(index: number | string[]): MultyxClientItem | undefined{
         if(typeof index === 'number') return this.list[index];
         if(index.length == 0) return this;
         if(index.length == 1) return this.list[parseInt(index[0])];
@@ -192,9 +194,9 @@ export default class MultyxClientList {
 
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
         if(this.multyx.events.has(propSymbol)) {
-            this.multyx[Done].push(...this.multyx.events.get(propSymbol).map(e =>
+            this.multyx[Done].push(...(this.multyx.events.get(propSymbol)?.map(e =>
                 () => e(this.list[index])
-            ));
+            ) ?? []));
         }
 
         // We have to push into queue, since object may not be fully created
@@ -252,8 +254,8 @@ export default class MultyxClientList {
         return this.length;
     }
     
-    pop(): MultyxClientItem | null {
-        if(this.length === 0) return null;
+    pop(): MultyxClientItem | undefined {
+        if(this.length === 0) return undefined;
 
         const res = this.get(this.length);
         this.delete(this.length);
@@ -288,7 +290,7 @@ export default class MultyxClientList {
     }
 
     splice(start: number, deleteCount?: number, ...items: any[]) {
-        return this.list.splice(start, deleteCount, ...items);
+        return this.list.splice(start, deleteCount ?? 0, ...items);
     }
     
     setSplice(start: number, deleteCount?: number, ...items: any[]) {
@@ -433,6 +435,8 @@ export default class MultyxClientList {
         return Array(this.length).fill(0).map((_, i) => i);
     }
 
+    [Edit](){}
+
     [Unpack](constraints: any[]) {
         for(let i=0; i<this.length; i++) {
             this.get(i)?.[Unpack](constraints[i]);
@@ -443,7 +447,7 @@ export default class MultyxClientList {
     [Symbol.iterator](): Iterator<MultyxClientItem> {
         const values = [];
         for(let i=0; i<this.length; i++) values[i] = this.get(i);
-        return values[Symbol.iterator]();
+        return values[Symbol.iterator]() as Iterator<MultyxClientItem>;
     }
     toString = () => this.value.toString();
     valueOf = () => this.value;

@@ -34,8 +34,9 @@ export default class Multyx {
     constructor(options: Options = {}, callback?: () => void) {
         this.options = { ...DefaultOptions, ...options };
 
-        const url = `ws${this.options.secure ? 's' : ''}://${this.options.uri.split('/')[0]}:${this.options.port}/${this.options.uri.split('/')[1] ?? ''}`;
-        this.ws = new WebSocket(url);
+        if(!this.options.uri) throw new Error('URI is required');
+        const uri = `ws${this.options.secure ? 's' : ''}://${this.options.uri.split('/')[0]}:${this.options.port}/${this.options.uri.split('/')[1] ?? ''}`;
+        this.ws = new WebSocket(uri);
         this.ping = 0;
         this.space = 'default';
         this.events = new Map();
@@ -147,7 +148,7 @@ export default class Multyx {
                     }
                     
                     // Clear start event as it will never be called again
-                    if(this.events.has(Multyx.Start)) this.events.get(Multyx.Start).length = 0;
+                    if(this.events.has(Multyx.Start)) this.events.get(Multyx.Start)!.length = 0;
                     break;
                 }
 
@@ -211,9 +212,9 @@ export default class Multyx {
 
                 // Response to client
                 case 'resp': {
-                    const promiseResolve = this.events.get(Symbol.for("_" + update.name))[0];
+                    const promiseResolve = this.events.get(Symbol.for("_" + update.name))?.[0];
                     this.events.delete(Symbol.for("_" + update.name));
-                    this[Done].push(() => promiseResolve(update.response));
+                    if(promiseResolve) this[Done].push(() => promiseResolve(update.response));
                     break;
                 }
 

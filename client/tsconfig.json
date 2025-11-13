@@ -6,5 +6,10 @@
         "declaration": true,
         "outDir": "./dist",
         "rootDir": "./src",        // Specify the root directory of your TypeScript source files.
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "strictPropertyInitialization": false,
+        "skipLibCheck": true
     }
 }

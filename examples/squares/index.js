@@ -1,4 +1,4 @@
-const Multyx = require("multyx");
+const Multyx = require("multyx").default;
 
 const multyx = new Multyx.MultyxServer(() => console.log('started'));
 

@@ -159,32 +159,32 @@ export class Controller {
         // mb bruh jus trust it works
         if(!a) {
             if(!t && !b) return error(false, 'top', 'bottom');
-            else if(!b) position.bottom = position.top + canvas.height;
-            else if(!t) position.top = position.bottom - canvas.height;
+            else if(!b) position.bottom = position.top! + canvas.height;
+            else if(!t) position.top = position.bottom! - canvas.height;
 
             if(!l && !r) return error(false, 'left', 'right');
-            else if(!r) position.right = position.left + canvas.width;
-            else if(!l) position.left = position.right - canvas.width;
+            else if(!r) position.right = position.left! + canvas.width;
+            else if(!l) position.left = position.right! - canvas.width;
         } else if(a == 'center') {
-            if(t && b && position.top !== -position.bottom
-            || l && r && position.left !== -position.right) return error(true, 'top', 'bottom', 'left', 'right');
+            if(t && b && position.top !== -position.bottom!
+            || l && r && position.left !== -position.right!) return error(true, 'top', 'bottom', 'left', 'right');
 
             if(t) {
-                position.left = l ? position.left : r ? -position.right : -Math.abs(wToH * position.top);
-                position.right = l ? -position.left : r ? position.right : Math.abs(wToH * position.top);
-                position.bottom = -position.top;
+                position.left = l ? position.left! : r ? -position.right! : -Math.abs(wToH * position.top!);
+                position.right = l ? -position.left! : r ? position.right! : Math.abs(wToH * position.top!);
+                position.bottom = -position.top!;
             } else if(b) {
-                position.left = l ? position.left : r ? -position.right : -Math.abs(wToH * position.bottom);
-                position.right = l ? -position.left : r ? position.right : Math.abs(wToH * position.bottom);
-                position.top = -position.bottom;
+                position.left = l ? position.left! : r ? -position.right! : -Math.abs(wToH * position.bottom!);
+                position.right = l ? -position.left! : r ? position.right! : Math.abs(wToH * position.bottom!);
+                position.top = -position.bottom!;
             } else if(l) {
-                position.top = t ? position.top : b ? -position.bottom : -Math.abs(hToW * position.left);
-                position.bottom = t ? -position.top : b ? position.bottom : Math.abs(hToW * position.left);
-                position.right = -position.left;
+                position.top = t ? position.top! : b ? -position.bottom! : -Math.abs(hToW * position.left!);
+                position.bottom = t ? -position.top! : b ? position.bottom! : Math.abs(hToW * position.left!);
+                position.right = -position.left!;
             } else if(r) {
-                position.top = t ? position.top : b ? -position.bottom : -Math.abs(hToW * position.right);
-                position.bottom = t ? -position.top : b ? position.bottom : Math.abs(hToW * position.right);
-                position.left = -position.right;
+                position.top = t ? position.top! : b ? -position.bottom! : -Math.abs(hToW * position.right!);
+                position.bottom = t ? -position.top! : b ? position.bottom! : Math.abs(hToW * position.right!);
+                position.left = -position.right!;
             }
         } else if(a == 'bottom') {
             if(!l && !r && !t) return error(false, 'left', 'right', 'top');
@@ -192,14 +192,14 @@ export class Controller {
             position.bottom = 0;
 
             if(l) {
-                position.top ??= Math.abs(hToW * position.left * 2);
-                position.right ??= -position.left;
+                position.top = Math.abs(hToW * position.left! * 2);
+                position.right = -position.left!;
             } else if(r) {
-                position.top ??= Math.abs(hToW * position.right * 2);
-                position.left ??= -position.right;
+                position.top = Math.abs(hToW * position.right! * 2);
+                position.left = -position.right!;
             } else {
-                position.left = -Math.abs(wToH * position.top / 2);
-                position.right = -position.left;
+                position.left = -Math.abs(wToH * position.top! / 2);
+                position.right = -position.left!;
             }
         } else if(a == 'top') {
             if(!l && !r && !b) return error(false, 'left', 'right', 'bottom');
@@ -207,14 +207,14 @@ export class Controller {
             position.top = 0;
 
             if(l) {
-                position.bottom ??= Math.abs(hToW * position.left * 2);
-                position.right ??= -position.left;
+                position.bottom = Math.abs(hToW * position.left! * 2);
+                position.right = -position.left!;
             } else if(r) {
-                position.bottom ??= Math.abs(hToW * position.right * 2);
-                position.left ??= -position.right;
+                position.bottom = Math.abs(hToW * position.right! * 2);
+                position.left = -position.right!;
             } else {
-                position.left = -Math.abs(wToH * position.bottom / 2);
-                position.right = -position.left;
+                position.left = -Math.abs(wToH * position.bottom! / 2);
+                position.right = -position.left!;
             }
         } else if(a == 'left') { 
             if(!t && !b && !r) return error(false, 'top', 'bottom', 'right');
@@ -222,14 +222,14 @@ export class Controller {
             position.left = 0;
 
             if(t) {
-                position.right ??= -Math.abs(wToH * position.top * 2);
-                position.bottom ??= -position.top;
+                position.right = -Math.abs(wToH * position.top! * 2);
+                position.bottom = -position.top!;
             } else if(b) {
-                position.right ??= Math.abs(wToH * position.bottom * 2);
-                position.top ??= -position.bottom;
+                position.right = Math.abs(wToH * position.bottom! * 2);
+                position.top = -position.bottom!;
             } else {
-                position.top = -Math.abs(hToW * position.right / 2);
-                position.bottom = -position.top;
+                position.top = -Math.abs(hToW * position.right! / 2);
+                position.bottom = -position.top!;
             }
         } else if(a == 'right') { 
             if(!t && !b && !l) return error(false, 'top', 'bottom', 'left');
@@ -237,54 +237,54 @@ export class Controller {
             position.right = 0;
 
             if(t) {
-                position.left ??= -Math.abs(wToH * position.top * 2);
-                position.bottom ??= -position.top;
+                position.left = -Math.abs(wToH * position.top! * 2);
+                position.bottom = -position.top!;
             } else if(b) {
-                position.left ??= Math.abs(wToH * position.bottom * 2);
-                position.top ??= -position.bottom;
+                position.left = Math.abs(wToH * position.bottom! * 2);
+                position.top = -position.bottom!;
             } else {
-                position.top = -Math.abs(hToW * position.right / 2);
-                position.bottom = -position.top;
+                position.top = -Math.abs(hToW * position.right! / 2);
+                position.bottom = -position.top!;
             }
         } else if(a == 'topleft') {
             if(!r && !b) return error(false, 'right', 'bottom');
             if(l || t) return error(true, 'left', 'top');
             position.left = position.top = 0;
 
-            if(r) position.bottom = Math.abs(hToW * position.right);
-            else position.right = Math.abs(wToH * position.bottom);
+            if(r) position.bottom = Math.abs(hToW * position.right!);
+            else position.right = Math.abs(wToH * position.bottom!);
         } else if(a == 'topright') {
             if(!l && !b) return error(false, 'left', 'bottom');
             if(r || t) return error(true, 'right', 'top');
             position.right = position.top = 0;
 
-            if(l) position.bottom = Math.abs(hToW * position.left);
-            else position.left = Math.abs(wToH * position.bottom);
+            if(l) position.bottom = Math.abs(hToW * position.left!);
+            else position.left = Math.abs(wToH * position.bottom!);
         } else if(a == 'bottomleft') {
             if(!r && !t) return error(false, 'right', 'top');
             if(b || l) return error(true, 'bottom', 'left');
             position.left = position.bottom = 0;
 
-            if(r) position.top = Math.abs(hToW * position.right);
-            else position.right = Math.abs(wToH * position.top);
+            if(r) position.top = Math.abs(hToW * position.right!);
+            else position.right = Math.abs(wToH * position.top!);
         } else if(a == 'bottomright') {
             if(!t && !l) return error(false, 'top', 'left');
             if(r || b) return error(true, 'bottom', 'right');
-            position.right = position.bottom = 0;
+            position.right = position.bottom = 0 as any;
 
-            if(l) position.top = Math.abs(hToW * position.left);
-            else position.left = Math.abs(wToH * position.top);
+            if(l) position.top = Math.abs(hToW * position.left!);
+            else position.left = Math.abs(wToH * position.top!);
         }
 
         const ctx = canvas.getContext("2d");
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx?.setTransform(1, 0, 0, 1, 0, 0);
 
-        canvas.width = Math.floor(Math.abs(position.right-position.left));
-        canvas.height = Math.floor(Math.abs(position.bottom-position.top));
-        if(position.right < position.left) ctx.scale(-1, 1);
-        if(position.top > position.bottom) ctx.scale(1, -1);
+        canvas.width = Math.floor(Math.abs(position.right!-position.left!));
+        canvas.height = Math.floor(Math.abs(position.bottom!-position.top!));
+        if(position.right! < position.left!) ctx?.scale(-1, 1);
+        if(position.top! > position.bottom!) ctx?.scale(1, -1);
 
-        ctx.translate(-position.left, -position.top);
+        ctx?.translate(-position.left!, -position.top!);
     }
 
     /**
@@ -317,18 +317,18 @@ export class Controller {
      */
     mapMouseToCanvas(canvas: HTMLCanvasElement) {
         const ctx = canvas.getContext("2d");
-        const transform = ctx.getTransform();
+        const transform = ctx?.getTransform();
         const bounding = canvas.getBoundingClientRect();
         
         // Ratio between canvas scale to unit pixels
         const canvasRatioX = bounding.width / canvas.width;
         const canvasRatioY = bounding.height / canvas.height;
 
-        this.mouse.centerX = bounding.left + transform.e * canvasRatioX;
-        this.mouse.centerY = bounding.top + transform.f * canvasRatioY;
+        this.mouse.centerX = bounding.left + transform?.e! * canvasRatioX;
+        this.mouse.centerY = bounding.top + transform?.f! * canvasRatioY;
         
-        this.mouse.scaleX = canvasRatioX * transform.a;
-        this.mouse.scaleY = canvasRatioY * transform.d;
+        this.mouse.scaleX = canvasRatioX * transform?.a!;
+        this.mouse.scaleY = canvasRatioY * transform?.d!;
     }
 
     /**

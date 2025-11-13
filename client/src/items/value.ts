@@ -44,9 +44,9 @@ export default class MultyxClientValue {
 
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.'));
         if(this.multyx.events.has(propSymbol)) {
-            this.multyx[Done].push(...this.multyx.events.get(propSymbol).map(e =>
+            this.multyx[Done].push(...(this.multyx.events.get(propSymbol)?.map(e =>
                 () => e(this.value)
-            ));
+            ) ?? []));
         }
     }
 
@@ -66,7 +66,7 @@ export default class MultyxClientValue {
             return false;
         }
 
-        let nv = value;
+        let nv: Value | null = value;
         for(const constraint in this.constraints) {
             const fn = this.constraints[constraint];
             nv = fn(nv);

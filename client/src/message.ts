@@ -45,8 +45,8 @@ export function CompressUpdate(update: Update) {
         pieces = [update.name, JSON.stringify(update.response)];
     }
 
-    if(!pieces) return '';
-    let compressed = code;
+    if(!pieces || !code) return '';
+    let compressed = code.toString();
     for(let i = 0; i < pieces.length; i++) {
         compressed += pieces[i].replace(/;/g, ';_');
         if(i < pieces.length - 1) compressed += ';,';

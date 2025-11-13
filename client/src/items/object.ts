@@ -16,7 +16,7 @@ export default class MultyxClientObject {
     private editCallbacks: ((key: any, value: any) => void)[] = [];
 
     get value() {
-        const parsed = {};
+        const parsed: RawObject<MultyxClientItem> = {};
         for(const prop in this.object) parsed[prop] = this.object[prop];
         return parsed;
     }
@@ -38,8 +38,10 @@ export default class MultyxClientObject {
         if(!this.has(updatePath[0])) {
             this.set(updatePath[0], new EditWrapper({}));
         }
-        this.get(updatePath[0])[Edit](updatePath.slice(1), value);
+        this.get(updatePath[0])?.[Edit](updatePath.slice(1), value);
     }
+
+    [key: string]: any;
 
     constructor(multyx: Multyx, object: RawObject | EditWrapper<RawObject>, propertyPath: string[] = [], editable: boolean) {
         this.object = {};
@@ -85,7 +87,7 @@ export default class MultyxClientObject {
         return property in this.object;
     }
 
-    get(property: string | string[]): MultyxClientItem {
+    get(property: string | string[]): MultyxClientItem | undefined {
         if(typeof property === 'string') return this.object[property];
         if(property.length == 0) return this;
         if(property.length == 1) return this.object[property[0]];
@@ -148,9 +150,9 @@ export default class MultyxClientObject {
 
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
         if(this.multyx.events.has(propSymbol)) {
-            this.multyx[Done].push(...this.multyx.events.get(propSymbol).map(e =>
+            this.multyx[Done].push(...(this.multyx.events.get(propSymbol)?.map(e =>
                 () => e(this.object[property])
-            ));
+            ) ?? []));
         }
 
         return true;
