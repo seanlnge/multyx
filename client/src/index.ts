@@ -1,8 +1,8 @@
 import { Message, UncompressUpdate } from "./message";
-import { Unpack, EditWrapper, Add, Edit, Done } from './utils';
+import { Unpack, EditWrapper, Add, Done, Interpolate } from './utils';
 import { RawObject, ResponseUpdate } from "./types";
 import { Controller } from "./controller";
-import { MultyxClientObject, MultyxClientValue } from "./items";
+import { MultyxClientObject } from "./items";
 import { DefaultOptions, Options } from "./options";
 export default class Multyx {
     ws: WebSocket;
@@ -30,6 +30,8 @@ export default class Multyx {
     static Native = Symbol('native');
     static Custom = Symbol('custom');
     static Any = Symbol('any');
+
+    static Interpolate = Interpolate;
 
     constructor(options: Options = {}, callback?: () => void) {
         this.options = { ...DefaultOptions, ...options };
