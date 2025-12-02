@@ -1,9 +1,9 @@
 import type { Agent, Client, MultyxTeam } from "../agents";
-
 import { RawObject, Value } from "../types";
-import { Build, Edit, Get, Remove, Send, Self } from "../utils/native";
+import { Build, Edit, Get, Item, Remove, Send, Self } from "../utils/native";
 
 export default class MultyxValue<T = Value | undefined>{
+    [Item] = "value";
     value: T;
     propertyPath: string[];
 

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multyx Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/multyx-client@latest/multyx.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; }
+        [data-multyx-space] { width: 100vw; height: 100vh; position: relative; }
+    </style>
+    <link rel="stylesheet" href="83652810-9928-4d0c-a737-6ea36b7ae01a.css" />
+    <link rel="stylesheet" href="d6ce2cb9-82ed-48b5-b2a1-c7979a87d32c.css" />
+    <link rel="stylesheet" href="9887b6ed-ced2-496a-83b9-1c7b5ec37ac5.css" />
+</head>
+<body>
+<div id="multyx-83652810-9928-4d0c-a737-6ea36b7ae01a" data-node-name="Game Screen" data-multyx-space="83652810-9928-4d0c-a737-6ea36b7ae01a">
+	<canvas id="multyx-7624ebc5-d039-45cf-883a-38f93cda9348" data-node-name="gc"></canvas>
+</div>
+<div id="multyx-d6ce2cb9-82ed-48b5-b2a1-c7979a87d32c" data-node-name="Join Screen" data-multyx-space="d6ce2cb9-82ed-48b5-b2a1-c7979a87d32c">
+	<div id="multyx-0c554286-9a97-467a-9da8-669a6ebc7291" data-node-name="Title Box">
+		<button id="multyx-404b0d31-0742-47f6-ab52-53586197ee73" data-node-name="Enter">Button</button>
+		<input id="multyx-8657e989-dacd-481d-8253-3d9f26a64c08" data-node-name="Name" type="text" placeholder="Enter your name..."   />
+		<span id="multyx-6bc5d775-27f7-4ab6-b2a0-4d5135a6a55d" data-node-name="Title">Simple Shooter.IO</span>
+	</div>
+</div>
+<div id="multyx-9887b6ed-ced2-496a-83b9-1c7b5ec37ac5" data-node-name="Death Screen" data-multyx-space="9887b6ed-ced2-496a-83b9-1c7b5ec37ac5">
+	<div id="multyx-de671d4a-b743-4dc3-a408-45c4aa215694" data-node-name="Container">
+		<button id="multyx-d6d28d8f-6abc-48cd-9c38-edcb07380018" data-node-name="Respawn">Respawn?</button>
+		<span id="multyx-7a7645ce-57c2-45bf-975c-98ea944c6d90" data-node-name="Death">You Died!</span>
+	</div>
+</div>
+    <script>
+        const multyx = new Multyx({ port: 8443, secure: false, uri: "localhost" });
+    </script>
+    <script>
+		// Display Lifecycle Manager
+		const _displayLifecycle = {
+		    currentSpace: null,
+		    displayInitializers: {}, // { displayId: [initializeFunction1, initializeFunction2, ...] }
+		    displayUpdates: {}, // { displayId: [updateFunction1, updateFunction2, ...] }
+		
+		    registerInitializer: function(displayId, initializeFn) {
+		        if (!this.displayInitializers[displayId]) {
+		            this.displayInitializers[displayId] = [];
+		        }
+		        this.displayInitializers[displayId].push(initializeFn);
+		    },
+		    
+		    registerUpdate: function(displayId, updateFn) {
+		        if (!this.displayUpdates[displayId]) {
+		            this.displayUpdates[displayId] = [];
+		        }
+		        this.displayUpdates[displayId].push(updateFn);
+		    },
+		
+		    runInitializers: function() {
+		        if(multyx.space && this.displayInitializers[multyx.space]) {
+		            for(const initializeFn of this.displayInitializers[multyx.space]) {
+		                try {
+		                    initializeFn();
+		                } catch (e) {
+		                    console.error('Display initialize error:', e);
+		                }
+		            }
+		        }
+		    },
+		    
+		    runUpdates: function() {
+		        if(multyx.space !== this.currentSpace) {
+		            this.runInitializers();
+		            this.currentSpace = multyx.space;
+		        }
+		
+		        if (multyx.space && this.displayUpdates[multyx.space]) {
+		            for (const updateFn of this.displayUpdates[multyx.space]) {
+		                try {
+		                    updateFn();
+		                } catch (e) {
+		                    console.error('Display update error:', e);
+		                }
+		            }
+		        }
+		    }
+		}
+		    
+		if(multyx && multyx.loop) multyx.loop(() => _displayLifecycle.runUpdates());
+    </script>
+    <script src="83652810-9928-4d0c-a737-6ea36b7ae01a.js"></script>
+    <script src="d6ce2cb9-82ed-48b5-b2a1-c7979a87d32c.js"></script>
+    <script src="9887b6ed-ced2-496a-83b9-1c7b5ec37ac5.js"></script>
+</body>
+</html>

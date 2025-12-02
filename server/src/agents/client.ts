@@ -15,6 +15,7 @@ export default class Client {
     self: MultyxObject;
     controller: Controller;
     teams: Set<MultyxTeam>;
+    private agentIndex: Map<string, MultyxTeam | Client>;
     server: MultyxServer;
     uuid: string;
     warnings: number;
@@ -38,6 +39,8 @@ export default class Client {
         this.self = new MultyxObject({}, this);
         this.controller = new Controller(this);
         this.space = 'default';
+        this.agentIndex = new Map();
+        this.agentIndex.set(this.uuid, this);
     }
 
     on(eventName: string, callback: (data: any) => any) {
@@ -69,6 +72,22 @@ export default class Client {
      */
     getSpace() {
         return this.space;
+    }
+
+    registerTeam(team: MultyxTeam) {
+        if(this.teams.has(team)) return;
+        this.teams.add(team);
+        this.agentIndex.set(team.uuid, team);
+    }
+
+    unregisterTeam(team: MultyxTeam) {
+        if(!this.teams.has(team)) return;
+        this.teams.delete(team);
+        this.agentIndex.delete(team.uuid);
+    }
+
+    getAgent(identifier: string) {
+        return this.agentIndex.get(identifier);
     }
 
     /**

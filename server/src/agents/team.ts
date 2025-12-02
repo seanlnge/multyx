@@ -18,6 +18,14 @@ export default class MultyxTeam {
         return Array.from(this._clients);
     }
 
+    iterateClients(): IterableIterator<Client> {
+        return this._clients.values();
+    }
+
+    forEachClient(callback: (client: Client) => void) {
+        this._clients.forEach(callback);
+    }
+
     /**
      * Creates a group of clients sharing public data
      * @param clients List of clients to add to team
@@ -41,11 +49,11 @@ export default class MultyxTeam {
         this._clients = new Set();
         clients.forEach(c => {
             this.self.clients.push(c.uuid);
-            c.teams.add(this);
+            c.registerTeam(this);
             this._clients.add(c);
         });
 
-        this.server = this.clients.values().next().value?.server ?? this.server;
+        this.server = this._clients.values().next().value?.server ?? this.server;
         this.server[Edit](this.self, this._clients);
     }
 
@@ -56,7 +64,7 @@ export default class MultyxTeam {
      */
     send(eventName: string, data: any) {
         const msg = Message.Create(eventName, data);
-        for(const client of this.clients) {
+        for(const client of this._clients) {
             this.server[Build](client, msg);
         }
     }
@@ -67,8 +75,10 @@ export default class MultyxTeam {
      * @returns Client if exists in team, else null
      */
     getClient(uuid: string) {
-        const client = Array.from(this.clients.values()).find(x => x.uuid == uuid);
-        return client ?? null;
+        for(const member of this._clients) {
+            if(member.uuid === uuid) return member;
+        }
+        return null;
     }
 
     /**
@@ -82,7 +92,7 @@ export default class MultyxTeam {
         this.self.clients.push(client.uuid);
 
         this._clients.add(client);
-        client.teams.add(this);
+        client.registerTeam(this);
 
         // Send public data of all clients to new client
         for(const mv of this.public) {
@@ -104,7 +114,7 @@ export default class MultyxTeam {
 
         this._clients.delete(client);
         this.removePublic(client.self);
-        client.teams.delete(this);
+        client.unregisterTeam(this);
     }
 
     /**
@@ -141,7 +151,7 @@ export default class MultyxTeam {
      */
     [Get](): Map<Client, RawObject> {
         const parsed = new Map();
-        this.clients.forEach(c =>
+        this._clients.forEach(c =>
             parsed.set(c, c.self[Get](this))
         );
         return parsed;

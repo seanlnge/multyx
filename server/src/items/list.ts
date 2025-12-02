@@ -1,12 +1,12 @@
 import type { Agent, MultyxTeam } from "../agents";
-
 import { RawObject, Value } from "../types";
-
-import { IsMultyxItem, type MultyxItem, MultyxValue } from ".";
-import { Build, Edit, EditWrapper, Get, Self } from "../utils/native";
+import type { MultyxItem } from ".";
+import MultyxValue from "./value";
+import { Build, Item, EditWrapper, Get, Self } from "../utils/native";
 import MultyxItemRouter from "./router";
 
 export default class MultyxList<T = any> {
+    [Item] = "list";
     data: MultyxItem<T>[];
     propertyPath: string[];
     agent: Agent;
@@ -206,7 +206,7 @@ export default class MultyxList<T = any> {
             if(!this.allowItemAddition && index >= this.length) return false;
             if(!this.allowItemChange && index < this.length) return false;
             value = value.value;
-        } else if(IsMultyxItem(value)) {
+        } else if(Item in value) {
             value = value.value;
         }
         
@@ -215,7 +215,7 @@ export default class MultyxList<T = any> {
     
         const propertyPath = [...this.propertyPath, index.toString()];
 
-        if(IsMultyxItem(value)) {
+        if(Item in value) {
             value[Self](propertyPath);
             this.data[index] = value as MultyxItem<T>;
         } else {
@@ -239,6 +239,11 @@ export default class MultyxList<T = any> {
         return this;
     }
 
+    /**
+     * Deletes an item from the MultyxList
+     * @param index Index of item to delete
+     * @returns Modified MultyxList
+     */
     delete(index: string | number): this {
         if(typeof index === 'string') index = parseInt(index);
         delete this.data[index];
@@ -253,6 +258,11 @@ export default class MultyxList<T = any> {
         return this;
     }
 
+    /**
+     * Wait for a specific index to be set
+     * @param index Index to wait for
+     * @returns Promise that resolves when the value is set
+     */
     await(index: number) {
         if(this.has(index)) return Promise.resolve(this.get(index));
         const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
@@ -321,6 +331,11 @@ export default class MultyxList<T = any> {
         }
     }
 
+    /**
+     * Appends all items to the end of the MultyxList
+     * @param items Items to add to the end of the MultyxList
+     * @returns New length of MultyxList
+     */
     push(...items: any[]) {
         this.data.push(...items.map((item, index) => new (MultyxItemRouter(item))(
             item,
@@ -331,12 +346,21 @@ export default class MultyxList<T = any> {
         return this.length;
     }
 
+    /**
+     * Removes and returns the last item in the MultyxList. If the list is empty, it returns undefined.
+     * @returns Last item in MultyxList
+     */
     pop(): MultyxItem<T> | undefined {
         if(this.length == 0) return undefined;
         this.sendShiftOperation(-1, -1); // Delete last item
         return this.data.pop();
     }
 
+    /**
+     * Adds one or more items to the beginning of the MultyxList and returns the new length of the list.
+     * @param items Items to add to the beginning of the MultyxList
+     * @returns New length of MultyxList
+     */
     unshift(...items: any[]) {
         // Let client know that all items getting shifted right # of items being added
         this.sendShiftOperation(0, items.length);
@@ -351,18 +375,36 @@ export default class MultyxList<T = any> {
         return this.length;
     }
 
+    /**
+     * Removes and returns the first item in the MultyxList. If the list is empty, it returns undefined.
+     * @returns First item in MultyxList
+     */
     shift() {
         if(this.length == 0) return undefined;
         this.sendShiftOperation(1, -1);
         return this.data.shift();
     }
 
-    splice(start: number, deleteCount?: number, ...items: any[]) {
+    /**
+     * Returns a new MultyxList with the elements changed by the splice.
+     * @param start Start index
+     * @param deleteCount Number of elements to delete
+     * @param items Elements to add
+     * @returns New MultyxList
+     */
+    toSpliced(start: number, deleteCount?: number, ...items: any[]) {
         if(!deleteCount) return this.data.splice(start);
         return this.data.splice(start, deleteCount, ...items);
     }
 
-    setSplice(start: number, deleteCount?: number, ...items: any[]) {
+    /**
+     * Changes the contents of the MultyxList by removing or replacing existing elements and/or adding new elements at the specified start index. The deleteCount parameter specifies the number of elements to remove. It shifts elements as needed to accommodate additions.
+     * @param start Start index
+     * @param deleteCount Number of elements to delete
+     * @param items Elements to add
+     * @returns Array of deleted elements
+     */
+    splice(start: number, deleteCount?: number, ...items: any[]) {
         // If no delete count, delete all items from start to end
         if(deleteCount === undefined) deleteCount = this.length - start;
 
@@ -392,10 +434,22 @@ export default class MultyxList<T = any> {
         return newItems;
     }
 
+    /**
+     * Returns a new MultyxList with the elements changed by the slice.
+     * @param start Start index
+     * @param end End index
+     * @returns New MultyxList
+     */
     slice(start?: number, end?: number) {
         return this.data.slice(start, end) as MultyxItem<T>[];
     }
 
+    /**
+     * Turns MultyxList into a portion of the array ranging from indices `start` to `end` (`end` not included). This does not return a new MultyxList or a reference to a MultyxList, but modifies the original MultyxList.
+     * @param start Start index
+     * @param end End index
+     * @returns Modified MultyxList
+     */
     setSlice(start?: number, end?: number) {
         if(start === undefined) return this;
         if(start < -this.length) start = 0;
@@ -421,14 +475,27 @@ export default class MultyxList<T = any> {
         return this;
     }
 
+    /**
+     * Creates a new MultyxList containing only the elements that pass the test implemented by the provided predicate function.
+     * @param predicate Predicate function to test each element
+     * @returns New MultyxList
+     */
     filter(predicate: (value: any, index: number, array: MultyxList) => boolean) {
-        const keep = [];
+        const filtered: MultyxItem<T>[] = [];
         for(let i=0; i<this.length; i++) {
-            keep.push(predicate(this.get(i), i, this));
+            const item = this.get(i);
+            if(predicate(item, i, this) && item) {
+                filtered.push(item as MultyxItem<T>);
+            }
         }
-        return keep;
+        return filtered;
     }
 
+    /**
+     * Filters the MultyxList by removing elements that do not pass the test implemented by the provided predicate function.
+     * @param predicate Predicate function to test each element
+     * @returns Modified MultyxList
+     */
     setFilter(predicate: (value: any, index: number, array: MultyxList) => boolean) {
         const keep = [];
         for(let i=0; i<this.length; i++) {
@@ -463,6 +530,11 @@ export default class MultyxList<T = any> {
         return this;
     }
 
+    /**
+     * Transforms each element of the MultyxList using the provided callback function.
+     * @param callbackfn Callback function to transform each element
+     * @returns New MultyxList
+     */
     map(callbackfn: (value: any, index: number, array: MultyxList) => any) {
         const next = [];
         for(let i=0; i<this.length; i++) {
@@ -471,6 +543,11 @@ export default class MultyxList<T = any> {
         return next;
     }
 
+    /**
+     * Transforms each element of the MultyxList using the provided callback function.
+     * @param callbackfn Callback function to transform each element
+     * @returns Modified MultyxList
+     */
     setMap(callbackfn: (value: any, index: number, array: MultyxList) => any) {
         for(let i=0; i<this.length; i++) {
             this.set(i, callbackfn(this.get(i), i, this));
@@ -478,10 +555,18 @@ export default class MultyxList<T = any> {
         return this;
     }
 
+    /**
+     * Flattens nested MultyxList structures by one level, appending the elements of any nested lists to the main list.
+     * @returns New MultyxList
+     */
     flat() {
         return this.data.flat();
     }
 
+    /**
+     * Flattens nested MultyxList structures by one level, appending the elements of any nested lists to the main list.
+     * @returns Modified MultyxList
+     */
     setFlat() {
         for(let i=0; i<this.length; i++) {
             const item = this.get(i);
@@ -495,6 +580,18 @@ export default class MultyxList<T = any> {
         }
     }
 
+    /**
+     * Applies a function against an accumulator and each element in the MultyxList (from left to right) to reduce it to a single value.
+     * @param callbackfn Callback function to apply to each element
+     * @param startingAccumulator Starting value for the accumulator
+     * @returns Reduced value
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3, 4, 5];
+     * const sum = client.self.list.reduce((acc, curr) => acc + curr, 0);
+     * console.log(sum); // 15
+     * ```
+     */
     reduce(callbackfn: (accumulator: any, currentValue: any, index: number, array: MultyxList) => any, startingAccumulator: any) {
         for(let i=0; i<this.length; i++) {
             startingAccumulator = callbackfn(startingAccumulator, this.get(i), i, this);
@@ -502,6 +599,18 @@ export default class MultyxList<T = any> {
         return startingAccumulator;
     }
 
+    /**
+     * Applies a function against an accumulator and each element in the MultyxList (from right to left) to reduce it to a single value.
+     * @param callbackfn Callback function to apply to each element
+     * @param startingAccumulator Starting value for the accumulator
+     * @returns Reduced value
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * const sum = client.self.list.reduceRight((acc, curr) => curr - acc, 0);
+     * console.log(sum); // 2 since 3-0 = 3, 2-3 = -1, 1-(-1) = 2
+     * ```
+     */
     reduceRight(callbackfn: (accumulator: any, currentValue: any, index: number, array: MultyxList) => any, startingAccumulator: any) {
         for(let i=this.length-1; i>=0; i--) {
             startingAccumulator = callbackfn(startingAccumulator, this.get(i), i, this);
@@ -509,18 +618,50 @@ export default class MultyxList<T = any> {
         return startingAccumulator;
     }
 
+    /**
+     * Reverses the order of the elements in the MultyxList in place and returns same MultyxList.
+     * @returns Modified MultyxList
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * client.self.list.reverse();
+     * console.log(client.self.list); // [3, 2, 1]
+     */
     reverse() {
         this.data.reverse();
         this.sendShiftOperation(-1, 0);
         return this;
     }
 
+    /**
+     * Executes a provided function once for each MultyxList element.
+     * @param callbackfn Callback function to execute for each element
+     * @returns Modified MultyxList
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * client.self.list.forEach((value, index) => {
+     *   console.log(value, index);
+     * });
+     * ```
+     */
     forEach(callbackfn: (value: any, index: number, array: MultyxList) => void) {
         for(let i=0; i<this.length; i++) {
             callbackfn(this.get(i), i, this);
         }
     }
 
+    /**
+     * Tests whether all elements in the MultyxList pass the test implemented by the provided predicate function.
+     * @param predicate Predicate function to test each element
+     * @returns True if all elements pass the test, false otherwise
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * const allPositive = client.self.list.every((value) => value > 0);
+     * console.log(allPositive); // true
+     * ```
+     */
     every(predicate: (value: any, index: number, array: MultyxList) => boolean) {
         for(let i=0; i<this.length; i++) {
             if(!predicate(this.get(i), i, this)) return false;
@@ -528,6 +669,17 @@ export default class MultyxList<T = any> {
         return true;
     }
 
+    /**
+     * Tests whether at least one element in the MultyxList passes the test implemented by the provided predicate function.
+     * @param predicate Predicate function to test each element
+     * @returns True if at least one element passes the test, false otherwise
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * const hasNegative = client.self.list.some((value) => value < 0);
+     * console.log(hasNegative); // false
+     * ```
+     */
     some(predicate: (value: any, index: number, array: MultyxList) => boolean) {
         for(let i=0; i<this.length; i++) {
             if(predicate(this.get(i), i, this)) return true;
@@ -535,6 +687,17 @@ export default class MultyxList<T = any> {
         return false;
     }
 
+    /**
+     * Returns the first element in the MultyxList that satisfies the provided predicate function.
+     * @param predicate Predicate function to test each element
+     * @returns The first element that passes the test, undefined if no element passes the test
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * const firstEven = client.self.list.find((value) => value % 2 === 0);
+     * console.log(firstEven); // 2
+     * ```
+     */
     find(predicate: (value: any, index: number, array: MultyxList) => boolean) {
         for(let i=0; i<this.length; i++) {
             if(predicate(this.get(i), i, this)) return this.get(i);
@@ -542,6 +705,17 @@ export default class MultyxList<T = any> {
         return undefined;
     }
     
+    /**
+     * Returns the index of the first element in the MultyxList that satisfies the provided predicate function.
+     * @param predicate Predicate function to test each element
+     * @returns The index of the first element that passes the test, -1 if no element passes the test
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * const firstEvenIndex = client.self.list.findIndex((value) => value % 2 === 0);
+     * console.log(firstEvenIndex); // 1
+     * ```
+     */
     findIndex(predicate: (value: any, index: number, array: MultyxList) => boolean) {
         for(let i=0; i<this.length; i++) {
             if(predicate(this.get(i), i, this)) return i;
@@ -549,6 +723,16 @@ export default class MultyxList<T = any> {
         return -1;
     }
 
+    /**
+     * Returns an array of [value, index] pairs for each element in the MultyxList.
+     * @returns Array of [value, index] pairs
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * const entries = client.self.list.entries();
+     * console.log(entries); // [[0, 1], [1, 2], [2, 3]]
+     * ```
+     */
     entries(): [any, any][] {
         const entryList: [number, any][] = [];
         for(let i=0; i<this.length; i++) {
@@ -557,10 +741,30 @@ export default class MultyxList<T = any> {
         return entryList;
     }
 
+    /**
+     * Returns an array of the keys (indices) for each element in the MultyxList.
+     * @returns Array of keys
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * const keys = client.self.list.keys();
+     * console.log(keys); // [0, 1, 2]
+     * ```
+     */
     keys(): any[] {
         return Array(this.length).fill(0).map((_, i) => i);
     }
 
+    /**
+     * Returns an array of the values for each element in the MultyxList.
+     * @returns Array of values
+     * @example
+     * ```js
+     * client.self.list = [1, 2, 3];
+     * const values = client.self.list.values();
+     * console.log(values); // [1, 2, 3]
+     * ```
+     */
     values(): any[] {
         return Array(this.length).fill(0).map((_, i) => this.get(i));
     }

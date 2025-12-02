@@ -13,6 +13,7 @@ export const Send = Symbol("send");
 export const Self = Symbol("self");
 export const Build = Symbol("build");
 export const Remove = Symbol("remove");
+export const Item = Symbol.for("_multyxitem");
 
 export class EditWrapper {
     value: any;

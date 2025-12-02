@@ -1,6 +1,6 @@
 {
   "name": "multyx",
-  "version": "0.2.8",
+  "version": "0.2.11",
   "description": "Framework designed to simplify the creation of multiplayer browser games by addressing the complexities of managing server-client communication, shared state, and input handling",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -27,14 +27,13 @@
   },
   "homepage": "https://github.com/seanlnge/multyx#readme",
   "dependencies": {
-    "@types/nanotimer": "^0.3.2",
-    "@types/ws": "^8.18.1",
     "nanotimer": "^0.3.15",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
     "webpack": "^5.102.1",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "circular-dependency-plugin": "^5.2.2"
   }
 }

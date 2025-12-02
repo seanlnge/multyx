@@ -1,12 +1,12 @@
-import MultyxValue from './value';
-import MultyxItemRouter from './router';
-import { MultyxItem, MultyxObjectData } from ".";
-
-import { RawObject } from "../types";
-import { Edit, Get, EditWrapper, Build, Self } from '../utils/native';
-
 import type { Agent, MultyxTeam } from "../agents";
+import { MultyxItem, MultyxObjectData } from ".";
+import MultyxValue from './value';
+import { RawObject } from "../types";
+import { Get, EditWrapper, Build, Self, Item } from '../utils/native';
+import MultyxItemRouter from './router';
+
 export default class MultyxObject<T extends object = object> {
+    [Item] = "object";
     data: MultyxObjectData<T>;
     propertyPath: string[];
     agent: Agent;
@@ -108,6 +108,10 @@ export default class MultyxObject<T extends object = object> {
         });
     }
 
+    /**
+     * Disallow Clients from changing the MultyxObject
+     * @returns Same MultyxObject
+     */
     disable() {
         for(const prop in this.data) {
             this.data[prop].disable();
@@ -117,6 +121,10 @@ export default class MultyxObject<T extends object = object> {
         return this;
     }
 
+    /**
+     * Allow agents (Clients/Teams) to edit the MultyxObject
+     * @returns Same MultyxObject
+     */
     enable() {
         for(const prop in this.data) {
             this.data[prop].enable();
@@ -126,6 +134,10 @@ export default class MultyxObject<T extends object = object> {
         return this;
     }
 
+    /**
+     * Share this object with agents (Clients/Teams)
+     * @returns Same MultyxObject
+     */
     relay() {
         for(const prop in this.data) {
             this.data[prop].relay();
@@ -134,6 +146,10 @@ export default class MultyxObject<T extends object = object> {
         return this;
     }
 
+    /**
+     * Turn off sharing this object with agents (Clients/Teams)
+     * @returns Same MultyxObject
+     */
     unrelay() {
         for(const prop in this.data) {
             this.data[prop].unrelay();
@@ -143,9 +159,9 @@ export default class MultyxObject<T extends object = object> {
     }
 
     /**
-     * Publicize MultyxValue from specific MultyxTeam
-     * @param team MultyxTeam to share MultyxValue to
-     * @returns Same MultyxValue
+     * Publicize this object with specific MultyxTeam
+     * @param team MultyxTeam to share this object to
+     * @returns Same MultyxObject
      */
     addPublic(team: MultyxTeam) {
         if(this.publicTeams.has(team)) return this;
@@ -157,9 +173,9 @@ export default class MultyxObject<T extends object = object> {
     }
 
     /**
-     * Privitize MultyxValue from specific MultyxTeam
-     * @param team MultyxTeam to hide MultyxValue from
-     * @returns Same MultyxValue
+     * Privitize this object from specific MultyxTeam
+     * @param team MultyxTeam to hide this object from
+     * @returns Same MultyxObject
      */
     removePublic(team: MultyxTeam) {
         if(!this.publicTeams.has(team)) return this;
@@ -172,6 +188,8 @@ export default class MultyxObject<T extends object = object> {
 
     /**
      * Check if property is in object
+     * @param property Name of property to check
+     * @returns True if property is in object, false otherwise
      */
     has(property: string) {
         return property in this.data;
@@ -179,6 +197,8 @@ export default class MultyxObject<T extends object = object> {
 
     /**
      * Get the value of a property
+     * @param property Name of property to get
+     * @returns Value of property, undefined if property is not in object
      */
     get(property: string | string[]): MultyxItem | undefined {
         if(typeof property === 'string') return this.data[property];
@@ -255,7 +275,7 @@ export default class MultyxObject<T extends object = object> {
     /**
      * Delete property from MultyxObject
      * @param property Name of property to delete
-     * @returns False if deletion failed, same MultyxObject otherwise
+     * @returns Same MultyxObject
      */
     delete(property: string) {
         delete this.data[property];
@@ -272,7 +292,7 @@ export default class MultyxObject<T extends object = object> {
     /**
      * Wait for a property in object to be defined
      * @param property Name of property in object to wait for 
-     * @returns Promise that resolves once object[property] is defined
+     * @returns Promise that resolves when the value is set
      */
     await(property: string) {
         if(this.has(property)) return Promise.resolve(this.get(property));
@@ -286,7 +306,7 @@ export default class MultyxObject<T extends object = object> {
     /**
      * Create a callback that gets called whenever the object is edited
      * @param property Property to listen for writes on
-     * @param callback Function to call whenever object is edited
+     * @param callback Function to call whenever the object is edited
      * @returns Event object representing write callback
      */
     onWrite(property: string, callback: (v: any) => void) {
@@ -297,7 +317,7 @@ export default class MultyxObject<T extends object = object> {
     /**
      * Get all properties in object publicized to specific team
      * @param team MultyxTeam to get public data for
-     * @returns Raw object
+     * @returns Raw object mirroring shape and values of object publicized to specific team
      */
     [Get](team: MultyxTeam): RawObject {
         const parsed: RawObject = {};
@@ -349,19 +369,59 @@ export default class MultyxObject<T extends object = object> {
         }
     }
 
+    /**
+     * Returns an array of [key, value] pairs for each property in the object
+     * @returns Array of [key, value] pairs
+     * @example
+     * ```js
+     * client.self.object = { a: 1, b: 2, c: 3 };
+     * const entries = client.self.object.entries();
+     * console.log(entries); // [['a', 1], ['b', 2], ['c', 3]]
+     * ```
+     */
     entries(): [string, any][] {
         return Object.entries(this.data);
     }
 
+    /**
+     * Returns an array of the keys of the object
+     * @returns Array of keys
+     * @example
+     * ```js
+     * client.self.object = { a: 1, b: 2, c: 3 };
+     * const keys = client.self.object.keys();
+     * console.log(keys); // ['a', 'b', 'c']
+     * ```
+     */
     keys(): string[] {
         return Object.keys(this.data);
     }
 
+    /**
+     * Returns an array of the values of the object
+     * @returns Array of values
+     * @example
+     * ```js
+     * client.self.object = { a: 1, b: 2, c: 3 };
+     * const values = client.self.object.values();
+     * console.log(values); // [1, 2, 3]
+     * ```
+     */
     values(): any[] {
         return Object.values(this.data);
     }
 
     /* Native methods to allow MultyxObject to be treated as primitive */
+
+    /**
+     * Returns a string representation of the object
+     * @returns String representation of the object
+     * @example
+     * ```js
+     * client.self.object = { a: 1, b: 2, c: 3 };
+     * console.log(client.self.object.toString()); // "{ a: 1, b: 2, c: 3 }"
+     * ```
+     */
     toString = () => this.value.toString();
     valueOf = () => this.value;
     [Symbol.toPrimitive] = () => this.value;

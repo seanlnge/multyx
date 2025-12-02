@@ -131,7 +131,7 @@ class MultyxServer {
                 this.all.removeClient(client);
                 
                 if(this.options.sendConnectionUpdates) {
-                    for(const c of this.all.clients) {
+                    for(const c of this.all.iterateClients()) {
                         if(c === client) continue;
 
                         this.addOperation(c, { instruction: 'dcon', clientUUID: client.uuid });
@@ -163,22 +163,32 @@ class MultyxServer {
 
         this.all.addClient(client);
 
+        const cloneRawObject = (source?: RawObject) => {
+            if(!source) return {} as RawObject;
+            const target: RawObject = Array.isArray(source) ? [] as unknown as RawObject : {};
+            return MergeRawObjects(target, source);
+        };
+
+        const mergeIntoMap = (map: Map<Client, RawObject>, targetClient: Client, fragment?: RawObject) => {
+            if(!fragment) return;
+            const existing = map.get(targetClient);
+            if(existing) {
+                MergeRawObjects(existing, fragment);
+                return;
+            }
+            map.set(targetClient, cloneRawObject(fragment));
+        };
+
         // Find all public data shared to client and compile into raw data
         const publicToClient: Map<Client, RawObject> = new Map();
-        publicToClient.set(client, client.self.relayedValue);
+        publicToClient.set(client, cloneRawObject(client.self.relayedValue));
         
         for(const team of client.teams) {
             const clients = team[Get]();
 
             for(const [c, curr] of clients) {
                 if(c === client) continue;
-
-                const prev = publicToClient.get(c);
-                if(!prev) {
-                    publicToClient.set(c, curr);
-                    continue;
-                }
-                publicToClient.set(c, MergeRawObjects(curr, prev));
+                mergeIntoMap(publicToClient, c, curr);
             }
         }
 
@@ -209,25 +219,39 @@ class MultyxServer {
 
         // Find all public data client shares and compile into raw data
         const clientToPublic: Map<Client, RawObject> = new Map();
-        this.all.clients.forEach(c => clientToPublic.set(c, c.self[Get](this.all)));
+        const ensureClientEntry = (c: Client) => {
+            let entry = clientToPublic.get(c);
+            if(entry) return entry;
+            entry = {} as RawObject;
+            clientToPublic.set(c, entry);
+            return entry;
+        };
+
+        const basePublicData = client.self[Get](this.all);
+        for(const c of this.all.iterateClients()) {
+            if(c === client) continue;
+            const entry = ensureClientEntry(c);
+            if(basePublicData) MergeRawObjects(entry, basePublicData);
+        }
 
         for(const team of client.teams) {
-            const publicData = client.self[Get](team);
+            if(team === this.all) continue;
 
-            for(const c of team.clients) {
+            const publicData = client.self[Get](team);
+            if(!publicData) continue;
+
+            for(const c of team.iterateClients()) {
                 if(c === client) continue;
 
-                clientToPublic.set(c, MergeRawObjects(
-                    clientToPublic.get(c)!,
-                    publicData
-                ));
+                const entry = ensureClientEntry(c);
+                MergeRawObjects(entry, publicData);
             }
         }
 
         if(!this.options.sendConnectionUpdates) return client;
 
         // Send connection update and public data to all other clients
-        for(const c of this.all.clients) {
+        for(const c of this.all.iterateClients()) {
             if(c === client) continue;
             
             this.addOperation(c, {
@@ -273,9 +297,7 @@ class MultyxServer {
         const prop = update.path.slice(-1)[0];
 
         // First value in path array is client uuid / team name
-        const agent = client.uuid === update.path[0]
-            ? client
-            : Array.from(client.teams).find(t => t.uuid === update.path[0]);
+        const agent = client.getAgent(update.path[0]);
         if(!agent) return;
 
         const item = agent.self.get(path);
@@ -372,13 +394,13 @@ class MultyxServer {
         this.deltaTime = (Date.now() - this.lastFrame) / 1000;
         this.lastFrame = Date.now();
 
-        for(const client of this.all.clients) {
+        for(const client of this.all.iterateClients()) {
             client.onUpdate?.(this.deltaTime, client.controller.state);
         }
 
         this.events.get(Events.Update)?.forEach(event => event.call());
 
-        for(const client of this.all.clients) {
+        for(const client of this.all.iterateClients()) {
             const rawUpdates = this.updates.get(client);
             if(!rawUpdates?.length) continue;
 
@@ -506,7 +528,7 @@ class MultyxServer {
      * @param callback 
      */
     forAll(callback: Callback) {
-        for(const client of this.all.clients) {
+        for(const client of this.all.iterateClients()) {
             callback(client);
         }
 
