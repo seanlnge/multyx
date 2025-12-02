@@ -7,7 +7,10 @@ import { IsMultyxClientItem, type MultyxClientList, type MultyxClientItem } from
 import MultyxClientItemRouter from "./router";
 import MultyxClientValue from "./value";
 
+const isPlainObject = (value: any) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
 export default class MultyxClientObject {
+    readonly type = 'object';
     protected object: RawObject<MultyxClientItem>;
     private multyx: Multyx;
     propertyPath: string[];
@@ -124,36 +127,35 @@ export default class MultyxClientObject {
 
         const serverSet = value instanceof EditWrapper;
         const allowed = serverSet || this.editable;
-        if(serverSet || IsMultyxClientItem(value)) value = value.value;
-        if(value === undefined) return this.delete(property, serverSet);
+        const incoming = (serverSet || IsMultyxClientItem(value)) ? value.value : value;
+        if(incoming === undefined) return this.delete(property, serverSet);
+
+        if(serverSet && this.applyServerValue(property, incoming)) {
+            return true;
+        }
 
         // Only create new MultyxClientItem when needed
-        if(this.object[property] instanceof MultyxClientValue && typeof value != 'object') {
-            return this.object[property].set(serverSet ? new EditWrapper(value) : value);
+        if(this.object[property] instanceof MultyxClientValue && (typeof incoming !== 'object' || incoming === null)) {
+            return this.object[property].set(serverSet ? new EditWrapper(incoming) : incoming);
         }
         
         // Attempting to edit property not editable to client
         if(!allowed) {
             if(this.multyx.options.verbose) {
-                console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.') + '.' + property}' to ${value}`);
+                console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.') + '.' + property}' to ${incoming}`);
             }
             return false;
         }
 
         // Creating a new value
-        this.object[property] = new (MultyxClientItemRouter(value))(
+        this.object[property] = new (MultyxClientItemRouter(incoming))(
             this.multyx,
-            serverSet ? new EditWrapper(value) : value,
+            serverSet ? new EditWrapper(incoming) : incoming,
             [...this.propertyPath, property],
             this.editable
         );
 
-        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
-        if(this.multyx.events.has(propSymbol)) {
-            this.multyx[Done].push(...(this.multyx.events.get(propSymbol)?.map(e =>
-                () => e(this.object[property])
-            ) ?? []));
-        }
+        this.notifyPropertyWaiters(property);
 
         return true;
     }
@@ -214,6 +216,50 @@ export default class MultyxClientObject {
     [Unpack](constraints: RawObject) {
         for(const prop in constraints) {
             this.object[prop]?.[Unpack](constraints[prop]);
+        }
+    }
+
+    hydrateFromServer(value: RawObject) {
+        if(!isPlainObject(value)) return;
+        const remaining = new Set(Object.keys(this.object));
+        for(const [key, entry] of Object.entries(value)) {
+            remaining.delete(key);
+            this.set(key, new EditWrapper(entry));
+        }
+        for(const key of remaining) {
+            this.delete(key, true);
+        }
+    }
+
+    private applyServerValue(property: string, incoming: any) {
+        const current = this.object[property];
+        if(!current) return false;
+
+        if(current instanceof MultyxClientValue && (typeof incoming !== 'object' || incoming === null)) {
+            current.set(new EditWrapper(incoming));
+            return true;
+        }
+
+        const canHydrate = typeof (current as any)?.hydrateFromServer === 'function';
+        if(Array.isArray(incoming) && canHydrate && (current as any).type === 'list') {
+            (current as any).hydrateFromServer(incoming);
+            return true;
+        }
+
+        if(isPlainObject(incoming) && canHydrate && (current as any).type === 'object') {
+            (current as any).hydrateFromServer(incoming);
+            return true;
+        }
+
+        return false;
+    }
+
+    private notifyPropertyWaiters(property: string) {
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + property);
+        if(this.multyx.events.has(propSymbol)) {
+            this.multyx[Done].push(...(this.multyx.events.get(propSymbol)?.map(e =>
+                () => e(this.object[property])
+            ) ?? []));
         }
     }
 }

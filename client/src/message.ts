@@ -15,8 +15,8 @@ export function UncompressUpdate(str: string) {
     if(instruction == '9') return { instruction: 'self', property: "space", data: JSON.parse(specifier) };
 
     if(instruction == '5') return { instruction: 'resp', name: specifier, response: data[0] };
-    if(instruction == '6') return { instruction: 'conn', uuid: specifier, publicData: data[0] };
-    if(instruction == '7') return { instruction: 'dcon', clientUUID: specifier };
+    if(instruction == '6') return { instruction: 'conn', uuid: specifier, data: data[0] };
+    if(instruction == '7') return { instruction: 'dcon', client: specifier };
     
     if(instruction == '8') return {
         instruction: 'init',
@@ -45,7 +45,7 @@ export function CompressUpdate(update: Update) {
         pieces = [update.name, JSON.stringify(update.response)];
     }
 
-    if(!pieces || !code) return '';
+    if(!pieces || code === undefined) return '';
     let compressed = code.toString();
     for(let i = 0; i < pieces.length; i++) {
         compressed += pieces[i].replace(/;/g, ';_');

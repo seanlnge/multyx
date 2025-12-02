@@ -32,7 +32,7 @@ export class Controller {
         };
 
         document.addEventListener('keydown', e => {
-            if(this.preventDefault) e.preventDefault;
+            if(this.preventDefault) e.preventDefault();
 
             const key = e.key.toLowerCase();
 
@@ -57,7 +57,7 @@ export class Controller {
 
         });
         document.addEventListener('keyup', e => {
-            if(this.preventDefault) e.preventDefault;
+            if(this.preventDefault) e.preventDefault();
             
             const key = e.key.toLowerCase();
 
@@ -69,7 +69,7 @@ export class Controller {
 
         // Mouse input events
         document.addEventListener('mousedown', e => {
-            if(this.preventDefault) e.preventDefault;
+            if(this.preventDefault) e.preventDefault();
             
             if(this.mouseGetter) {
                 const mouse = this.mouseGetter();
@@ -86,7 +86,7 @@ export class Controller {
                 });
         });
         document.addEventListener('mouseup', e => {
-            if(this.preventDefault) e.preventDefault;
+            if(this.preventDefault) e.preventDefault();
             
             if(this.mouseGetter) {
                 const mouse = this.mouseGetter();
@@ -103,7 +103,7 @@ export class Controller {
                 });
         });
         document.addEventListener('mousemove', e => {
-            if(this.preventDefault) e.preventDefault;
+            if(this.preventDefault) e.preventDefault();
             
             if(this.mouseGetter) {
                 const mouse = this.mouseGetter();

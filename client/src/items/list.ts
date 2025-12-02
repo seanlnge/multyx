@@ -4,7 +4,10 @@ import { Add, Done, Edit, EditWrapper, Unpack } from '../utils';
 import MultyxClientItemRouter from './router';
 import { Message } from '../message';
 
+const isPlainObject = (value: any) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
 export default class MultyxClientList {
+    readonly type = 'list';
     protected list: MultyxClientItem[];
     private multyx: Multyx;
     propertyPath: string[];
@@ -157,9 +160,14 @@ export default class MultyxClientList {
         let next = this.get(parseInt(path[0]));
         if(next instanceof MultyxClientValue || next == undefined) {
             this.set(parseInt(path[0]), new EditWrapper({}));
-            next = this.get(parseInt(path[0])) as MultyxClientObject;
+            next = this.get(parseInt(path[0]));
         }
-        return next.set(path.slice(1), value);
+
+        if(!next || next instanceof MultyxClientValue) {
+            return false;
+        }
+
+        return (next as MultyxClientObject | MultyxClientList).set(path.slice(1), value);
     }
 
     set(index: number | string[], value: any): boolean {
@@ -169,41 +177,37 @@ export default class MultyxClientList {
 
         const serverSet = value instanceof EditWrapper;
         const allowed = serverSet || this.editable;
-        if(serverSet || IsMultyxClientItem(value)) value = value.value;
-        if(value === undefined) return this.delete(index, serverSet);
+        const incoming = (serverSet || IsMultyxClientItem(value)) ? value.value : value;
+        if(incoming === undefined) return this.delete(index, serverSet);
 
-        // If value is a MultyxClientValue, set the value
-        if(this.list[index] instanceof MultyxClientValue && typeof value != 'object') {
-            return this.list[index].set(serverSet ? new EditWrapper(value) : value);
+        if(serverSet && this.tryApplyServerValue(index, incoming, oldValue)) {
+            return true;
+        }
+
+        // If value is a MultyxClientValue, set the value directly
+        if(this.list[index] instanceof MultyxClientValue && (typeof incoming !== 'object' || incoming === null)) {
+            const result = this.list[index].set(serverSet ? new EditWrapper(incoming) : incoming);
+            this.enqueueEditCallbacks(index, oldValue);
+            return result;
         }
         
         // Attempting to edit property not editable to client
         if(!allowed) {
             if(this.multyx.options.verbose) {
-                console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.') + '.' + index}' to ${value}`);
+                console.error(`Attempting to set property that is not editable. Setting '${this.propertyPath.join('.') + '.' + index}' to ${incoming}`);
             }
             return false;
         }
         
-        this.list[index] = new (MultyxClientItemRouter(value))(
+        this.list[index] = new (MultyxClientItemRouter(incoming))(
             this.multyx,
-            serverSet ? new EditWrapper(value) : value,
+            serverSet ? new EditWrapper(incoming) : incoming,
             [...this.propertyPath, index.toString()],
             this.editable
         );
 
-        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
-        if(this.multyx.events.has(propSymbol)) {
-            this.multyx[Done].push(...(this.multyx.events.get(propSymbol)?.map(e =>
-                () => e(this.list[index])
-            ) ?? []));
-        }
-
-        // We have to push into queue, since object may not be fully created
-        // and there may still be more updates to parse
-        for(const listener of this.editCallbacks) {
-            this.multyx[Add](() => listener(index, this.get(index), oldValue));
-        }
+        this.notifyIndexWaiters(index);
+        this.enqueueEditCallbacks(index, oldValue);
         
         return true;
     }
@@ -452,4 +456,56 @@ export default class MultyxClientList {
     toString = () => this.value.toString();
     valueOf = () => this.value;
     [Symbol.toPrimitive] = () => this.value;
+
+    hydrateFromServer(values: any[]) {
+        if(!Array.isArray(values)) return;
+        for(let i=0; i<values.length; i++) {
+            this.set(i, new EditWrapper(values[i]));
+        }
+        for(let i=values.length; i<this.length; i++) {
+            this.delete(i, true);
+        }
+        this.length = values.length;
+    }
+
+    private tryApplyServerValue(index: number, incoming: any, oldValue: MultyxClientItem | undefined) {
+        const current = this.list[index];
+        if(!current) return false;
+
+        if(current instanceof MultyxClientValue && (typeof incoming !== 'object' || incoming === null)) {
+            current.set(new EditWrapper(incoming));
+            this.enqueueEditCallbacks(index, oldValue);
+            return true;
+        }
+
+        const canHydrate = typeof (current as any)?.hydrateFromServer === 'function';
+        if(Array.isArray(incoming) && canHydrate && (current as any).type === 'list') {
+            (current as any).hydrateFromServer(incoming);
+            this.enqueueEditCallbacks(index, oldValue);
+            return true;
+        }
+
+        if(isPlainObject(incoming) && canHydrate && (current as any).type === 'object') {
+            (current as any).hydrateFromServer(incoming);
+            this.enqueueEditCallbacks(index, oldValue);
+            return true;
+        }
+
+        return false;
+    }
+
+    private notifyIndexWaiters(index: number) {
+        const propSymbol = Symbol.for("_" + this.propertyPath.join('.') + '.' + index);
+        if(this.multyx.events.has(propSymbol)) {
+            this.multyx[Done].push(...(this.multyx.events.get(propSymbol)?.map(e =>
+                () => e(this.list[index])
+            ) ?? []));
+        }
+    }
+
+    private enqueueEditCallbacks(index: number, oldValue: MultyxClientItem | undefined) {
+        for(const listener of this.editCallbacks) {
+            this.multyx[Add](() => listener(index, this.get(index), oldValue));
+        }
+    }
 }
